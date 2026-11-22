@@ -1,0 +1,15 @@
+{
+  "when": "2026-11-22T09:04:23",
+  "level": "/Game/Untitled.Untitled:PersistentLevel",
+  "actorCount": 76,
+  "volumeSizeM": [
+    50.0,
+    50.0
+  ],
+  "areaM2": 2500.0,
+  "densityRequested": 0.1,
+  "densityBefore": 0.10000000149011612,
+  "instancesBefore": 19,
+  "dryRun": true,
+  "instancesAfter": 19
+}
