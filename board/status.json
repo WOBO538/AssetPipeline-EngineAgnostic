@@ -1,9 +1,9 @@
 {
-  "updatedAt": "2026-11-22T09:20:00+08:00",
+  "updatedAt": "2026-11-22T09:40:00+08:00",
   "today": "2026-11-22",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
-    { "date": "2026-11-28", "name": "W1 检查点（EAP 双端 + GUI 截图 + 宝箱首轮 + Layer1 数据出口与规模化）", "done": false },
+    { "date": "2026-11-28", "name": "W1 检查点（EAP 双端 + GUI 截图 + 宝箱首轮 + Layer1 出口/规模化/落位）", "done": false },
     { "date": "2026-12-15", "name": "材料三件齐（一页纸/数据表/简历）", "done": false },
     { "date": "2026-12-27", "name": "材料六件齐 + 作品集外审②", "done": false },
     { "date": "2026-12-31", "name": "L1 能力审（能走多少算多少）", "done": false }
@@ -13,8 +13,8 @@
       "id": "P1",
       "name": "EAP 多引擎资产管线",
       "subtitle": "主线 · 补 PCG 资格缺口 · NO.01 下一代",
-      "phase": "阶段一 + Layer1 数据出口与规模化（19→233）已提交 c7ce0f5",
-      "progress": 52,
+      "phase": "阶段一 + Layer1 出口/规模化 + placements 落位（233 实例回灌）",
+      "progress": 58,
       "status": "进行中",
       "items": [
         { "name": "manifest 规范 + Schema + 示例", "status": "done", "date": "11-22" },
@@ -23,10 +23,11 @@
         { "name": "校验器 9/9 负例拦截", "status": "done", "date": "11-22" },
         { "name": "Layer1 数据出口：PCG 散点 → manifest v1.1（233 点，4/4 断言）", "status": "done", "date": "11-22" },
         { "name": "Layer1 规模化：密度 0.01→0.1，19→233 实例（真实编辑器重生成）", "status": "done", "date": "11-22" },
-        { "name": "placements 落位：233 条落成 UE ISM 实例", "status": "doing", "date": "11-28" },
+        { "name": "placements 落位：233 条落成 UE ISM 实例（/Game/EAP/PCG/PlacedPilot，8/8 断言）", "status": "done", "date": "11-22" },
+        { "name": "换真实树资产 + 地块扩到 200×200 m", "status": "doing", "date": "11-28" },
         { "name": "UE 编辑器内实跑（dry_run）", "status": "doing", "owner": "user", "date": "11-22" },
         { "name": "Unity 空工程实跑", "status": "todo", "owner": "user", "date": "11-25" },
-        { "name": "换真实树资产 + 地块扩到 200×200 m", "status": "todo", "date": "12-05" },
+        { "name": "落位扩展：材质/碰撞/LOD 也进 UE", "status": "todo", "date": "12-05" },
         { "name": "trimesh 坐标转换（Y-up→Z-up / cm→m）", "status": "todo", "date": "12-14" },
         { "name": "性能表：导入/材质/碰撞 三段各 20 资产", "status": "todo", "date": "01-10" }
       ]
@@ -92,7 +93,7 @@
   "learning": {
     "rule": "项目优先：学习只能在项目时间盒之外；材料期不学习",
     "days": [
-      { "date": "2026-11-22", "projectMin": 0, "learningMin": 0, "note": "lead 打通 Layer1 数据出口 + 规模化：19→233 实例（密度 0.1），CHAIN PASS 4/4（c7ce0f5 + 本轮）" },
+      { "date": "2026-11-22", "projectMin": 0, "learningMin": 0, "note": "lead 打通 Layer1 数据出口 + 规模化（19→233）+ placements 回灌落位（233 ISM 实例），CHAIN 7 步 8/8 断言" },
       { "date": "2026-11-21", "projectMin": 0, "learningMin": 0, "note": "外审 + 计划对齐（决策日）" }
     ]
   }

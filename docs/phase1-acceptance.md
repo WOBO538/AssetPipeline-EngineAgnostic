@@ -28,12 +28,16 @@ python tools/run_pcg_chain.py
 # 可用 --ue / --project 覆盖；--skip-ue-export 复用已有散点
 ```
 
-| # | 判据 | 实测（2026-11-22 09:15） |
+| # | 判据 | 实测（2026-11-22 09:28） |
 |:--:|---|---|
 | 1 | 导出散点数 == 图生成实例数 | 233 == 233 |
 | 2 | 导出散点数 == ISM 实例数之和 | 233 == 233 |
 | 3 | 导出散点数 == `manifest.placements.count` | 233 == 233 |
 | 4 | `manifest.placements` == UE 消费端 dry_run 报告 placements | 233 == 233 |
+| 5 | `manifest.placements` == 落位实例数（`place_manifest.place`） | 233 == 233 |
+| 6 | 新进程重载关卡读回实例数 == placements（持久化） | 233 == 233 |
+| 7 | 落位实例 bbox == manifest items bbox | 误差 0.0000 m（阈值 0.01 m） |
+| 8 | 落位实例逐条 transform == manifest items | 0/233 不匹配（1 cm / 0.05°） |
 
 末行输出：`CHAIN PASS points=233 assets=1 placements=233`（退出码 0）。
 
@@ -44,13 +48,17 @@ python tools/run_pcg_chain.py
 | `docs/pcg_forest_pilot.json` | 导出证据：UE 5.7 / `/Game/Untitled` / 图 10 节点参数（密度 0.1）/ 233 条散点（cm），155 KB |
 | `schemas/pcg_manifest.json` | 中台产物：manifest v1.1，1 资产 + placements[233]（m），81 KB |
 | `schemas/pcg_manifest.ue_report.json` | UE 消费端 dry_run 回执（`*_report.json` 按 .gitignore 不入库，本地留证） |
+| `docs/placed_pilot.json` | 落位证据：目标关卡 `/Game/EAP/PCG/PlacedPilot`、Actor `EAP_Placements`、ISM 233 条、读回 transform |
+| `docs/placed_verify.json` | 新进程重载关卡读回证据（证明实例真存进关卡，不是内存对象） |
+| `Content/EAP/PCG/PlacedPilot.umap`（UE 工程内） | 落位关卡（42 KB，含 233 实例） |
 | `Saved/EAP/pcg_scale_run.json`（UE 工程内） | 规模化执行状态：关卡 / actor 数 76 / 面积 2500 m² / 19 → 233 |
 | `Saved/EAP/backup/PCG_ForestScatter_*.uasset`（UE 工程内） | 改密度前的图资产备份，可回退 |
 
 **已知限制（不算过的地方，别在面试里含糊）**：
 1. 规模刻意压在试点体积：PCG 体积 50×50 m（2500 m²），密度 `0.1 点/m²` → 名义 250 个点、实际 233（93%）；
    换真实树资产 + 扩到 200×200 m 是下一单元。
-2. `placements` 只被读取和统计，**没有落位**成 UE ISM 实例。
+2. `placements` 已能落位（第 5–8 条），但只落 **transform**：manifest 里的材质、碰撞、LOD 字段本阶段不落；
+   落位只支持单资产 manifest（当前 1 个 Cube 网格）。
 3. 散点里没有 PCG 点级 metadata（密度/seed attribute），只有最终实例 transform。
 4. Unity 端不参与（`/Engine/BasicShapes/Cube` 是引擎内置网格，没有 glb）。
 5. **无头编辑器不能重新生成 PCG**：`PCGComponent.generate()` 在 `-unattended -nullrhi` 下报
@@ -60,3 +68,8 @@ python tools/run_pcg_chain.py
    要等 30~60 秒，或直接选中卷在 Details 面板点 Generate 兜底。
 7. **脚本必须先确认关卡**：首跑时编辑器当前关卡是空白 `/Temp/Untitled_1`，`get_all_level_actors()` 为空，
    读到"体积 None / 实例 0"；`pcg_scale.py` 现在会先比对并加载 `/Game/Untitled` 再扫 actor。
+8. **给关卡 Actor 加组件不能用 `unreal.new_object`**：组件能建出来但不在 `OwnedComponents` 里，存关卡后被丢弃
+   （实测：落 3 条 → 存关卡 → 新进程读回 0 条）。必须走 `SubobjectDataSubsystem.add_new_subobject`，
+   对应编辑器 Details 面板的 "Add Component"。
+9. **`Transform.rotation` 是 Quat**：读回旋转要 `quat.rotator()`；`unreal.Rotator(pitch=, yaw=, roll=)` 用关键字，
+   位置参数顺序是 `(roll, pitch, yaw)`（`Rotator(10,20,30)` 实际 roll=10/pitch=20/yaw=30）。
