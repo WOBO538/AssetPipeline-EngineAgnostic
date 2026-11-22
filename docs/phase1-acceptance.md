@@ -46,7 +46,11 @@ python tools/run_pcg_chain.py
 | `schemas/pcg_manifest.ue_report.json` | UE 消费端 dry_run 回执（`*_report.json` 按 .gitignore 不入库，本地留证） |
 
 **已知限制（不算过的地方，别在面试里含糊）**：
-1. 19 个实例是 2026-10 的**试点规模**，不是成品密度（按 `0.01 点/m²` 放到 15 km² 应为几万个点）。
+1. 19 个实例是 2026-10 的**试点规模**：PCG 体积 50×50 m（2500 m²）× 密度 `0.01 点/m²` → 名义 25 个，
+   实际 19 个（网格量化 + looseness 0.8 的正常偏差）。规模化（≈0.1 点/m²，约 250 棵）是下一单元。
 2. `placements` 只被读取和统计，**没有落位**成 UE ISM 实例。
 3. 散点里没有 PCG 点级 metadata（密度/seed attribute），只有最终实例 transform。
 4. Unity 端不参与（`/Engine/BasicShapes/Cube` 是引擎内置网格，没有 glb）。
+5. **无头编辑器不能重新生成 PCG**：`PCGComponent.generate()` 在 `-unattended -nullrhi` 下报
+   `Internal Error - ObjectInstance is null!`（2026-11-22 实测），所以"改参数 + 重生成"必须在真实编辑器里做；
+   导出/校验/消费 dry_run 可以无头。

@@ -1,0 +1,46 @@
+{
+  "map": "/Game/Untitled",
+  "volumes": [
+    {
+      "actor": "PCG_ForestScatter",
+      "class": "PCGVolume",
+      "originCm": [
+        650.0,
+        -11860.0,
+        440.0
+      ],
+      "sizeCm": [
+        5000.0,
+        5000.0,
+        2000.0
+      ]
+    }
+  ],
+  "landscape": {
+    "actor": "Landscape",
+    "class": "Landscape",
+    "originCm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "sizeCm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "minCm": [
+      -100800.0,
+      -100800.0,
+      -100.0
+    ],
+    "maxCm": [
+      100800.0,
+      100800.0,
+      14989.84375
+    ],
+    "tiles": 65
+  },
+  "instances": 19,
+  "actorCount": 76
+}

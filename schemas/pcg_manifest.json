@@ -1,7 +1,7 @@
 {
   "manifestVersion": "1.1",
   "pipelineId": "eap-20261122-pcg-pilot",
-  "generatedAt": "2026-11-22T08:51:28+08:00",
+  "generatedAt": "2026-11-22T08:58:08+08:00",
   "units": "m",
   "source": {
     "kind": "pcg",

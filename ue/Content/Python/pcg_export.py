@@ -282,6 +282,63 @@ def run(map_path=DEFAULT_MAP, graph_path=DEFAULT_GRAPH, out_path=DEFAULT_OUT):
     return report
 
 
+def measure(map_path=DEFAULT_MAP):
+    """只读量尺：PCG 体积 / 地形范围 / 实例总数 —— 决定"规模化"要调多少密度。
+
+    不生成、不保存。返回 dict；也打 [EAP] 日志。
+    """
+    unreal.EditorLoadingAndSavingUtils.load_map(map_path)
+    subsys = _safe(lambda: unreal.get_editor_subsystem(unreal.EditorActorSubsystem))
+    actors = _safe(lambda: list(subsys.get_all_level_actors()), [])
+    rep = {"map": map_path, "volumes": [], "landscape": {}, "instances": 0, "actorCount": 0}
+    if not isinstance(actors, list):
+        return rep
+    rep["actorCount"] = len(actors)
+    for a in actors:
+        cls = _safe(lambda a=a: str(a.get_class().get_name()))
+        if cls not in ("PCGVolume", "Landscape", "LandscapeStreamingProxy"):
+            continue
+        o, e = _safe(lambda a=a: a.get_actor_bounds(False), (None, None))
+        if o is None or e is None or isinstance(o, str) or isinstance(e, str):
+            continue
+        entry = {
+            "actor": _safe(lambda a=a: str(a.get_actor_label())),
+            "class": cls,
+            "originCm": _vec(o),
+            "sizeCm": [_round(2 * e.x), _round(2 * e.y), _round(2 * e.z)],
+        }
+        if cls == "PCGVolume":
+            rep["volumes"].append(entry)
+        else:
+            ls = rep["landscape"]
+            if not ls:
+                ls.update(entry)
+            else:
+                # 累加地形总范围（min/max）
+                mn, mx = ls.setdefault("minCm", [1e18] * 3), ls.setdefault("maxCm", [-1e18] * 3)
+                c, s = entry["originCm"], entry["sizeCm"]
+                for i in range(3):
+                    mn[i] = min(mn[i], c[i] - s[i] / 2)
+                    mx[i] = max(mx[i], c[i] + s[i] / 2)
+                ls["tiles"] = ls.get("tiles", 1) + 1
+
+        isms = _safe(lambda a=a: list(a.get_components_by_class(unreal.InstancedStaticMeshComponent)), [])
+        for c in isms if isinstance(isms, list) else []:
+            n = _safe(lambda c=c: int(c.get_instance_count()))
+            if isinstance(n, int):
+                rep["instances"] += n
+
+    for v in rep["volumes"]:
+        _log("volume %s origin=%s size=%s (m: %s)" % (
+            v["actor"], v["originCm"], v["sizeCm"],
+            [round(x * 0.01, 1) for x in v["sizeCm"]]))
+    if rep["landscape"]:
+        ls = rep["landscape"]
+        _log("landscape tiles=%s minCm=%s maxCm=%s" % (ls.get("tiles"), ls.get("minCm"), ls.get("maxCm")))
+    _log("instances=%d actorCount=%d" % (rep["instances"], rep["actorCount"]))
+    return rep
+
+
 if __name__ == "__main__":
     # -ExecutePythonScript 以 __main__ 执行本文件；输出路径可用环境变量 EAP_PCG_OUT 覆盖
     run(out_path=os.environ.get("EAP_PCG_OUT", DEFAULT_OUT))
