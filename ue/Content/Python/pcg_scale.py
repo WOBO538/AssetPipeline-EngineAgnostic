@@ -224,12 +224,24 @@ def run(density=0.1, scale_min=None, scale_max=None, seed=None, save=False, rege
             _warn("comp.generate(True) 失败: %r" % (exc,))
             state["generateCall"] = "ERR: %r" % (exc,)
         after = before
-        for _ in range(10):
+        tried_local = False
+        for sec in range(1, 61):
             time.sleep(1.0)
             after = _count_instances()
             if after != before:
+                _log("第 %d 秒看到实例变化" % sec)
                 break
-        _log("实例数: %d → %d（轮询 10 秒内）" % (before, after))
+            if sec == 15 and not tried_local:
+                tried_local = True
+                # generate() 是异步任务；编辑器在编译 shader / 加载关卡时可能迟迟不 tick，
+                # 15 秒还没变化就试一次同步的 generate_local(True)（编辑器内可用）
+                _log("15 秒未变化 → 再试 comp.generate_local(True)")
+                try:
+                    r2 = comp.generate_local(True)
+                    _log("comp.generate_local(True) 已调用 → %r" % (r2,))
+                except Exception as exc:  # noqa: BLE001
+                    _warn("comp.generate_local(True) 失败: %r" % (exc,))
+        _log("实例数: %d → %d（轮询 60 秒内）" % (before, after))
         state["instancesAfter"] = after
         if after == before:
             _warn("实例数没变 → 可能生成没生效；请手动选中 PCG_ForestScatter 卷，Details 面板点 Generate 后再存关卡")
