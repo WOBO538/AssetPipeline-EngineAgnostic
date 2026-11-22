@@ -1,7 +1,9 @@
 """EAP · Layer1 规模化：改 PCG 图参数（密度/缩放范围）并重生成、保存
 
 **必须在真实编辑器里跑**（无头 `-unattended -nullrhi` 下 `PCGComponent.generate()` 会报
-`Internal Error - ObjectInstance is null!`，已实测）。
+`Internal Error - ObjectInstance is null!`，已实测）。另外**程序化 generate 在编辑器里也经常不生效**
+（2026-11-22 实测三次：`generate(True)` / `generate_local(True)` 不报错但实例不更新）——
+所以本脚本负责"改参数 + 存档 + 备份"，**重生成请手动点 Details 面板的 Generate**，然后 Ctrl+S 存关卡。
 
 在 UE 编辑器打开 `D:\\UE_Projects\\VegetationPCG` → Output Log 切 Python：
 
@@ -298,7 +300,9 @@ def run(density=0.1, scale_min=None, scale_max=None, seed=None, save=False, rege
         _log("实例数: %d → %d（轮询 60 秒内）" % (before, after))
         state["instancesAfter"] = after
         if after == before:
-            _warn("实例数没变 → 可能生成没生效；请手动选中 PCG_ForestScatter 卷，Details 面板点 Generate 后再存关卡")
+            _warn("实例数没变 → 程序化 generate 在 UE 5.7 编辑器里经常不生效（2026-11-22 实测三次都这样："
+                  "generate(True) / generate_local(True) 都不报错但实例不更新）。"
+                  "请在 Details 面板手动点 Generate（或右键 PCG 卷 → PCG → Generate），等视口更新后 Ctrl+S 存关卡")
     else:
         after = before
         state["instancesAfter"] = after
