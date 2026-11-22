@@ -121,7 +121,11 @@ schemas/pcg_manifest.json（placements 233 条，m / deg）
    ↓ place_manifest.place()     清空 → 逐条 add_instances(世界坐标) → clear/重建可重复跑
 /Game/EAP/PCG/PlacedPilot        专用关卡：1 Actor + 1 InstancedStaticMeshComponent + 233 实例
    ↓ place_manifest.verify()    新进程重载关卡 → 读回 233 条 transform → docs/placed_verify.json
-```
+`
+
+![placements 落位俯视图](docs/placed_pilot_topdown.png)
+
+> 上图由 	ools/draw_placements.py 从 docs/placed_pilot.json 的读回 transform 画（俯视 XY、方块按 yaw 旋转并乘 scale），不是手绘示意图。``
 
 实现要点（踩过的坑，都写进代码注释了）：
 
