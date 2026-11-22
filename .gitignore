@@ -4,5 +4,10 @@ __pycache__/
 # 示例资产与报告不入库（体积大 / 每次跑都变）
 assets/models/
 assets/textures/
+# 下载的原始树资产不入库（体积大）；只保留来源/许可证清单
+assets/raw/*
+!assets/raw/trees/
+assets/raw/trees/*
+!assets/raw/trees/source_assets.json
 *_report.json
 *_report.md

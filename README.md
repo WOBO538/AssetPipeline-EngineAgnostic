@@ -205,7 +205,7 @@ schemas/pcg_manifest.json（placements 1892 条，m / deg）
 
 ## 六、下一步（阶段二/三）
 
-- 阶段二 · 换真实树资产：地块已经扩到 200×200 m（1892 实例），但网格还是引擎 Cube；下一步换成真实树模型（Megaplant/Megascans），参数尽量走 Graph 用户参数而不是改节点常量
+- 阶段二 · 换真实树资产：地块已经扩到 200×200 m（1892 实例），但网格还是引擎 Cube；下一步换成真实树模型（公开仓库 CC0/CC-BY 的 glTF，采集要求见 `docs/tree_asset_requirements.md`），参数尽量走 Graph 用户参数而不是改节点常量
 - 阶段二 · 落位扩展到材质/碰撞/LOD：现在只落 transform，manifest 里其它字段还没在 UE 侧生效
 - 阶段二 · GUI 接 ComfyUI 客户端（GUI 阶段二的 QThread 异步 + 进度回填）
 - 阶段三：`trimesh` + `numpy` 坐标转换（Y-up↔Z-up、cm↔m）与合规拦截（与 `tools/validate_manifest.py` 合并）
