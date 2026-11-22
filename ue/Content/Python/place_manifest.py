@@ -169,6 +169,31 @@ def _instance_items(comp):
     return out
 
 
+def _sync_ground(items):
+    """落位后把 EAP_Ground 地面平面按新 bbox 重设（纯 actor transform，无头安全）。
+
+    空关卡没有地形，地面平面是唯一的"地"；换地块后它必须跟着放大，否则实例会浮在外面。
+    """
+    ground = None
+    for a in _level_actors():
+        if _safe(lambda a=a: str(a.get_actor_label()), "") == "EAP_Ground":
+            ground = a
+            break
+    if ground is None or not items:
+        return None
+    bx = _bbox([it["t"] for it in items])
+    cx = (bx["min"][0] + bx["max"][0]) / 2.0
+    cy = (bx["min"][1] + bx["max"][1]) / 2.0
+    ex = (bx["max"][0] - bx["min"][0]) / 2.0 + 25.0
+    ey = (bx["max"][1] - bx["min"][1]) / 2.0 + 25.0
+    z = bx["min"][2] - 0.5
+    _safe(lambda: ground.set_actor_scale3d(unreal.Vector(ex, ey, 1.0)))
+    _safe(lambda: ground.set_actor_location(unreal.Vector(cx * CM_PER_M, cy * CM_PER_M, z * CM_PER_M), False))
+    info = {"centerM": [round(cx, 2), round(cy, 2)], "sizeM": [round(ex * 2, 1), round(ey * 2, 1)], "zM": round(z, 2)}
+    _log("地面平面已同步: 中心 %s m，尺寸 %s m，z=%.2f m" % (info["centerM"], info["sizeM"], z))
+    return info
+
+
 def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
     manifest_path = manifest_path or os.environ.get("EAP_MANIFEST") or DEFAULT_MANIFEST
     level_pkg = level_pkg or os.environ.get("EAP_LEVEL_PKG") or DEFAULT_LEVEL
@@ -215,6 +240,7 @@ def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
     readback = _instance_items(comp)
     manifest_bbox = _bbox([it.get("t") or [0, 0, 0] for it in items])
     placed_bbox = _bbox([it["t"] for it in readback]) if readback else None
+    ground_info = _sync_ground(readback)
     saved = None
     if save:
         saved = _safe(lambda: unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).save_current_level())
@@ -233,6 +259,7 @@ def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
         "expected": len(items),
         "placed": placed,
         "levelSaved": saved,
+        "ground": ground_info,
         "bboxManifestM": manifest_bbox,
         "bboxPlacedM": placed_bbox,
         "items": readback,

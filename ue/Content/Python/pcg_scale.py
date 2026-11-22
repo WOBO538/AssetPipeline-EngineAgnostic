@@ -9,10 +9,15 @@
     import pcg_scale
     pcg_scale.run(density=0.1)                                  # 空跑：只打印将改什么 + 预计数量
     pcg_scale.run(density=0.1, save=True, regenerate=True)      # 真跑：改图参数 → 存档 → 重生成 → 存关卡
+    pcg_scale.run(volume_size_m=200, volume_size_z_m=300, density=0.02,
+                  save=True, regenerate=True)                   # 扩地块：体积 200×200 m（Z 300 m，盖住地形起伏）
 
 参数含义：
 - density：Surface Sampler 的 points_per_squared_meter（点/m²）。体积 50×50 m = 2500 m²，
   0.01 → 名义 25 个点（当前 19）；0.1 → 名义 250 个点；0.2 → 名义 500 个点。
+  放大到 200×200 m（40,000 m²）后，0.02 → 名义 800 个点。
+- volume_size_m：PCGVolume 的 XY 边长（米）。用 actor scale 缩放（幂等，重复跑不会越放越大）。
+- volume_size_z_m：体积高度（米），默认不动；扩地块时建议给 300，避免地形起伏被裁掉。
 - scale_min/scale_max：Transform Points 的缩放范围（现在 0.8~1.2，放大范围视觉更"林"）。
 - seed：Transform Points 的随机种子；换种子 = 同一密度下换一套摆位（可复现性演示用）。
 
@@ -150,17 +155,66 @@ def _write_state(payload):
         _warn("写状态失败: %r" % (exc,))
 
 
+def _volume_actor():
+    for a in _all_actors():
+        if _safe(lambda a=a: str(a.get_class().get_name()), "") == "PCGVolume":
+            return a
+    return None
+
+
+def _bounds_m(actor):
+    o, e = _safe(lambda actor=actor: actor.get_actor_bounds(False), (None, None))
+    if o is None or e is None or isinstance(o, str) or isinstance(e, str):
+        return None, None
+    if not all(isinstance(v, float) for v in (e.x, e.y, e.z)):
+        return None, None
+    return ([round(2 * e.x * 0.01, 2), round(2 * e.y * 0.01, 2), round(2 * e.z * 0.01, 2)],
+            [round(o.x * 0.01, 2), round(o.y * 0.01, 2), round(o.z * 0.01, 2)])
+
+
+def _resize_volume(size_m, size_z_m=None):
+    """把 PCGVolume 的 XY 边长缩放到 size_m（米），Z 可选。
+
+    Python 改不了 brush 的尺寸，所以用 actor scale 放：基准从"当前 bounds / 当前 scale"反推，
+    因此重复跑同一目标值是幂等的（不会越放越大）。
+    """
+    actor = _volume_actor()
+    if actor is None:
+        _warn("没找到 PCGVolume，跳过体积缩放")
+        return None
+    scale = _safe(lambda: actor.get_actor_scale3d(), None)
+    size, origin = _bounds_m(actor)
+    if size is None or scale is None:
+        _warn("读不到体积 bounds/scale，跳过缩放")
+        return None
+    base_x = (size[0] / scale.x) if scale.x else size[0]
+    base_y = (size[1] / scale.y) if scale.y else size[1]
+    base_z = (size[2] / scale.z) if scale.z else size[2]
+    sx = float(size_m) / base_x if base_x else 1.0
+    sy = float(size_m) / base_y if base_y else 1.0
+    sz = scale.z if size_z_m is None else (float(size_z_m) / base_z if base_z else scale.z)
+    actor.set_actor_scale3d(unreal.Vector(sx, sy, sz))
+    after, origin_after = _bounds_m(actor)
+    _log("体积缩放: %s m → %s m（actor scale %.3f, %.3f, %.3f；原点 %s → %s m）"
+         % (size, after, sx, sy, sz, origin, origin_after))
+    return {"beforeM": size, "afterM": after, "originBeforeM": origin, "originAfterM": origin_after,
+            "scale3d": [round(sx, 4), round(sy, 4), round(sz, 4)]}
+
+
 def run(density=0.1, scale_min=None, scale_max=None, seed=None, save=False, regenerate=True,
-        dry_run=True, map_path=MAP_PATH):
+        dry_run=True, map_path=MAP_PATH, volume_size_m=None, volume_size_z_m=None):
     dry_run = dry_run if save else True
     level = _ensure_map(map_path)
+    resize_info = None
+    if volume_size_m is not None or volume_size_z_m is not None:
+        resize_info = _resize_volume(volume_size_m or 0.0, volume_size_z_m)
     actors = _all_actors()
     area, size_m = _volume_area_m2()
     before = _count_instances()
     _log("关卡 actor 数 = %d；体积 XY = %s m（面积 %s m²）；当前实例 %d 个"
          % (len(actors), size_m, area, before))
     if isinstance(area, (int, float)):
-        _log("密度 %.3f 点/m² → 名义 %.0f 个点（网格量化后一般 7 成左右）" % (density, area * density))
+        _log("密度 %.3f 点/m² → 名义 %.0f 个点（网格量化后一般 8~9 成）" % (density, area * density))
     else:
         _warn("没找到 PCGVolume（关卡路径 = %r）。请确认工程里 /Game/Untitled 已打开；"
               "若体积确实是空的，先手动把 PCG 卷摆好再跑本脚本。" % (level,))
@@ -185,7 +239,7 @@ def run(density=0.1, scale_min=None, scale_max=None, seed=None, save=False, rege
     state = {
         "when": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "level": level, "actorCount": len(actors),
-        "volumeSizeM": size_m, "areaM2": area,
+        "volumeSizeM": size_m, "areaM2": area, "volumeResize": resize_info,
         "densityRequested": density, "densityBefore": old_density,
         "instancesBefore": before,
     }

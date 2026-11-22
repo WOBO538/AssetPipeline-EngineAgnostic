@@ -121,6 +121,9 @@ def main(argv):
     ap.add_argument("--skip-ue-consume", action="store_true", help="跳过第 4 步（只做 1-3 + 断言）")
     ap.add_argument("--skip-place", action="store_true", help="跳过第 5-6 步（placements 落位 + 验证）")
     ap.add_argument("--level-pkg", default=DEFAULT_LEVEL_PKG, help="落位目标关卡（默认 %s）" % DEFAULT_LEVEL_PKG)
+    ap.add_argument("--expect-span-m", type=float, default=None,
+                    help="期望的落位地块边长（米）；给了就断言 bbox 的 X/Y 跨度在 ±--span-tol 内")
+    ap.add_argument("--span-tol", type=float, default=0.15, help="地块跨度容差（默认 0.15 = ±15%%）")
     args = ap.parse_args(argv[1:])
 
     fails = []
@@ -257,6 +260,12 @@ def main(argv):
         bad = _match_items(pl_items, verify.get("items") or [])
         checks.append(("placed items == manifest items (<1cm/0.05deg)", not bad,
                        "mismatch=%d/%d" % (len(bad), pl_n)))
+        if args.expect_span_m and verify.get("bboxPlacedM"):
+            bb = verify["bboxPlacedM"]
+            spans = [float(bb["max"][i]) - float(bb["min"][i]) for i in range(2)]
+            ok_span = all(abs(sp - args.expect_span_m) <= args.expect_span_m * args.span_tol for sp in spans)
+            checks.append(("land span == %.0f m (±%.0f%%)" % (args.expect_span_m, args.span_tol * 100),
+                           ok_span, "X=%.1f m / Y=%.1f m" % (spans[0], spans[1])))
     print("[7/7] 断言")
     for name, ok, detail in checks:
         print("     %-42s %s  (%s)" % (name, "PASS" if ok else "FAIL", detail))
