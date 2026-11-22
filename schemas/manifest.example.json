@@ -1,0 +1,105 @@
+{
+  "manifestVersion": "1.0",
+  "pipelineId": "eap-20261122-0001",
+  "generatedAt": "2026-11-22T09:30:00+08:00",
+  "units": "m",
+  "source": {
+    "kind": "mixed",
+    "tool": "ue-pcg-framework+comfyui",
+    "workflowId": "pcg_forest_v3 + pbr_chord_v2",
+    "seed": 20261122
+  },
+  "assets": [
+    {
+      "id": "SM_Rock_A01",
+      "name": "岩石 A01",
+      "category": "env/rock",
+      "type": "static_mesh",
+      "model": {
+        "path": "assets/models/SM_Rock_A01.glb",
+        "format": "gltf2.0",
+        "unit": "m",
+        "upAxis": "Z",
+        "forwardAxis": "X",
+        "boundingBoxM": { "min": [-0.8, -0.6, 0.0], "max": [0.8, 0.7, 1.2] },
+        "triCount": 1840
+      },
+      "textures": {
+        "BaseColor": { "path": "assets/textures/T_Rock_A01_BaseColor.png", "srgb": true, "size": [1024, 1024], "channels": "RGB" },
+        "Normal": { "path": "assets/textures/T_Rock_A01_Normal.png", "srgb": false, "size": [1024, 1024], "channels": "RGB" },
+        "ORM": { "path": "assets/textures/T_Rock_A01_ORM.png", "srgb": false, "size": [1024, 1024], "channels": "RGB" }
+      },
+      "material": {
+        "template": "M_EAP_StandardPBR",
+        "unityShader": "Universal Render Pipeline/Lit",
+        "params": { "NormalStrength": 1.0, "RoughnessScale": 1.0 },
+        "channelPacking": { "source": "UE", "target": { "UE": "keep", "Unity": "repack_orm_to_mg" } }
+      },
+      "collision": { "mode": "box" },
+      "pivot": { "mode": "center_bottom", "offsetM": [0, 0, 0] },
+      "lods": [
+        { "level": 1, "triCount": 620 },
+        { "level": 2, "triCount": 180 }
+      ],
+      "engineTargets": {
+        "UE5": {
+          "destPath": "/Game/EAP/Env/Rock",
+          "materialInstance": "MI_SM_Rock_A01",
+          "textureSettings": { "Normal": { "srgb": false, "compression": "TC_Normalmap" } }
+        },
+        "Unity": {
+          "destPath": "Assets/EAP/Env/Rock",
+          "shader": "Universal Render Pipeline/Lit",
+          "propertyMap": { "BaseColor": "_BaseMap", "Normal": "_BumpMap", "ORM": "_MetallicGlossMap" }
+        }
+      },
+      "checks": [
+        { "rule": "tri_count<=50000", "pass": true, "value": 1840 },
+        { "rule": "nonmanifold_edges==0", "pass": true, "value": 0 },
+        { "rule": "all_textures_pot", "pass": true, "value": "1024x1024" },
+        { "rule": "normal_srgb==false", "pass": true, "value": false }
+      ]
+    },
+    {
+      "id": "SM_Chest_A01",
+      "name": "宝箱 A01",
+      "category": "prop/chest",
+      "type": "static_mesh",
+      "model": {
+        "path": "assets/models/SM_Chest_A01.glb",
+        "format": "gltf2.0",
+        "unit": "m",
+        "upAxis": "Z",
+        "forwardAxis": "X",
+        "boundingBoxM": { "min": [-0.5, -0.35, 0.0], "max": [0.5, 0.35, 1.0] },
+        "triCount": 2870
+      },
+      "textures": {
+        "BaseColor": { "path": "assets/textures/T_Chest_A01_BaseColor.png", "srgb": true, "size": [1024, 1024], "channels": "RGB" },
+        "Normal": { "path": "assets/textures/T_Chest_A01_Normal.png", "srgb": false, "size": [1024, 1024], "channels": "RGB" },
+        "ORM": { "path": "assets/textures/T_Chest_A01_ORM.png", "srgb": false, "size": [1024, 1024], "channels": "RGB" }
+      },
+      "material": {
+        "template": "M_EAP_StandardPBR",
+        "unityShader": "Universal Render Pipeline/Lit",
+        "params": { "NormalStrength": 1.2, "MetallicScale": 1.0 },
+        "channelPacking": { "source": "UE", "target": { "UE": "keep", "Unity": "repack_orm_to_mg" } }
+      },
+      "collision": { "mode": "auto_convex" },
+      "pivot": { "mode": "center_bottom", "offsetM": [0, 0, 0] },
+      "engineTargets": {
+        "UE5": { "destPath": "/Game/EAP/Prop/Chest", "materialInstance": "MI_SM_Chest_A01" },
+        "Unity": {
+          "destPath": "Assets/EAP/Prop/Chest",
+          "shader": "Universal Render Pipeline/Lit",
+          "propertyMap": { "BaseColor": "_BaseMap", "Normal": "_BumpMap", "ORM": "_MetallicGlossMap" }
+        }
+      },
+      "checks": [
+        { "rule": "tri_count<=50000", "pass": true, "value": 2870 },
+        { "rule": "uv_islands<=30", "pass": true, "value": 12 },
+        { "rule": "quad_ratio>=0.8", "pass": false, "value": 0.0, "reason": "glb 三角化，需在 .blend 侧判" }
+      ]
+    }
+  ]
+}

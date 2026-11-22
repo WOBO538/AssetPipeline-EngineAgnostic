@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+# 示例资产与报告不入库（体积大 / 每次跑都变）
+assets/models/
+assets/textures/
+*_report.json
+*_report.md
