@@ -1,0 +1,96 @@
+{
+  "updatedAt": "2026-11-22T09:10:00+08:00",
+  "today": "2026-11-22",
+  "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
+  "gates": [
+    { "date": "2026-11-28", "name": "W1 检查点（EAP 双端 + GUI 截图 + 宝箱首轮报告）", "done": false },
+    { "date": "2026-12-15", "name": "材料三件齐（一页纸/数据表/简历）", "done": false },
+    { "date": "2026-12-27", "name": "材料六件齐 + 作品集外审②", "done": false },
+    { "date": "2026-12-31", "name": "L1 能力审（能走多少算多少）", "done": false }
+  ],
+  "projects": [
+    {
+      "id": "P1",
+      "name": "EAP 多引擎资产管线",
+      "subtitle": "主线 · 补 PCG 资格缺口 · NO.01 下一代",
+      "phase": "阶段一 已提交 49b59d6",
+      "progress": 35,
+      "status": "进行中",
+      "items": [
+        { "name": "manifest 规范 + Schema + 示例", "status": "done", "date": "11-22" },
+        { "name": "UE5 消费端模板（consume_manifest.py）", "status": "done", "date": "11-22" },
+        { "name": "Unity 消费端模板（ManifestImporter.cs）", "status": "done", "date": "11-22" },
+        { "name": "校验器 9/9 负例拦截", "status": "done", "date": "11-22" },
+        { "name": "UE 编辑器内实跑（dry_run）", "status": "doing", "owner": "user", "date": "11-22" },
+        { "name": "Unity 空工程实跑", "status": "todo", "owner": "user", "date": "11-25" },
+        { "name": "PCG 植被 scatter 最小闭环", "status": "todo", "date": "12-05" },
+        { "name": "trimesh 坐标转换（Y-up→Z-up / cm→m）", "status": "todo", "date": "12-14" },
+        { "name": "性能表：导入/材质/碰撞 三段各 20 资产", "status": "todo", "date": "01-10" }
+      ]
+    },
+    {
+      "id": "P2",
+      "name": "Anime GUI 调试面板",
+      "subtitle": "展示层 · PySide6 · 不占新战线",
+      "phase": "阶段一 已提交 2bbcfa7",
+      "progress": 30,
+      "status": "进行中",
+      "items": [
+        { "name": "暗黑三栏 UI 骨架", "status": "done", "date": "11-22" },
+        { "name": "拖拽区 + 防呆 Toast", "status": "done", "date": "11-22" },
+        { "name": "冒烟测试 12/12 通过", "status": "done", "date": "11-22" },
+        { "name": "QThread 异步 + ComfyUI 进度回填", "status": "todo", "date": "12-05" },
+        { "name": "参数写回 manifest（离线联动）", "status": "todo", "date": "01-10" }
+      ]
+    },
+    {
+      "id": "P3",
+      "name": "宝箱 / NO.07 模块四",
+      "subtitle": "用户搭 ComfyUI 工作流，lead 验证",
+      "phase": "策划案已出",
+      "progress": 10,
+      "status": "等待用户",
+      "items": [
+        { "name": "策划案（P0–P6 + 六条验收）", "status": "done", "date": "11-21" },
+        { "name": "概念图 + 高模第一版", "status": "doing", "owner": "user", "date": "11-27" },
+        { "name": "UV / 贴图段验收", "status": "todo", "date": "12-05" },
+        { "name": "重拓扑 QuadriFlow ≤3000 三角面", "status": "todo", "date": "12-14" },
+        { "name": "UE 带材质 + 六条全过", "status": "todo", "date": "12-20" }
+      ]
+    }
+  ],
+  "materials": [
+    { "name": "一页纸 PDF", "status": "todo", "due": "12-14" },
+    { "name": "数据表（端到端含 AI / 拦截率 / 显存增量）", "status": "todo", "due": "12-14" },
+    { "name": "简历 PDF 同步", "status": "todo", "due": "12-14" },
+    { "name": "3 分钟视频（重录）", "status": "todo", "due": "12-27" },
+    { "name": "技术文档 10–15 页", "status": "todo", "due": "12-27" },
+    { "name": "RenderDoc 抓帧上图", "status": "todo", "due": "12-27" }
+  ],
+  "events": [
+    { "name": "材料 A 段（只做材料，项目冻结）", "start": "2026-12-08", "end": "2026-12-14", "type": "material" },
+    { "name": "材料 B 段", "start": "2026-12-21", "end": "2026-12-27", "type": "material" },
+    { "name": "Global Game Jam（可选练手）", "start": "2027-01-25", "end": "2027-01-31", "type": "jam" },
+    { "name": "4C 校赛（3-4 月，盯学院通知）", "start": "2027-03-01", "end": "2027-04-30", "type": "contest" },
+    { "name": "Y3 报名（3-29 起）", "start": "2027-03-29", "end": "2027-05-13", "type": "contest" },
+    { "name": "Y3 初赛 5-14~31（个人）", "start": "2027-05-14", "end": "2027-05-31", "type": "contest" },
+    { "name": "Y3 晋级赛 6-3~30（团队）", "start": "2027-06-03", "end": "2027-06-30", "type": "contest" },
+    { "name": "4C 省赛（4-5 月上推）", "start": "2027-04-01", "end": "2027-05-31", "type": "contest" },
+    { "name": "4C 国赛答辩（7 月中下旬）", "start": "2027-07-15", "end": "2027-08-15", "type": "contest" },
+    { "name": "Y3 决赛 7-1~7-7", "start": "2027-07-01", "end": "2027-07-07", "type": "contest" }
+  ],
+  "reviews": [
+    { "date": "2026-11-29", "name": "作品集基线审（四家 AI 已跑完，11-29 正式归档）", "done": true },
+    { "date": "2026-12-27", "name": "作品集外审②（材料 + 改后卡）", "done": false },
+    { "date": "2026-12-31", "name": "L1 能力审（W8 P0）", "done": false },
+    { "date": "2027-01-31", "name": "作品集外审③", "done": false },
+    { "date": "2027-02-28", "name": "作品集外审④", "done": false }
+  ],
+  "learning": {
+    "rule": "项目优先：学习只能在项目时间盒之外；材料期不学习",
+    "days": [
+      { "date": "2026-11-22", "projectMin": 0, "learningMin": 0, "note": "GUI 阶段一由 lead 完成；用户去 UE 验证" },
+      { "date": "2026-11-21", "projectMin": 0, "learningMin": 0, "note": "外审 + 计划对齐（决策日）" }
+    ]
+  }
+}
