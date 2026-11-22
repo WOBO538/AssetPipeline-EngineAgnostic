@@ -1,5 +1,15 @@
 # 树资产采集要求（给负责下载资产的那个会话）
 
+## 已采用资产（2026-11-22 到货，体检通过）
+
+| 文件 | 树种 | 来源 | 许可 | 树高 | 三角面 | 备注 |
+|---|---|---|---|---|---|---|
+| `assets/raw/trees/conifer.glb` | pine（针叶） | Quaternius · Poly Pizza `79gmlLnweB` | CC0-1.0 | 10.2364 m | 3 370 | 已接入落位（1892 实例） |
+| `assets/raw/trees/broadleaf.glb` | broadleaf（阔叶） | Quaternius · Poly Pizza `QVOop92WmG` | CC0-1.0 | 9.4252 m | 3 505 | 已入库，尚未接入落位（下一单元双树种混排） |
+
+体检结论：原点均在树干底部（bbox min y = 0.0000）、贴图全内嵌、无外部 uri、Khronos 校验 0 error。
+遗留问题：叶子材质 `BLEND`（应改 MASKED）、`metallicFactor 0.4`（应改 0）、无 LOD。
+
 > 用途：EAP（Engine-Agnostic Pipeline）阶段一要做的最后一件事——把当前 200×200 m 地块里 1892 个「方块占位」换成**真实树资产**，验证整条管线（glTF 导入 → Python 中间件 → 校验 → UE5 + Unity 双端）能吃真实模型。
 >
 > 采集者不需要懂 UE。只要按本文交付，放进 `D:\Projects\AssetPipeline-EngineAgnostic\assets\raw\trees\`，后续由 lead 跑链路。

@@ -1,5 +1,5 @@
 {
-  "when": "2026-11-22T17:32:35",
+  "when": "2026-11-22T18:04:10",
   "schema": "eap.placement.run/1",
   "manifest": "D:\\Projects\\AssetPipeline-EngineAgnostic\\schemas\\pcg_manifest.json",
   "levelPackage": "/Game/EAP/PCG/PlacedPilot",
@@ -8,6 +8,20 @@
   "actor": "EAP_Placements",
   "component": "InstancedStaticMesh",
   "mesh": "/Engine/BasicShapes/Cube",
+  "meshInfo": {
+    "path": "/Engine/BasicShapes/Cube.Cube",
+    "bboxSizeCm": [
+      100.0,
+      100.0,
+      100.0
+    ],
+    "heightM": 1.0,
+    "triangles": 48,
+    "numLods": 1,
+    "materials": [
+      "WorldGridMaterial"
+    ]
+  },
   "expected": 1892,
   "placed": 1892,
   "levelSaved": true,

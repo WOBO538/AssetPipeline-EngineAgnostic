@@ -7,12 +7,14 @@
 链路（四次无头 UE + 两次纯 Python）：
   1) UE 无头跑 ue/Content/Python/pcg_export.py → docs/pcg_forest_pilot.json（cm）
   2) tools/pcg_to_manifest.py → schemas/pcg_manifest.json（manifest v1.1，m）
+     `--tree` 时改跑 tools/tree_to_manifest.py → schemas/tree_manifest.json（真实树 glb，双端）
   3) tools/validate_manifest.py → 必须 errors=0
   4) UE 无头跑 consume_manifest.run(..., dry_run=True) → 必须 assets 数、placements 数一致
-  5) UE 无头跑 place_manifest.place() → 在 /Game/EAP/PCG/PlacedPilot 建 ISM 落 233 条 → docs/placed_pilot.json
-  6) UE 无头跑 place_manifest.verify() → 新进程重载关卡读回实例 → docs/placed_verify.json
+  5) UE 无头跑 place_manifest.place() → 在专用关卡建 ISM 落 1892 条（`--tree` 时先无头导入 glb）
+  6) UE 无头跑 place_manifest.verify() → 新进程重载关卡读回实例
   7) 断言：散点数 == 实例数 == manifest placements == 消费端报告 placements == 落位实例数，
-     且落位 bbox / 每条 transform 与 manifest 一致（< 1 cm、< 0.05°）
+     且落位 bbox / 每条 transform 与 manifest 一致（< 1 cm、< 0.05°）；
+     `--tree` 还会断言落位网格确实是树资产、UE 侧树高 == glTF 树高（< 5 cm）
 
 退出码：0 全绿；1 任一断言失败（失败信息打在最后）。
 """
@@ -31,7 +33,11 @@ SCATTER_JSON = os.path.join(REPO, "docs", "pcg_forest_pilot.json")
 MANIFEST_JSON = os.path.join(REPO, "schemas", "pcg_manifest.json")
 PLACE_JSON = os.path.join(REPO, "docs", "placed_pilot.json")
 VERIFY_JSON = os.path.join(REPO, "docs", "placed_verify.json")
+TREE_MANIFEST_JSON = os.path.join(REPO, "schemas", "tree_manifest.json")
+TREE_PLACE_JSON = os.path.join(REPO, "docs", "placed_tree.json")
+TREE_VERIFY_JSON = os.path.join(REPO, "docs", "placed_tree_verify.json")
 DEFAULT_LEVEL_PKG = "/Game/EAP/PCG/PlacedPilot"
+DEFAULT_TREE_LEVEL_PKG = "/Game/EAP/PCG/PlacedTrees"
 DEFAULT_UE = r"C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
 DEFAULT_PROJECT = r"D:\UE_Projects\VegetationPCG\VegetationPCG.uproject"
 
@@ -124,6 +130,12 @@ def main(argv):
     ap.add_argument("--expect-span-m", type=float, default=None,
                     help="期望的落位地块边长（米）；给了就断言 bbox 的 X/Y 跨度在 ±--span-tol 内")
     ap.add_argument("--span-tol", type=float, default=0.15, help="地块跨度容差（默认 0.15 = ±15%%）")
+    ap.add_argument("--tree", action="store_true",
+                    help="换真实树资产链路：manifest 用 tools/tree_to_manifest.py（glb 双击端），"
+                         "落位到 /Game/EAP/PCG/PlacedTrees")
+    ap.add_argument("--tree-species", default="conifer", help="source_assets.json 里选哪个树种（默认 conifer）")
+    ap.add_argument("--tree-source", default=os.path.join(REPO, "assets", "raw", "trees", "source_assets.json"),
+                    help="树资产清单（默认 assets/raw/trees/source_assets.json）")
     args = ap.parse_args(argv[1:])
 
     fails = []
@@ -134,6 +146,15 @@ def main(argv):
     if fails:
         print("FAIL " + " | ".join(fails))
         return 1
+
+    # 换树链路：换 manifest / 证据路径 / 默认关卡
+    manifest_json = TREE_MANIFEST_JSON if args.tree else MANIFEST_JSON
+    place_json = TREE_PLACE_JSON if args.tree else PLACE_JSON
+    verify_json = TREE_VERIFY_JSON if args.tree else VERIFY_JSON
+    if args.tree and args.level_pkg == DEFAULT_LEVEL_PKG:
+        args.level_pkg = DEFAULT_TREE_LEVEL_PKG
+    if args.tree:
+        print("[0/7] 链路 = 换真实树资产（species=%s）" % args.tree_species)
 
     # ---- 1) UE 导出散点 ----
     if not args.skip_ue_export:
@@ -155,14 +176,24 @@ def main(argv):
     print("[1/7] 散点: points=%d instanceCount=%s ism_sum=%d" % (points_n, instance_n, ism_n))
 
     # ---- 2) 生成 manifest ----
-    import pcg_to_manifest
-    manifest, summ = pcg_to_manifest.build(SCATTER_JSON, MANIFEST_JSON)
-    pl_n = summ["placements"]
-    print("[2/7] manifest: assets=%d placements=%d -> %s" % (summ["assets"], pl_n, MANIFEST_JSON))
+    if args.tree:
+        import tree_to_manifest
+        manifest, summ = tree_to_manifest.build(args.tree_source, SCATTER_JSON, manifest_json,
+                                                species=args.tree_species)
+        pl_n = summ["placements"]
+        print("[2/7] tree manifest: asset=%s glb=%s tris=%d height=%.3fm placements=%d pivotZOffset=%.3fm"
+              % (summ["asset"], summ["glb"], summ["triCount"], summ["heightM"], pl_n, summ["pivotZOffsetM"]))
+        for w in summ["warnings"]:
+            print("     WARN " + w)
+    else:
+        import pcg_to_manifest
+        manifest, summ = pcg_to_manifest.build(SCATTER_JSON, manifest_json)
+        pl_n = summ["placements"]
+        print("[2/7] manifest: assets=%d placements=%d -> %s" % (summ["assets"], pl_n, manifest_json))
 
     # ---- 3) 校验 ----
     import validate_manifest
-    res = validate_manifest.validate(MANIFEST_JSON)
+    res = validate_manifest.validate(manifest_json)
     for w in res["warnings"]:
         print("     WARN " + w)
     for e in res["errors"]:
@@ -172,7 +203,7 @@ def main(argv):
         fails.append("manifest 校验有 %d 个 error" % len(res["errors"]))
 
     # ---- 4) UE dry-run 消费（读 placements + 统计） ----
-    report_path = os.path.splitext(MANIFEST_JSON)[0] + ".ue_report.json"
+    report_path = os.path.splitext(manifest_json)[0] + ".ue_report.json"
     ue_placements = None
     if not args.skip_ue_consume:
         tmpdir = tempfile.mkdtemp(prefix="eap_chain_")
@@ -181,7 +212,7 @@ def main(argv):
             fh.write("import sys\n")
             fh.write("sys.path.append(r'%s')\n" % os.path.join(REPO, "ue", "Content", "Python"))
             fh.write("import consume_manifest\n")
-            fh.write("consume_manifest.run(r'%s', dry_run=True)\n" % MANIFEST_JSON)
+            fh.write("consume_manifest.run(r'%s', dry_run=True)\n" % manifest_json)
         p, _ = _run("4/7 UE dry-run", _ue_cmd(args.ue, args.project, tmp_script))
         if p.returncode != 0:
             fails.append("UE dry-run 退出码 %d" % p.returncode)
@@ -205,23 +236,25 @@ def main(argv):
     if not args.skip_place:
         place_env = {
             "EAP_PLACE_MODE": "place",
-            "EAP_MANIFEST": MANIFEST_JSON,
+            "EAP_MANIFEST": manifest_json,
             "EAP_LEVEL_PKG": args.level_pkg,
             "EAP_PLACE_SAVE": "1",
-            "EAP_PLACE_OUT": PLACE_JSON,
-            "EAP_VERIFY_OUT": VERIFY_JSON,
+            "EAP_PLACE_OUT": place_json,
+            "EAP_VERIFY_OUT": verify_json,
         }
         p, _ = _run("5/7 UE 落位", _ue_cmd(args.ue, args.project, PLACE_SCRIPT), env=place_env)
         if p.returncode != 0:
             fails.append("UE 落位退出码 %d" % p.returncode)
-        if os.path.isfile(PLACE_JSON):
-            with open(PLACE_JSON, "r", encoding="utf-8-sig") as fh:
+        if os.path.isfile(place_json):
+            with open(place_json, "r", encoding="utf-8-sig") as fh:
                 placed = json.load(fh)
-            print("[5/7] 落位: placed=%s expected=%s levelSaved=%s bbox=%s"
+            print("[5/7] 落位: placed=%s expected=%s levelSaved=%s mesh=%s"
                   % (placed.get("placed"), placed.get("expected"), placed.get("levelSaved"),
-                     placed.get("bboxPlacedM")))
+                     (placed.get("meshInfo") or {}).get("path") or placed.get("mesh")))
+            print("     bbox=%s meshHeight=%s m" % (placed.get("bboxPlacedM"),
+                                                   (placed.get("meshInfo") or {}).get("heightM")))
         else:
-            fails.append("落位证据未生成: " + PLACE_JSON)
+            fails.append("落位证据未生成: " + place_json)
 
         # ---- 6) 新进程重载关卡读回（证明实例真的存进关卡，不是内存里的假象） ----
         verify_env = dict(place_env)
@@ -229,13 +262,13 @@ def main(argv):
         p, _ = _run("6/7 UE 落位验证", _ue_cmd(args.ue, args.project, PLACE_SCRIPT), env=verify_env)
         if p.returncode != 0:
             fails.append("UE 落位验证退出码 %d" % p.returncode)
-        if os.path.isfile(VERIFY_JSON):
-            with open(VERIFY_JSON, "r", encoding="utf-8-sig") as fh:
+        if os.path.isfile(verify_json):
+            with open(verify_json, "r", encoding="utf-8-sig") as fh:
                 verify = json.load(fh)
-            print("[6/7] 验证读回: count=%s bbox=%s"
-                  % (verify.get("count"), verify.get("bboxPlacedM")))
+            print("[6/7] 验证读回: count=%s mesh=%s bbox=%s"
+                  % (verify.get("count"), verify.get("mesh"), verify.get("bboxPlacedM")))
         else:
-            fails.append("验证证据未生成: " + VERIFY_JSON)
+            fails.append("验证证据未生成: " + verify_json)
     else:
         print("[5/7][6/7] 跳过 placements 落位与验证")
 
@@ -266,6 +299,23 @@ def main(argv):
             ok_span = all(abs(sp - args.expect_span_m) <= args.expect_span_m * args.span_tol for sp in spans)
             checks.append(("land span == %.0f m (±%.0f%%)" % (args.expect_span_m, args.span_tol * 100),
                            ok_span, "X=%.1f m / Y=%.1f m" % (spans[0], spans[1])))
+        if args.tree:
+            asset0 = (manifest.get("assets") or [{}])[0]
+            model0 = asset0.get("model") or {}
+            bbox0 = model0.get("boundingBoxM") or {}
+            up = str(model0.get("upAxis") or "Y").upper()
+            axis = {"X": 0, "Y": 1, "Z": 2}.get(up, 1)
+            expect_h = None
+            if bbox0.get("min") and bbox0.get("max"):
+                expect_h = round(float(bbox0["max"][axis]) - float(bbox0["min"][axis]), 3)
+            mesh_path = str(verify.get("mesh") or "")
+            checks.append(("落位网格是树资产（非引擎 Cube）",
+                           "/Trees/" in mesh_path and "BasicShapes" not in mesh_path, mesh_path))
+            got_h = ((placed or {}).get("meshInfo") or {}).get("heightM")
+            if expect_h and got_h is not None:
+                checks.append(("UE 侧树高 == glTF 树高 (<5cm)",
+                               abs(float(got_h) - expect_h) <= 0.05,
+                               "UE=%.3f m / glTF=%.3f m" % (float(got_h), expect_h)))
     print("[7/7] 断言")
     for name, ok, detail in checks:
         print("     %-42s %s  (%s)" % (name, "PASS" if ok else "FAIL", detail))
@@ -275,14 +325,14 @@ def main(argv):
     if fails:
         print("\nCHAIN FAIL: " + " | ".join(fails))
         return 1
-    print("\nCHAIN PASS points=%d assets=%d placements=%d" % (points_n, summ["assets"], pl_n))
+    print("\nCHAIN PASS points=%d assets=%d placements=%d" % (points_n, summ.get("assets", 1), pl_n))
     print("产物: %s" % SCATTER_JSON)
-    print("      %s" % MANIFEST_JSON)
+    print("      %s" % manifest_json)
     if not args.skip_ue_consume:
         print("      %s" % report_path)
     if not args.skip_place:
-        print("      %s" % PLACE_JSON)
-        print("      %s" % VERIFY_JSON)
+        print("      %s" % place_json)
+        print("      %s" % verify_json)
     return 0
 
 

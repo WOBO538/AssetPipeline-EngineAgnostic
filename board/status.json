@@ -1,11 +1,11 @@
 {
-  "updatedAt": "2026-11-22T17:45:00+08:00",
+  "updatedAt": "2026-11-22T18:25:00+08:00",
   "today": "2026-11-22",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
     {
       "date": "2026-11-28",
-      "name": "W1 检查点（EAP 双端 + GUI 截图 + 宝箱首轮 + Layer1 出口/落位/扩地块 200 m）",
+      "name": "W1 检查点（EAP 双端 + GUI 看图 + 真实树资产 + Layer1 散点/落位/地块 200 m）",
       "done": false
     },
     {
@@ -29,8 +29,8 @@
       "id": "P1",
       "name": "EAP 多引擎资产管线",
       "subtitle": "主线 · 补 PCG 资格缺口 · NO.01 下一代",
-      "phase": "阶段一 + Layer1 出口 + 地块扩到 200×200 m（1892 实例回灌）",
-      "progress": 64,
+      "phase": "阶段一 + Layer1 出口 + 地块 200x200 m + 真实树 glb 落位（1892 棵，11/11 断言）",
+      "progress": 72,
       "status": "进行中",
       "items": [
         {
@@ -69,10 +69,25 @@
           "date": "11-22"
         },
         {
-          "name": "换真实树资产（Megaplant/Megascans）",
+          "name": "换真实树资产：公开仓库 CC0 glTF（Poly Pizza / Quaternius），1892 棵 conifer 落位（11/11 断言）",
+          "status": "done",
+          "date": "11-22"
+        },
+        {
+          "name": "树资产规范化：叶子 BLEND→MASKED、metallic 0.4→0、补 LOD 链",
+          "status": "doing",
+          "date": "11-23"
+        },
+        {
+          "name": "PlacedTrees 关卡补灯光 + 引擎内实拍截图",
           "status": "doing",
           "owner": "user",
-          "date": "11-28"
+          "date": "11-23"
+        },
+        {
+          "name": "双树种混排（阔叶树接入落位，多资产 ISM）",
+          "status": "todo",
+          "date": "11-24"
         },
         {
           "name": "地块扩到 200×200 m（1892 实例，9/9 断言）",
@@ -308,7 +323,7 @@
         "date": "2026-11-22",
         "projectMin": 0,
         "learningMin": 0,
-        "note": "lead 打通 Layer1 数据出口（233）+ placements 回灌（8/8）+ 地块扩到 200×200 m（1892 实例，9/9 断言）；PCG 生成只能在交互编辑器里手动触发"
+        "note": "lead 跑通换真实树链路：公开仓库 CC0 glTF（Poly Pizza/Quaternius）独立解析复算对账 -> tree_manifest（双端）-> 无头 Interchange 导入 -> 1892 棵落位 PlacedTrees，11/11 断言通过"
       },
       {
         "date": "2026-11-21",

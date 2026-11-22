@@ -100,9 +100,9 @@ def validate(path, check_files=False, allow_npot=False):
                 warnings.append("%s 模型文件不存在: %s" % (tag, model["path"]))
 
         textures = a.get("textures") or {}
-        if not textures and (a.get("material") or {}).get("template") != "none":
-            # v1.1：只有 material.template == "none"（引擎默认材质/无贴图）才允许空贴图表
-            errors.append("%s textures 为空（material.template 不是 none）" % tag)
+        # v1.2：template == "none"（引擎默认材质）或 "embedded"（贴图内嵌在 glb 里）才允许空贴图表
+        if not textures and (a.get("material") or {}).get("template") not in ("none", "embedded"):
+            errors.append("%s textures 为空（material.template 不是 none/embedded）" % tag)
         for chan, t in textures.items():
             if chan not in TEX_KEYS:
                 errors.append("%s 未知贴图通道: %s" % (tag, chan))

@@ -27,7 +27,6 @@ python tools/run_pcg_chain.py
 #          D:\UE_Projects\VegetationPCG\VegetationPCG.uproject
 # 可用 --ue / --project 覆盖；--skip-ue-export 复用已有散点
 ```
-
 | # | 判据 | 实测（2026-11-22 17:33） |
 |:--:|---|---|
 | 1 | 导出散点数 == 图生成实例数 | 1892 == 1892 |
@@ -41,6 +40,38 @@ python tools/run_pcg_chain.py
 | 9 | 落位地块跨度 == 200 m（±15%，`--expect-span-m 200`） | X=196.6 m / Y=191.6 m |
 
 末行输出：`CHAIN PASS points=1892 assets=1 placements=1892`（退出码 0）。
+
+## B2. 换真实树资产链路（v1.2，`--tree`，第一次吃文件型 glTF）
+
+复现：
+
+```bash
+python tools/run_pcg_chain.py --tree --expect-span-m 200
+# 期望末行：CHAIN PASS points=1892 assets=1 placements=1892
+# 依赖：assets/raw/trees/{conifer,broadleaf}.glb + source_assets.json（CC0，Poly Pizza/Quaternius）
+```
+
+| # | 判据 | 实测（2026-11-22 18:0x） |
+|:--:|---|---|
+| 1–8 | 同 B 组 1–8（散点/instanceCount/placements/落位/持久化/bbox/逐条 transform） | 全部 1892 == 1892，transform 0/1892 不匹配 |
+| 9 | 落位地块跨度 == 200 m（±15%） | X=196.6 m / Y=191.6 m |
+| 10 | 落位网格是树资产（非引擎 Cube） | `/Game/EAP/Trees/conifer/StaticMeshes/conifer.conifer` |
+| 11 | UE 侧树高 == glTF 树高（<5 cm） | UE=10.236 m / glTF=10.236 m |
+
+产物与证据（换树链路）：
+
+| 文件 | 说明 |
+|---|---|
+| `assets/raw/trees/source_assets.json` | 采集凭证：来源 URL / 作者 / 许可证 / 树高 / 面数 / 原点 / 校验器结果（模型 .glb 按 .gitignore 不入库） |
+| `schemas/tree_manifest.json` | 中台产物：`model.source=file`、`format=gltf2.0`、双端 `engineTargets`、placements[1892]、`pivot.zOffsetM=0.5`、10 条 checks |
+| `docs/placed_tree.json` | 落位证据：关卡 `/Game/EAP/PCG/PlacedTrees`、ISM 1892 棵 conifer、`meshInfo`（高 10.236 m / 2 材质） |
+| `docs/placed_tree_verify.json` | 新进程重载读回：1892 条，网格路径与 bbox 与落位一致 |
+| `docs/placed_tree_topdown.png` | 俯视图（树冠圆，读回 transform 绘制） |
+| `Content/EAP/PCG/PlacedTrees.umap`（UE 工程内） | 落位关卡：1 Actor + 1 ISM（1892 棵 conifer），无灯光/地面（补灯需真实编辑器） |
+| `assets/raw/trees/_previews/*.png` | 采集会话附的两棵树预览图（非引擎内实拍） |
+
+**换树链路的已知限制**：叶子材质 `BLEND` 未改 `MASKED`、`metallicFactor 0.4` 未清零、无 LOD、单树种、
+UE 侧三角面口径为 Nanite fallback（1 414 / 源 3 370）、Unity 端尚未实跑、`PlacedTrees` 关卡无灯光地面。
 
 产物与证据：
 
@@ -59,7 +90,7 @@ python tools/run_pcg_chain.py
 
 **已知限制（不算过的地方，别在面试里含糊）**：
 1. 地块已扩到 200×200 m（39997.7 m²），密度 `0.05 点/m²` → 名义 2000、实际 1892（94.6%）；
-   网格还是引擎 Cube，换真实树资产是下一单元（视觉不像森林是资产问题，不是管线问题）。
+   网格现在有两套证据：引擎 Cube（B 组）与真实树 glb（B2 组）；视觉像不像森林仍是资产质量/材质规范问题。
 2. `placements` 已能落位（第 5–8 条），但只落 **transform**：manifest 里的材质、碰撞、LOD 字段本阶段不落；
    落位只支持单资产 manifest（当前 1 个 Cube 网格）。
 3. 散点里没有 PCG 点级 metadata（密度/seed attribute），只有最终实例 transform。
@@ -83,6 +114,15 @@ python tools/run_pcg_chain.py
     旧实例被拉长、整体沉到地面以下（2026-11-22 截图确认）。放大只动 XY，Z 保持 20 m。
 12. **带 RHI 的无人值守也生成不了 PCG**：`-unattended` 去掉 `-nullrhi` 后 `generate()` 依然 233 → 233，
     必须在人交互的编辑器会话里做生成。
-10. **新建空关卡没有灯光/地面**：`new_level` 造出来的关卡只有空世界，视口里实例是黑的。补灯必须在**真实编辑器**里做——
+13. **新建空关卡没有灯光/地面**：`new_level` 造出来的关卡只有空世界，视口里实例是黑的。补灯必须在**真实编辑器**里做——
     无头跑 `place_manifest.stage()` 会 `EXCEPTION_INT_DIVIDE_BY_ZERO` 崩溃（SkyAtmosphere/SkyLight 需要渲染管线，实测 2026-11-22）；
     而且 DirectionalLight 默认 Static，新关卡没烘焙时对物体无贡献，必须改成 Movable。
+14. **无头能导 glTF（v1.2 实测）**：UE 5.7 `-nullrhi -unattended` 下 Interchange glTF 导入可用，单棵 0.4~1.2 s；
+    资产落点固定为 `<destPath>/<文件名>/StaticMeshes/<文件名>`，材质由 Interchange 自动生成 MIC。
+15. **轴心补偿（v1.2）**：散点 `t` 是引擎 Cube 的**中心**，树轴心在**树根底部**，必须把 `t.z` 减去 Cube 半高 0.5 m，
+    否则 1892 棵树整体悬空 0.5 m。manifest 里记 `pivot.zOffsetM`，链路上有断言守着树高对账。
+16. **UE 三角面口径（v1.2）**：glTF 源 3 370 面，导入后 `get_num_triangles(0)` 报 1 414（broadleaf 3 505 → 2 354），
+    返回的是 Nanite fallback 网格。**不要混用两侧数字**，验收表统一引用 glTF 侧。
+17. **树资产材质未规范化（v1.2）**：叶子 `alphaMode=BLEND`（应改 MASKED 省排序开销）、`metallicFactor=0.4`（应改 0），
+    当前只在 manifest checks 与日志里告警，没有自动改材质。**这是视觉质量的主要缺口。**
+18. **树资产无 LOD（v1.2）**：两棵树各只有 1 个 LOD，1892 棵全量靠 Nanite/实例剔除撑；LOD 链是下一项工作。

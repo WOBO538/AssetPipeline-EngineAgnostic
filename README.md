@@ -2,7 +2,7 @@
 
 > 项目代号：`Engine-Agnostic Pipeline`（下称 EAP）
 > 定位：前端 PCG + AIGC 生成 → Python 中台（格式中转 + 合规审查）→ UE5 / Unity 双端消费。
-> **当前进度：阶段一（manifest 标准 + 双端消费端模板）+ Layer1 数据出口 + 地块扩到 200×200 m（1892 实例）+ placements 落位（回灌成 UE ISM）**。
+> **当前进度：阶段一（manifest 标准 + 双端消费端模板）+ Layer1 数据出口 + 地块扩到 200×200 m（1892 实例）+ placements 落位（回灌成 UE ISM）+ 换真实树 glb（1892 棵树端到端跑通）**。
 
 ## 一、这个项目在作品集里的位置（先读这段）
 
@@ -19,9 +19,11 @@ Engine-Agnostic Pipeline/
 ├─ README.md                      ← 本文件
 ├─ docs/
 │  ├─ manifest-spec.md            ← manifest 字段规范（v1.1）+ 引擎映射表 + 坑
-│  ├─ phase1-acceptance.md        ← 验收：阶段一 6 条 + Layer1 链路 8 条
+│  ├─ phase1-acceptance.md        ← 验收：阶段一 6 条 + Layer1 链路 11 条
+│  ├─ tree_asset_requirements.md   ← 树资产采集要求（给采集会话的硬门槛）
 │  ├─ pcg_forest_pilot.json       ← Layer1 导出证据：10 节点图参数 + 1892 条散点（cm）
-│  ├─ placed_pilot.json           ← placements 落位证据：1892 条落成 UE ISM + 读回 transform
+│  ├─ placed_pilot.json           ← 引擎 Cube 落位证据：1892 条落成 UE ISM + 读回 transform
+│  ├─ placed_tree.json            ← 真实树落位证据（同上格式，网格换成 conifer.glb）
 │  └─ placed_verify.json          ← 新进程重载关卡读回证据（证明持久化）
 ├─ schemas/
 │  ├─ manifest.schema.json        ← JSON Schema（v1.1：placements / engine_native）
@@ -30,16 +32,18 @@ Engine-Agnostic Pipeline/
 ├─ ue/Content/Python/
 │  ├─ consume_manifest.py         ← UE5 消费端（读 manifest → 母材质/MIC → 贴图 → 碰撞 → placements 统计）
 │  ├─ pcg_export.py               ← Layer1 出口：PCG 图参数 + 生成实例 → 散点 JSON（只读）
-│  └─ place_manifest.py           ← Layer1 回灌：placements → UE ISM 实例（落位）+ 新进程验证
+│  └─ place_manifest.py           ← Layer1 回灌：placements → UE ISM 实例（落位；glb 走无头 Interchange 导入）
 ├─ unity/Editor/
 │  └─ ManifestImporter.cs         ← Unity 编辑端（读同一份 manifest → Material → Prefab → Collider）
 ├─ tools/
 │  ├─ validate_manifest.py        ← 中台侧轻量校验（结构 + 2 的幂 + 通道 + 单位 + v1.1 placements）
 │  ├─ pcg_to_manifest.py          ← 散点 JSON → manifest v1.1（cm→m，1 网格 = 1 asset + N placements）
-│  ├─ run_pcg_chain.py            ← 一条命令跑完整条 Layer1 链（7 步 / 4 次无头 UE）+ 8 条断言
+│  ├─ tree_to_manifest.py         ← 真实树 glb + 散点 → manifest v1.1（双端；不信任 sidecar，自己解析 GLB 复算）
+│  ├─ run_pcg_chain.py            ← 一条命令跑完整条 Layer1 链（7 步 / 4 次无头 UE）+ 9 条断言（--tree 时 11 条）
+│  ├─ draw_placements.py          ← 从读回 transform 画俯视图（方块 / 树冠圆两种标记）
 │  ├─ test_validator.py           ← 校验器 9 条负例（拦截 9/9）
 │  └─ test_gui_smoke.py           ← GUI 冒烟（12/12）
-└─ assets/                        ← 占位：放示例 glb / 贴图（阶段二接入真实产物）
+└─ assets/raw/trees/              ← 真实树资产（conifer / broadleaf .glb + source_assets.json 许可证凭证；模型不入库）
 ```
 
 ## 三、阶段一怎么跑
@@ -159,6 +163,55 @@ schemas/pcg_manifest.json（placements 1892 条，m / deg）
 **已知边界**：只处理单资产 manifest（现在就是 1 个 Cube 网格）；只落 transform（材质/碰撞/LOD 走 manifest 其它字段，
 本阶段不落）；落位关卡是专用关卡，不碰你的 `/Game/Untitled` 试点现场。
 
+## 三之四、换真实树资产（glb）：管线第一次吃"真东西"
+
+前三节的所有数字都建立在 `/Engine/BasicShapes/Cube` 上，Unity 端还是跳过的（引擎网格没有 glb）。
+这一节把网格换成真实的 **glTF 2.0 树资产**，双端第一次都有文件型目标。
+
+```
+assets/raw/trees/conifer.glb（Poly Pizza / Quaternius，CC0，3 370 面，10.236 m，贴图内嵌）
+   ↓ tree_to_manifest.py   自己解析 GLB 二进制复算 bbox/面数/本证，再和 sidecar 对账（不信上游）
+schemas/tree_manifest.json   manifest v1.1：model.source=file + 双端 engineTargets + placements[1892]
+   ↓ validate_manifest.py    errors=0
+   ↓ place_manifest.place() 无头 Interchange 导入 glb → StaticMesh → ISM 落 1892 个实例
+/Game/EAP/PCG/PlacedTrees   专用关卡：1 Actor + 1 ISM（1892 棵 conifer）
+   ↓ place_manifest.verify() 新进程重载读回 → docs/placed_tree_verify.json
+```
+
+```bash
+python tools/run_pcg_chain.py --tree --expect-span-m 200    # 四次无头 UE + 两次纯 Python；11 条断言
+# 期望末行：CHAIN PASS points=1892 assets=1 placements=1892
+```
+
+![真实树落位俯视图](docs/placed_tree_topdown.png)
+
+> 上图仍是读回的**真实 transform**（1892 条），只是标记换成树冠圆（半径按 glb bbox X/2 = 2.90 m × scale）。
+
+**资产体检（我独立解析 GLB，不采信 `source_assets.json` 的自述）**
+
+| 项 | conifer | broadleaf |
+|---|---|---|
+| 许可 / 来源 | CC0-1.0 · Quaternius（Poly Pizza） | 同 |
+| 树高 | 10.2364 m | 9.4252 m |
+| 三角面 | 3 370（glTF 索引复算，2 个 primitive：2160 + 1210） | 3 505 |
+| 原点 | bbox min y = 0.0000（树干底部已归一化） | 同 |
+| 贴图 | 3 张 1024² 内嵌，无外部 uri | 同 |
+| 材质 | 树皮 OPAQUE + 叶 BLEND，均 metallicFactor 0.4 | 同 |
+
+**三个实测发现（都写进代码注释了）**
+
+1. **无头能导 glTF**：UE 5.7 `-nullrhi -unattended` 下 Interchange glTF 导入可用，单棵 0.4~1.2 s，
+   落点固定为 `<destPath>/<文件名>/StaticMeshes/<文件名>`，材质/贴图由 Interchange 自动生成。
+   （这条以前不敢保证，先单独跑了一次探针才敢接进链路。）
+2. **轴心补偿 0.5 m 必须做**：散点的 `t` 是引擎 Cube 的**中心**，树的轴心在**树根底部**；照抄 `t` 会让
+   1892 棵树整体悬空半米。manifest 里 `pivot.zOffsetM = 0.5` 记录这次换算，落位端按底面落。
+3. **Nanite 默认开着**：导入后 `mesh.get_num_triangles(0)` 报 **1 414**（源 3 370）、broadleaf 报
+   2 354（源 3 505）——返回的是 Nanite 的 fallback 简化网格，不是源数据。**验收表用 glTF 侧的 3 370**，
+   UE 侧的 1 414 当作"Nanite fallback"记录，别混着引用。
+
+**这一节明确没做的**（写进第五节）：叶子 `BLEND` 改 `MASKED`、`metallicFactor 0.4 → 0`、补 LOD、双树种混排、
+Unity 端实跑。当前只证明"管线能连续吃真资产"，不主张画面质量。
+
 ## 四、阶段一验收（6 条，逐条可判）
 
 | # | 判据 | 判法 |
@@ -172,9 +225,9 @@ schemas/pcg_manifest.json（placements 1892 条，m / deg）
 
 > 没截图、没日志、没退出码 = 没过。这条照搬项目验收标准。
 
-### 四之二、Layer 1 链路验收（9 条，`python tools/run_pcg_chain.py` 自动判）
+### 四之二、Layer 1 链路验收（9 + 2 条，`python tools/run_pcg_chain.py [--tree]` 自动判）
 
-| # | 判据 | 实测（2026-11-22 17:33） |
+| # | 判据 | 实测（2026-11-22 17:33 / 18:0x） |
 |:--:|---|---|
 | 1 | 导出散点数 == 图生成实例数 | 1892 == 1892 |
 | 2 | 导出散点数 == ISM 实例数之和 | 1892 == 1892 |
@@ -185,9 +238,12 @@ schemas/pcg_manifest.json（placements 1892 条，m / deg）
 | 7 | 落位实例 bbox == manifest items bbox | 误差 0.0000 m（阈值 1 cm） |
 | 8 | 落位实例逐条 transform == manifest items | 0/1892 不匹配（阈值 1 cm / 0.05°） |
 | 9 | 落位地块跨度 == 200 m（±15%） | X=196.6 m / Y=191.6 m |
+| 10 | `--tree`：落位网格是树资产（非引擎 Cube） | `/Game/EAP/Trees/conifer/StaticMeshes/conifer.conifer` |
+| 11 | `--tree`：UE 侧树高 == glTF 树高（<5 cm） | UE=10.236 m / glTF=10.236 m |
 
 产物：`docs/pcg_forest_pilot.json`（1189 KB，图参数 + 1892 条散点）、`schemas/pcg_manifest.json`（626 KB）、
-`docs/placed_pilot.json`（436 KB，落位证据，含 1892 条读回 transform）、`docs/placed_verify.json`（435 KB，新进程重载读回）。
+`docs/placed_pilot.json`（436 KB）、`docs/placed_verify.json`（435 KB）；
+换树链路另有 `schemas/tree_manifest.json`、`docs/placed_tree.json`、`docs/placed_tree_verify.json`。
 
 ## 五、阶段一未覆盖（写在明处，别在面试里含糊）
 
@@ -202,10 +258,25 @@ schemas/pcg_manifest.json（placements 1892 条，m / deg）
 - **PCG 点级 metadata 读不到（v1.1）**：`get_generated_graph_output()` 能拿到 `PCGDataCollection`（tagged=1），但点级 attribute（密度/seed）没有暴露的 Python 访问器。所以出口以**实例 transform** 为准——实例是最终结果，反而更可信。
 - **Unity 端跳过引擎内置网格（v1.1）**：`model.source=engine`（如 `/Engine/BasicShapes/Cube`）没有 glb，Unity 不适用；只有文件型资产走双端。
 - **无头导出依赖本机路径（v1.1）**：`run_pcg_chain.py --ue/--project` 可覆盖，默认 `C:\Program Files\Epic Games\UE_5.7` + `D:\UE_Projects\VegetationPCG`。
+- **树资产材质没规范化（v1.2）**：glTF 的叶子材质是 `BLEND`（1892 个实例会有排序/开销问题，正式出图应改 `MASKED`）、
+  树皮/树叶 `metallicFactor = 0.4`（转换器默认值，UE 里偏塑料感）。目前只在 manifest 的 `checks`/日志里告警，**没有自动改材质**。
+- **UE 侧三角面数要看清口径（v1.2）**：glTF 源数据 conifer 3 370 面，导入 UE 后 `get_num_triangles(0)` 报 1 414
+  （broadleaf 3 505 → 2 354）——返回的是 **Nanite fallback** 简化网格。引用数字时写明是哪一侧。
+- **树资产没有 LOD（v1.2）**：两棵树都只有 1 个 LOD（3 370 / 3 505 面，符合"低模无 LOD"门槛），
+  1892 棵全量无 LOD 只能靠 Nanite 与实例剔除撑；LOD 链是下一项工作。
+- **只有单树种全量替换（v1.2）**：本链路一次只落一个网格（`place_manifest` 单资产），阔叶树还没接进落位；
+  双树种混排需要把落位端扩成多资产 / 多 ISM。
+- **落位关卡不带灯光与地面（v1.2）**：`PlacedTrees` 由无头新建，只有 `EAP_Placements`。灯光/天空/地面
+  （`place_manifest.stage()`）**只能在真实编辑器里跑**——无头加 SkyAtmosphere/SkyLight 会
+  `EXCEPTION_INT_DIVIDE_BY_ZERO` 崩掉（2026-11-22 实测）。
+- **Unity 端还没实跑树资产（v1.2）**：`tree_manifest.json` 已经有 `engineTargets.Unity`（`Assets/EAP/Trees`），
+  但 Unity 侧导入尚未执行（计划 2026-11-25 跑空工程验证）。
 
 ## 六、下一步（阶段二/三）
 
-- 阶段二 · 换真实树资产：地块已经扩到 200×200 m（1892 实例），但网格还是引擎 Cube；下一步换成真实树模型（公开仓库 CC0/CC-BY 的 glTF，采集要求见 `docs/tree_asset_requirements.md`），参数尽量走 Graph 用户参数而不是改节点常量
+- 阶段二 · 树资产规范化：叶子 `BLEND → MASKED`、`metallic 0.4 → 0`、补 LOD 链（LOD1 ≤5 千 / LOD2 ≤1.5 千）；
+  再把阔叶树接进落位做双树种混排（需要落位端支持多资产/多 ISM）
+- 阶段二 · Unity 端实跑同一份 `tree_manifest.json`（glb + placements 双端一致性）
 - 阶段二 · 落位扩展到材质/碰撞/LOD：现在只落 transform，manifest 里其它字段还没在 UE 侧生效
 - 阶段二 · GUI 接 ComfyUI 客户端（GUI 阶段二的 QThread 异步 + 进度回填）
 - 阶段三：`trimesh` + `numpy` 坐标转换（Y-up↔Z-up、cm↔m）与合规拦截（与 `tools/validate_manifest.py` 合并）

@@ -73,6 +73,50 @@ def _mesh_asset_path(model_path):
     return p
 
 
+def _repo_root(manifest_path):
+    """manifest 在 <repo>/schemas/ 下，模型相对路径按 repo 根解析。"""
+    d = os.path.dirname(os.path.abspath(manifest_path))
+    return os.path.dirname(d) if os.path.basename(d) in ("schemas", "docs") else d
+
+
+def _import_glb(asset, manifest_path):
+    """manifest 的 model 是磁盘 .glb 时，先无头导入成 StaticMesh（Interchange），返回资产路径。
+
+    2026-11-22 实测：UE 5.7 `-nullrhi -unattended` 下 Interchange glTF 导入可用（~0.4-1.2 s/棵），
+    导入布局固定为 `<destPath>/<文件名>/StaticMeshes/<文件名>.<文件名>`，材质/贴图由 Interchange 生成。
+    """
+    model = asset.get("model") or {}
+    rel = str(model.get("path") or "")
+    glb = rel if os.path.isabs(rel) else os.path.join(_repo_root(manifest_path), rel)
+    if not os.path.isfile(glb):
+        raise RuntimeError("glb 不存在: " + glb)
+    ue5 = (asset.get("engineTargets") or {}).get("UE5") or {}
+    dest = ue5.get("destPath") or "/Game/EAP/Trees"
+    mesh_path = _mesh_asset_path(ue5.get("meshPath"))
+    if mesh_path and _safe(lambda: unreal.EditorAssetLibrary.does_asset_exist(mesh_path), False):
+        _log("网格已导入，复用: " + mesh_path)
+        return mesh_path
+    _safe(lambda: unreal.EditorAssetLibrary.make_directory(dest))
+    task = unreal.AssetImportTask()
+    task.set_editor_property("filename", glb)
+    task.set_editor_property("destination_path", dest)
+    task.set_editor_property("automated", True)
+    task.set_editor_property("replace_existing", True)
+    task.set_editor_property("save", True)
+    t0 = time.time()
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+    _log("glTF 导入完成 %.2fs ← %s" % (time.time() - t0, glb))
+    imported = _safe(lambda: [str(p) for p in task.get_editor_property("imported_object_paths")], [])
+    meshes = [p for p in imported
+              if str(_safe(lambda p=p: unreal.EditorAssetLibrary.load_asset(p).get_class().get_name(), "")) == "StaticMesh"]
+    if mesh_path and _safe(lambda: unreal.EditorAssetLibrary.does_asset_exist(mesh_path), False):
+        return mesh_path
+    if meshes:
+        _warn("manifest.meshPath 不可用，改用导入结果: %s" % meshes[0])
+        return meshes[0]
+    raise RuntimeError("导入后找不到 StaticMesh（imported=%r）" % imported)
+
+
 def _ensure_level(level_pkg):
     """关卡存在就加载；不存在就新建空关卡。返回 (created, world/path)。"""
     alb = unreal.EditorAssetLibrary
@@ -152,6 +196,26 @@ def _bbox(items_m):
             "max": [round(max(xs), 4), round(max(ys), 4), round(max(zs), 4)]}
 
 
+def _mesh_info(mesh):
+    """落位网格的实测信息（证明"真的换成树了"：高度、面数、材质、LOD 数）。"""
+    box = _safe(lambda: mesh.get_bounding_box())
+    size_cm = _safe(lambda: [round(box.max.x - box.min.x, 2), round(box.max.y - box.min.y, 2),
+                             round(box.max.z - box.min.z, 2)])
+    mats = []
+    nsec = _safe(lambda: int(mesh.get_num_sections(0)), 0) or 0
+    for i in range(nsec):
+        mi = _safe(lambda i=i: mesh.get_material(i))
+        mats.append(_safe(lambda mi=mi: str(mi.get_name()), None))
+    return {
+        "path": _safe(lambda: str(mesh.get_path_name())),
+        "bboxSizeCm": size_cm,
+        "heightM": round(size_cm[2] / CM_PER_M, 3) if isinstance(size_cm, list) else None,
+        "triangles": _safe(lambda: int(mesh.get_num_triangles(0))),
+        "numLods": _safe(lambda: int(mesh.get_num_lods())),
+        "materials": mats,
+    }
+
+
 def _instance_items(comp):
     """把 ISM 实例读回成 manifest 同格式（m / deg roll,pitch,yaw / scale）。"""
     n = int(comp.get_instance_count())
@@ -211,7 +275,11 @@ def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
     if not items:
         raise RuntimeError("manifest 里没有 placements.items：%s" % manifest_path)
 
-    mesh_path = _mesh_asset_path((asset.get("model") or {}).get("path"))
+    model = asset.get("model") or {}
+    if str(model.get("source", "file")) == "file" and str(model.get("path", "")).lower().endswith((".glb", ".gltf")):
+        mesh_path = _import_glb(asset, manifest_path)
+    else:
+        mesh_path = _mesh_asset_path(model.get("path"))
     mesh = unreal.EditorAssetLibrary.load_asset(mesh_path)
     if mesh is None:
         raise RuntimeError("加载不到网格: " + mesh_path)
@@ -240,6 +308,7 @@ def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
     readback = _instance_items(comp)
     manifest_bbox = _bbox([it.get("t") or [0, 0, 0] for it in items])
     placed_bbox = _bbox([it["t"] for it in readback]) if readback else None
+    mesh_info = _mesh_info(mesh)
     ground_info = _sync_ground(readback)
     saved = None
     if save:
@@ -256,6 +325,7 @@ def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
         "actor": _safe(lambda: str(actor.get_actor_label())),
         "component": _safe(lambda: str(comp.get_name())),
         "mesh": mesh_path,
+        "meshInfo": mesh_info,
         "expected": len(items),
         "placed": placed,
         "levelSaved": saved,
