@@ -38,9 +38,12 @@ def validate(path, check_files=False, allow_npot=False):
     if errors:
         return {"errors": errors, "warnings": warnings, "assets": 0}
 
-    major = str(data["manifestVersion"]).split(".")[0]
+    ver_parts = str(data["manifestVersion"]).split(".")
+    major = ver_parts[0]
     if major != "1":
         errors.append("manifestVersion 主版本不支持: %s" % data["manifestVersion"])
+    elif len(ver_parts) > 1 and ver_parts[1].isdigit() and int(ver_parts[1]) > 1:
+        warnings.append("manifestVersion 次版本 %s 高于本校验器已知的 1.1（可能有不认识的字段）" % data["manifestVersion"])
     units = data.get("units")
     if units not in ("m", "cm"):
         errors.append("units 必须是 m 或 cm，实为 %r" % units)
@@ -71,6 +74,18 @@ def validate(path, check_files=False, allow_npot=False):
         model = a.get("model") or {}
         if model.get("unit") != units:
             warnings.append("%s model.unit=%r 与顶层 units=%r 不一致（消费端以 boundingBoxM 为准）" % (tag, model.get("unit"), units))
+        # v1.1：模型来源（文件 / 引擎内置）
+        msource = model.get("source", "file")
+        if msource not in ("file", "engine"):
+            errors.append("%s model.source 不合法: %r" % (tag, msource))
+        fmt = model.get("format")
+        if msource == "engine":
+            if not str(model.get("path", "")).startswith("ue:/"):
+                errors.append("%s 引擎内置模型 model.path 必须以 ue:/ 开头: %r" % (tag, model.get("path")))
+            if fmt != "engine_native":
+                errors.append("%s 引擎内置模型 model.format 必须是 engine_native: %r" % (tag, fmt))
+        elif fmt not in ("gltf2.0", "fbx", "obj"):
+            errors.append("%s model.format 不合法: %r" % (tag, fmt))
         bbox = model.get("boundingBoxM") or {}
         mn, mx = bbox.get("min"), bbox.get("max")
         if not (isinstance(mn, list) and isinstance(mx, list) and len(mn) == 3 and len(mx) == 3):
@@ -85,8 +100,9 @@ def validate(path, check_files=False, allow_npot=False):
                 warnings.append("%s 模型文件不存在: %s" % (tag, model["path"]))
 
         textures = a.get("textures") or {}
-        if not textures:
-            errors.append("%s textures 为空" % tag)
+        if not textures and (a.get("material") or {}).get("template") != "none":
+            # v1.1：只有 material.template == "none"（引擎默认材质/无贴图）才允许空贴图表
+            errors.append("%s textures 为空（material.template 不是 none）" % tag)
         for chan, t in textures.items():
             if chan not in TEX_KEYS:
                 errors.append("%s 未知贴图通道: %s" % (tag, chan))
@@ -121,6 +137,41 @@ def validate(path, check_files=False, allow_npot=False):
             dest = (targets["Unity"] or {}).get("destPath", "")
             if not str(dest).startswith("Assets/"):
                 errors.append("%s Unity.destPath 必须以 Assets/ 开头: %r" % (tag, dest))
+        if msource == "engine" and "Unity" in targets:
+            warnings.append("%s 引擎内置网格没有 glb，Unity 目标端通常应省略" % tag)
+
+        # v1.1：placements —— 同一网格的 N 个实例（PCG 散点）
+        placements = a.get("placements")
+        if placements is not None:
+            if not isinstance(placements, dict):
+                errors.append("%s placements 必须是对象" % tag)
+            else:
+                if placements.get("space") not in ("world", "local"):
+                    errors.append("%s placements.space 必须是 world/local: %r" % (tag, placements.get("space")))
+                if placements.get("unit") not in (None, "m"):
+                    errors.append("%s placements.unit 必须是 m: %r" % (tag, placements.get("unit")))
+                count = placements.get("count")
+                items = placements.get("items")
+                if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+                    errors.append("%s placements.count 必须是正整数: %r" % (tag, count))
+                if not isinstance(items, list):
+                    errors.append("%s placements.items 必须是数组" % tag)
+                    items = []
+                if isinstance(count, int) and not isinstance(count, bool) and count != len(items):
+                    errors.append("%s placements.count=%s 与 items 条数 %d 不一致" % (tag, count, len(items)))
+                for j, it in enumerate(items):
+                    if not isinstance(it, dict):
+                        errors.append("%s placements.items[%d] 不是对象" % (tag, j))
+                        continue
+                    for key in ("t", "r", "s"):
+                        vec = it.get(key)
+                        ok = (isinstance(vec, list) and len(vec) == 3 and all(
+                            isinstance(x, (int, float)) and not isinstance(x, bool)
+                            and x == x and abs(float(x)) != float("inf") for x in vec))
+                        if not ok:
+                            errors.append("%s placements.items[%d].%s 必须是 3 个有限数字" % (tag, j, key))
+                if count and len(items) and not (a.get("engineTargets") or {}).get("UE5"):
+                    warnings.append("%s 有 placements 但缺 UE5 目标端，实例无处落位" % tag)
 
     return {"errors": errors, "warnings": warnings, "assets": len(assets)}
 

@@ -41,7 +41,8 @@
           "additionalProperties": false,
           "properties": {
             "path": { "type": "string" },
-            "format": { "type": "string", "enum": ["gltf2.0", "fbx", "obj"] },
+            "source": { "type": "string", "enum": ["file", "engine"] },
+            "format": { "type": "string", "enum": ["gltf2.0", "fbx", "obj", "engine_native"] },
             "unit": { "type": "string", "enum": ["m", "cm"] },
             "upAxis": { "type": "string", "enum": ["Y", "Z"] },
             "forwardAxis": { "type": "string", "enum": ["X", "Y", "Z", "-X", "-Z"] },
@@ -59,7 +60,7 @@
         },
         "textures": {
           "type": "object",
-          "minProperties": 1,
+          "description": "v1.1：允许空对象，但仅当 material.template == \"none\"（引擎默认材质）；校验器强制该条件。",
           "propertyNames": { "enum": ["BaseColor", "Normal", "Roughness", "Metallic", "AO", "ORM", "Height"] },
           "additionalProperties": {
             "type": "object",
@@ -116,6 +117,30 @@
               "level": { "type": "integer", "minimum": 1 },
               "triCount": { "type": "integer", "minimum": 0 },
               "path": { "type": "string" }
+            }
+          }
+        },
+        "placements": {
+          "type": "object",
+          "description": "v1.1：同一网格的 N 个实例（PCG 散点）。坐标/旋转/缩放单位 m 与 deg。",
+          "required": ["space", "count", "items"],
+          "additionalProperties": false,
+          "properties": {
+            "space": { "type": "string", "enum": ["world", "local"] },
+            "unit": { "type": "string", "enum": ["m"] },
+            "count": { "type": "integer", "minimum": 1 },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["t", "r", "s"],
+                "additionalProperties": false,
+                "properties": {
+                  "t": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+                  "r": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+                  "s": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }
+                }
+              }
             }
           }
         },

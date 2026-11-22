@@ -1,0 +1,854 @@
+{
+  "schema": "eap.pcg_scatter/1",
+  "exportedAt": "2026-11-22T08:51:22+08:00",
+  "engine": {
+    "version": "5.7.4-51494982+++UE5+Release-5.7",
+    "project": "D:/UE_Projects/VegetationPCG/VegetationPCG.uproject",
+    "map": "/Game/Untitled",
+    "mapLoad": "<Object '/Game/Untitled.Untitled' (0x00000193982CEE00) Class 'World'>"
+  },
+  "translationUnit": "cm",
+  "rotationUnit": "deg",
+  "graph": {
+    "path": "/Game/PCG_ForestScatter",
+    "assetClass": "PCGGraph",
+    "nodesCount": 10,
+    "nodes": [
+      {
+        "name": "SurfaceSampler_0",
+        "settingsClass": "PCGSurfaceSamplerSettings",
+        "props": {
+          "apply_density_to_points": true,
+          "keep_zero_density_points": false,
+          "looseness": 0.8,
+          "point_extents": [
+            50.0,
+            50.0,
+            50.0
+          ],
+          "point_steepness": 1.0,
+          "points_per_squared_meter": 0.01,
+          "seed": -1507938282,
+          "unbounded": false
+        }
+      },
+      {
+        "name": "GetLandscapeData_0",
+        "settingsClass": "PCGGetLandscapeSettings",
+        "props": {
+          "allowed_grids": 0,
+          "also_output_single_point_data": false,
+          "always_requery_actors": false,
+          "components_must_overlap_self": true,
+          "ignore_pcg_generated_components": true,
+          "merge_single_point_data": false,
+          "seed": -1505251262,
+          "track_actors_only_within_bounds": true,
+          "unbounded": true
+        }
+      },
+      {
+        "name": "TransformPoints_0",
+        "settingsClass": "PCGTransformPointsSettings",
+        "props": {
+          "absolute_offset": false,
+          "absolute_rotation": true,
+          "absolute_scale": false,
+          "apply_to_attribute": false,
+          "offset_max": [
+            100.0,
+            100.0,
+            50.0
+          ],
+          "offset_min": [
+            -100.0,
+            -100.0,
+            -50.0
+          ],
+          "recompute_seed": false,
+          "scale_max": [
+            1.2,
+            1.2,
+            1.2
+          ],
+          "scale_min": [
+            0.8,
+            0.8,
+            0.8
+          ],
+          "seed": -1506168781,
+          "uniform_scale": true
+        }
+      },
+      {
+        "name": "StaticMeshSpawner_0",
+        "settingsClass": "PCGStaticMeshSpawnerSettings",
+        "props": {
+          "allow_descriptor_changes": true,
+          "allow_merge_different_data_in_same_instanced_components": true,
+          "apply_mesh_bounds_to_points": true,
+          "mesh_selector_instance": "/Game/PCG_ForestScatter.PCG_ForestScatter:StaticMeshSpawner_0.PCGStaticMeshSpawnerSettings_0.DefaultSelectorInstance",
+          "mesh_selector_parameters": "/Game/PCG_ForestScatter.PCG_ForestScatter:StaticMeshSpawner_0.PCGStaticMeshSpawnerSettings_0.DefaultSelectorInstance",
+          "mesh_selector_type": "/Script/PCG.PCGMeshSelectorWeighted",
+          "seed": 1868723755,
+          "synchronous_load": false
+        }
+      },
+      {
+        "name": "GetGenericGraphParameter_0",
+        "settingsClass": "PCGGenericUserParameterGetSettings",
+        "props": {
+          "property_path": "",
+          "quiet": false,
+          "seed": -1416972839
+        }
+      },
+      {
+        "name": "GetGraphParameter_2",
+        "settingsClass": "PCGUserParameterGetSettings",
+        "props": {
+          "seed": -1418086969
+        }
+      },
+      {
+        "name": "GetGraphParameter_3",
+        "settingsClass": "PCGUserParameterGetSettings",
+        "props": {
+          "seed": -1418086969
+        }
+      },
+      {
+        "name": "GetGraphParameter_4",
+        "settingsClass": "PCGUserParameterGetSettings",
+        "props": {
+          "seed": -1418086969
+        }
+      },
+      {
+        "name": "GetGraphParameter_5",
+        "settingsClass": "PCGUserParameterGetSettings",
+        "props": {
+          "seed": -1418086969
+        }
+      },
+      {
+        "name": "AttributeMathsOp_0",
+        "settingsClass": "PCGMetadataMathsSettings",
+        "props": {
+          "seed": -1579963513
+        }
+      }
+    ],
+    "userParameterNodes": 5
+  },
+  "scatter": {
+    "actor": "PCG_ForestScatter",
+    "pcgComponents": [
+      {
+        "name": "PCG Component",
+        "seed": 42,
+        "generationTrigger": "<PCGComponentGenerationTrigger.GENERATE_ON_LOAD: 0>",
+        "generatedGraphOutput": {
+          "class": "<class 'PCGDataCollection'>",
+          "readable": true,
+          "taggedCount": 1
+        }
+      }
+    ],
+    "instancedMeshes": [
+      {
+        "component": "ISM_Cube_0",
+        "actor": "PCG_ForestScatter",
+        "instanceCount": 19,
+        "mesh": {
+          "packagePath": "/Engine/BasicShapes/Cube",
+          "objectPath": "/Engine/BasicShapes/Cube.Cube",
+          "boundsCm": {
+            "min": [
+              -50.0,
+              -50.0,
+              -50.0
+            ],
+            "max": [
+              50.0,
+              50.0,
+              50.0
+            ]
+          },
+          "triCount": 48
+        },
+        "points": [
+          {
+            "t": [
+              -208.975203,
+              -13725.53118,
+              7.542588
+            ],
+            "r": [
+              0.0,
+              0.0,
+              -126.083
+            ],
+            "s": [
+              0.827201,
+              0.827201,
+              0.827201
+            ]
+          },
+          {
+            "t": [
+              153.033983,
+              -13213.086093,
+              15.728268
+            ],
+            "r": [
+              -0.0,
+              0.0,
+              59.618
+            ],
+            "s": [
+              0.923911,
+              0.923911,
+              0.923911
+            ]
+          },
+          {
+            "t": [
+              1384.427551,
+              -13244.84015,
+              -22.274685
+            ],
+            "r": [
+              0.0,
+              -0.0,
+              -26.647
+            ],
+            "s": [
+              1.170778,
+              1.170778,
+              1.170778
+            ]
+          },
+          {
+            "t": [
+              2726.573948,
+              -13758.04285,
+              27.052746
+            ],
+            "r": [
+              -0.0,
+              0.0,
+              31.634
+            ],
+            "s": [
+              1.170391,
+              1.170391,
+              1.170391
+            ]
+          },
+          {
+            "t": [
+              -804.068631,
+              -12282.004557,
+              34.338899
+            ],
+            "r": [
+              0.0,
+              -0.0,
+              -88.199
+            ],
+            "s": [
+              0.940284,
+              0.940284,
+              0.940284
+            ]
+          },
+          {
+            "t": [
+              352.756869,
+              -12779.83045,
+              -7.613084
+            ],
+            "r": [
+              0.0,
+              -0.0,
+              -2.28
+            ],
+            "s": [
+              0.955745,
+              0.955745,
+              0.955745
+            ]
+          },
+          {
+            "t": [
+              1603.105658,
+              -12543.434482,
+              -6.303251
+            ],
+            "r": [
+              -0.0,
+              0.0,
+              41.23
+            ],
+            "s": [
+              0.969882,
+              0.969882,
+              0.969882
+            ]
+          },
+          {
+            "t": [
+              2768.198178,
+              -12407.309953,
+              1.347479
+            ],
+            "r": [
+              0.0,
+              -0.0,
+              -41.928
+            ],
+            "s": [
+              0.805827,
+              0.805827,
+              0.805827
+            ]
+          },
+          {
+            "t": [
+              -1000.254521,
+              -11156.426886,
+              -34.588612
+            ],
+            "r": [
+              0.0,
+              0.0,
+              -150.675
+            ],
+            "s": [
+              1.01301,
+              1.01301,
+              1.01301
+            ]
+          },
+          {
+            "t": [
+              324.265213,
+              -11370.850483,
+              17.014631
+            ],
+            "r": [
+              -0.0,
+              0.0,
+              61.371
+            ],
+            "s": [
+              0.806701,
+              0.806701,
+              0.806701
+            ]
+          },
+          {
+            "t": [
+              1186.328536,
+              -11618.031895,
+              -0.468569
+            ],
+            "r": [
+              -0.0,
+              0.0,
+              42.798
+            ],
+            "s": [
+              1.114606,
+              1.114606,
+              1.114606
+            ]
+          },
+          {
+            "t": [
+              2559.522024,
+              -11640.745984,
+              18.572013
+            ],
+            "r": [
+              -0.0,
+              0.0,
+              55.044
+            ],
+            "s": [
+              0.818547,
+              0.818547,
+              0.818547
+            ]
+          },
+          {
+            "t": [
+              -830.08368,
+              -10250.208054,
+              -16.008462
+            ],
+            "r": [
+              -0.0,
+              0.0,
+              101.399
+            ],
+            "s": [
+              1.07654,
+              1.07654,
+              1.07654
+            ]
+          },
+          {
+            "t": [
+              135.031222,
+              -10310.777554,
+              29.957528
+            ],
+            "r": [
+              -0.0,
+              0.0,
+              178.522
+            ],
+            "s": [
+              0.854638,
+              0.854638,
+              0.854638
+            ]
+          },
+          {
+            "t": [
+              1515.939907,
+              -10551.016677,
+              -22.481366
+            ],
+            "r": [
+              -0.0,
+              0.0,
+              133.068
+            ],
+            "s": [
+              0.94076,
+              0.94076,
+              0.94076
+            ]
+          },
+          {
+            "t": [
+              2445.781696,
+              -10333.297285,
+              1.967102
+            ],
+            "r": [
+              -0.0,
+              0.0,
+              53.198
+            ],
+            "s": [
+              1.184218,
+              1.184218,
+              1.184218
+            ]
+          },
+          {
+            "t": [
+              -394.899797,
+              -9703.247591,
+              43.126436
+            ],
+            "r": [
+              -0.0,
+              0.0,
+              13.147
+            ],
+            "s": [
+              1.141441,
+              1.141441,
+              1.141441
+            ]
+          },
+          {
+            "t": [
+              1348.249002,
+              -9697.548517,
+              34.306592
+            ],
+            "r": [
+              0.0,
+              0.0,
+              -135.516
+            ],
+            "s": [
+              0.962987,
+              0.962987,
+              0.962987
+            ]
+          },
+          {
+            "t": [
+              2768.561542,
+              -9609.155953,
+              -2.798545
+            ],
+            "r": [
+              0.0,
+              -0.0,
+              -38.224
+            ],
+            "s": [
+              0.849713,
+              0.849713,
+              0.849713
+            ]
+          }
+        ],
+        "boundsCm": {
+          "min": [
+            -1000.254521,
+            -13758.04285,
+            -34.588612
+          ],
+          "max": [
+            2768.561542,
+            -9609.155953,
+            43.126436
+          ]
+        }
+      }
+    ],
+    "instanceCount": 19,
+    "points": [
+      {
+        "t": [
+          -208.975203,
+          -13725.53118,
+          7.542588
+        ],
+        "r": [
+          0.0,
+          0.0,
+          -126.083
+        ],
+        "s": [
+          0.827201,
+          0.827201,
+          0.827201
+        ]
+      },
+      {
+        "t": [
+          153.033983,
+          -13213.086093,
+          15.728268
+        ],
+        "r": [
+          -0.0,
+          0.0,
+          59.618
+        ],
+        "s": [
+          0.923911,
+          0.923911,
+          0.923911
+        ]
+      },
+      {
+        "t": [
+          1384.427551,
+          -13244.84015,
+          -22.274685
+        ],
+        "r": [
+          0.0,
+          -0.0,
+          -26.647
+        ],
+        "s": [
+          1.170778,
+          1.170778,
+          1.170778
+        ]
+      },
+      {
+        "t": [
+          2726.573948,
+          -13758.04285,
+          27.052746
+        ],
+        "r": [
+          -0.0,
+          0.0,
+          31.634
+        ],
+        "s": [
+          1.170391,
+          1.170391,
+          1.170391
+        ]
+      },
+      {
+        "t": [
+          -804.068631,
+          -12282.004557,
+          34.338899
+        ],
+        "r": [
+          0.0,
+          -0.0,
+          -88.199
+        ],
+        "s": [
+          0.940284,
+          0.940284,
+          0.940284
+        ]
+      },
+      {
+        "t": [
+          352.756869,
+          -12779.83045,
+          -7.613084
+        ],
+        "r": [
+          0.0,
+          -0.0,
+          -2.28
+        ],
+        "s": [
+          0.955745,
+          0.955745,
+          0.955745
+        ]
+      },
+      {
+        "t": [
+          1603.105658,
+          -12543.434482,
+          -6.303251
+        ],
+        "r": [
+          -0.0,
+          0.0,
+          41.23
+        ],
+        "s": [
+          0.969882,
+          0.969882,
+          0.969882
+        ]
+      },
+      {
+        "t": [
+          2768.198178,
+          -12407.309953,
+          1.347479
+        ],
+        "r": [
+          0.0,
+          -0.0,
+          -41.928
+        ],
+        "s": [
+          0.805827,
+          0.805827,
+          0.805827
+        ]
+      },
+      {
+        "t": [
+          -1000.254521,
+          -11156.426886,
+          -34.588612
+        ],
+        "r": [
+          0.0,
+          0.0,
+          -150.675
+        ],
+        "s": [
+          1.01301,
+          1.01301,
+          1.01301
+        ]
+      },
+      {
+        "t": [
+          324.265213,
+          -11370.850483,
+          17.014631
+        ],
+        "r": [
+          -0.0,
+          0.0,
+          61.371
+        ],
+        "s": [
+          0.806701,
+          0.806701,
+          0.806701
+        ]
+      },
+      {
+        "t": [
+          1186.328536,
+          -11618.031895,
+          -0.468569
+        ],
+        "r": [
+          -0.0,
+          0.0,
+          42.798
+        ],
+        "s": [
+          1.114606,
+          1.114606,
+          1.114606
+        ]
+      },
+      {
+        "t": [
+          2559.522024,
+          -11640.745984,
+          18.572013
+        ],
+        "r": [
+          -0.0,
+          0.0,
+          55.044
+        ],
+        "s": [
+          0.818547,
+          0.818547,
+          0.818547
+        ]
+      },
+      {
+        "t": [
+          -830.08368,
+          -10250.208054,
+          -16.008462
+        ],
+        "r": [
+          -0.0,
+          0.0,
+          101.399
+        ],
+        "s": [
+          1.07654,
+          1.07654,
+          1.07654
+        ]
+      },
+      {
+        "t": [
+          135.031222,
+          -10310.777554,
+          29.957528
+        ],
+        "r": [
+          -0.0,
+          0.0,
+          178.522
+        ],
+        "s": [
+          0.854638,
+          0.854638,
+          0.854638
+        ]
+      },
+      {
+        "t": [
+          1515.939907,
+          -10551.016677,
+          -22.481366
+        ],
+        "r": [
+          -0.0,
+          0.0,
+          133.068
+        ],
+        "s": [
+          0.94076,
+          0.94076,
+          0.94076
+        ]
+      },
+      {
+        "t": [
+          2445.781696,
+          -10333.297285,
+          1.967102
+        ],
+        "r": [
+          -0.0,
+          0.0,
+          53.198
+        ],
+        "s": [
+          1.184218,
+          1.184218,
+          1.184218
+        ]
+      },
+      {
+        "t": [
+          -394.899797,
+          -9703.247591,
+          43.126436
+        ],
+        "r": [
+          -0.0,
+          0.0,
+          13.147
+        ],
+        "s": [
+          1.141441,
+          1.141441,
+          1.141441
+        ]
+      },
+      {
+        "t": [
+          1348.249002,
+          -9697.548517,
+          34.306592
+        ],
+        "r": [
+          0.0,
+          0.0,
+          -135.516
+        ],
+        "s": [
+          0.962987,
+          0.962987,
+          0.962987
+        ]
+      },
+      {
+        "t": [
+          2768.561542,
+          -9609.155953,
+          -2.798545
+        ],
+        "r": [
+          0.0,
+          -0.0,
+          -38.224
+        ],
+        "s": [
+          0.849713,
+          0.849713,
+          0.849713
+        ]
+      }
+    ],
+    "pilot": true,
+    "note": "2026-10 试点：用 /Engine/BasicShapes/Cube 方盒子代替树，19 个实例；规模小是当时刻意试点，不是缺陷。"
+  },
+  "output": {
+    "collectionClass": "<class 'PCGDataCollection'>",
+    "taggedCount": 1,
+    "note": "PCGDataCollection 可读；点级 metadata 直接访问 API 未暴露（见 docs/manifest-spec.md v1.1 未覆盖项）"
+  },
+  "warnings": []
+}

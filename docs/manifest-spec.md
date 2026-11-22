@@ -1,7 +1,9 @@
-# manifest.json 规范（v1.0）
+# manifest.json 规范（v1.1）
 
 > 一份 manifest = 一个批次（batch）的资产清单。**双端消费端只读这一份文件**，不允许各端自己扫描目录。
 > 版本策略：字段只增不改语义；破坏性变更抬 `manifestVersion` 次版本号；消费端遇到不认识的主版本号必须**拒绝执行**。
+> v1.1（2026-11-22）新增：`model.source` / `model.format: engine_native` / `placements[]` /
+> `material.template: none` 时允许 `textures: {}`。v1.0 的 manifest 仍然合法（新字段全可选）。
 
 ## 一、顶层结构
 
@@ -121,7 +123,42 @@ manifest 里的 `model.boundingBoxM` **一律用米**，由中台换算；消费
 }
 ```
 
-## 五、五条硬约束（消费端必须校验，违反就整批拒绝）
+## 五、v1.1 新增字段（PCG 散点）
+
+PCG 的输出不是"一批新资产"，而是"一个网格 + N 个实例"。用一个实例一条资产去表达是错的
+（UE 端会建 N 个材质实例，是典型的中台建模错误）。v1.1 增加 `placements`：
+
+```jsonc
+{
+  "id": "SM_Cube_PCG_Pilot",
+  "model": {
+    "path": "ue:/Engine/BasicShapes/Cube",   // 引擎内置网格：不是文件
+    "source": "engine",                      // file | engine（默认 file）
+    "format": "engine_native"                // source=engine 时必须；file 时仍是 gltf2.0/fbx/obj
+  },
+  "textures": {},                            // 仅当 material.template == "none" 允许空
+  "material": { "template": "none" },        // none = 用引擎默认材质，不建 MIC
+  "engineTargets": { "UE5": { "destPath": "/Game/EAP/PCG/Pilot" } },   // Unity 端可省略
+  "placements": {
+    "space": "world", "unit": "m", "count": 19,
+    "items": [ { "t": [x, y, z], "r": [roll, pitch, yaw], "s": [sx, sy, sz] }, "..." ]
+  }
+}
+```
+
+三条硬规则（`tools/validate_manifest.py` 已实现，负例见 `tools/test_validator.py`）：
+
+1. `placements.count` 必须等于 `items` 条数，且每个 `t/r/s` 必须是 3 个**有限**数字；
+2. `model.source == "engine"` 时 `path` 必须 `ue:/` 开头、`format` 必须是 `engine_native`，**不许编 glb 路径**；
+3. `textures == {}` 只在 `material.template == "none"` 时放行；普通资产仍强制贴图通道完整。
+
+坐标约定：导出端（UE）按 uu = cm 记录，`tools/pcg_to_manifest.py` 统一换算成米；
+旋转是**欧拉角 degree**（roll, pitch, yaw），轴序与 UE `FRotator` 一致（Z-up，1 uu = 1 cm）。
+
+**未覆盖**：`placements` 目前只被消费端读取统计、没有落成 ISM 实例；PCG 点级 metadata 没有可用的
+Python 访问器，所以 `items` 来自**最终实例 transform**（不是图里的点属性）。
+
+## 六、五条硬约束（消费端必须校验，违反就整批拒绝）
 
 1. `manifestVersion` 主版本不认识 → 拒绝。
 2. `units` 不是 `m`/`cm`，或 `model.unit` 与顶层 `units` 冲突 → 拒绝。

@@ -114,6 +114,10 @@ def try_import_texture(dest_dir, tex_name, disk_path):
 
 def build_material_instance(asset, dest_dir, repo_root, report, dry_run):
     aid = asset["id"]
+    # v1.1：template == "none" 表示用引擎默认材质（如 PCG 散布的引擎内置网格），不建 MIC
+    if (asset.get("material") or {}).get("template") == "none":
+        _log("%s材质模板 none → 用引擎默认材质，跳过 MIC" % ("[dry] " if dry_run else ""))
+        return None
     mi_name = asset.get("engineTargets", {}).get("UE5", {}).get("materialInstance") or ("MI_" + aid)
     mi_pkg = _asset_path(dest_dir, mi_name)
     parent_pkg = _asset_path(dest_dir, MATERIAL_TEMPLATE_NAME)
@@ -185,7 +189,11 @@ def run(manifest_path, dry_run=False):
             if not dry_run:
                 ensure_package_dir(dest_dir)
             mi_pkg = build_material_instance(asset, dest_dir, repo, report, dry_run)
-            if not dry_run and asset.get("model", {}).get("path"):
+            model_source = (asset.get("model") or {}).get("source", "file")
+            if model_source == "engine":
+                if dry_run:
+                    _log("[dry] 网格来自引擎内置: %s（跳过导入）" % asset["model"].get("path"))
+            elif not dry_run and asset.get("model", {}).get("path"):
                 task = unreal.AssetImportTask()
                 task.set_editor_property("filename", os.path.join(repo, asset["model"]["path"]))
                 task.set_editor_property("destination_path", dest_dir)
@@ -196,7 +204,17 @@ def run(manifest_path, dry_run=False):
                 apply_collision(asset, mesh_pkg, report)
             if (asset.get("pivot") or {}).get("mode") not in (None, "none"):
                 report["warnings"].append("%s: pivot 需在导出端处理（UE Python 无轴心接口）" % aid)
-            report["ok"].append({"id": aid, "mic": mi_pkg})
+            # v1.1：placements —— 同一网格的 N 个实例（PCG 散点）。阶段一只读取+统计，落位留阶段二
+            placements = asset.get("placements") or {}
+            pcount = placements.get("count") or 0
+            if pcount:
+                if dry_run:
+                    _log("[dry] 将放置 %d 个实例 ← %s（space=%s；落位实现见 README 未覆盖项）"
+                         % (pcount, aid, placements.get("space")))
+                else:
+                    _warn("%s: placements 落位未实现（阶段一只读取统计，%d 个）" % (aid, pcount))
+                report.setdefault("placements", {})[aid] = pcount
+            report["ok"].append({"id": aid, "mic": mi_pkg, "placements": pcount})
         except Exception as exc:
             report["failed"].append({"id": aid, "reason": str(exc)})
             _warn("资产失败 %s: %s" % (aid, exc))
@@ -204,6 +222,7 @@ def run(manifest_path, dry_run=False):
     out = os.path.splitext(manifest_path)[0] + ".ue_report.json"
     with open(out, "w", encoding="utf-8") as fh:
         json.dump(report, fh, ensure_ascii=False, indent=2)
-    _log("完成 ok=%d failed=%d warn=%d %.2fs → %s" % (len(report["ok"]), len(report["failed"]),
-                                                      len(report["warnings"]), report["seconds"], out))
+    _log("完成 ok=%d failed=%d warn=%d placements=%d %.2fs → %s" % (
+        len(report["ok"]), len(report["failed"]), len(report["warnings"]),
+        sum((report.get("placements") or {}).values()), report["seconds"], out))
     return report
