@@ -1,2 +1,278 @@
-﻿[]
-
+[
+  {
+    "file": "conifer.glb",
+    "species": "pine",
+    "source_url": "https://poly.pizza/m/79gmlLnweB",
+    "author": "Quaternius",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "height_m": 10.236,
+    "origin": "trunk_base",
+    "up_axis": "Y",
+    "unit": "m",
+    "tri_count_lod0": 3370,
+    "lods": [],
+    "materials": 2,
+    "textures": [
+      "Bark_NormalTree_Normal.png",
+      "Bark_NormalTree.png",
+      "Leaf_Pine_C.png"
+    ],
+    "downloaded_at": "2026-11-22",
+    "source_site": "Poly Pizza",
+    "source_model_title": "Pine",
+    "source_model_id": "79gmlLnweB",
+    "download_url": "https://static.poly.pizza/082c2026-56af-4e3f-bea7-9ae5de71101f.glb",
+    "original_author_url": "https://quaternius.com",
+    "license_evidence": {
+      "page": "https://poly.pizza/m/79gmlLnweB",
+      "stated_as": "Public Domain (CC0)"
+    },
+    "file_bytes": 2221392,
+    "sha256": "56f88f78f38fc19496a8faa5006ae311ba8e62a3672ca2c813399dee0d6a20e4",
+    "gltf_version": "2.0",
+    "generator": "FBX2glTF v0.9.7",
+    "nodes": 2,
+    "meshes": 1,
+    "mesh_node_names": [
+      "Pine_4"
+    ],
+    "vertex_count": 2960,
+    "vertex_count_note": "glTF 顶点数（未按 position 去重）",
+    "bbox_min_m": [
+      -2.878,
+      0.0,
+      -2.946
+    ],
+    "bbox_max_m": [
+      2.924,
+      10.236,
+      2.425
+    ],
+    "bbox_size_m": [
+      5.802,
+      10.236,
+      5.371
+    ],
+    "materials_detail": [
+      {
+        "name": "Bark_NormalTree",
+        "base_color_texture": true,
+        "metallic_roughness_texture": false,
+        "normal_texture": true,
+        "occlusion_texture": false,
+        "emissive_texture": false,
+        "alpha_mode": "OPAQUE",
+        "double_sided": false
+      },
+      {
+        "name": "Leaves_Pine",
+        "base_color_texture": true,
+        "metallic_roughness_texture": false,
+        "normal_texture": false,
+        "occlusion_texture": false,
+        "emissive_texture": false,
+        "alpha_mode": "BLEND",
+        "double_sided": false
+      }
+    ],
+    "texture_details": [
+      {
+        "name": "Bark_NormalTree_Normal.png",
+        "mime": "image/png",
+        "width": 1024,
+        "height": 1024,
+        "mode": "RGBA",
+        "encoded_bytes": 1061891
+      },
+      {
+        "name": "Bark_NormalTree.png",
+        "mime": "image/png",
+        "width": 1024,
+        "height": 1024,
+        "mode": "RGBA",
+        "encoded_bytes": 959943
+      },
+      {
+        "name": "Leaf_Pine_C.png",
+        "mime": "image/png",
+        "width": 1024,
+        "height": 1024,
+        "mode": "RGBA",
+        "encoded_bytes": 33660
+      }
+    ],
+    "external_uri": [],
+    "animations": 0,
+    "pivot_normalization": {
+      "method": "root node translation (Y-up scene space)",
+      "delta_m": [
+        -0.006,
+        0.2351,
+        0.0
+      ],
+      "original_bbox_min_y_m": -0.2351,
+      "original_base_center_xz_m": [
+        0.006,
+        -0.0
+      ],
+      "result_bbox_min_y_m": 0.0,
+      "result_base_center_xz_m": [
+        0.0,
+        -0.0
+      ],
+      "note": "原始下载资产树根底部位于 y<0；已将根节点整体平移，使树根底部中心落在原点上。"
+    },
+    "single_tree": true,
+    "textures_embedded": true,
+    "lod_note": "无 LOD；LOD0 三角面 3370 ≤ 2 万，按硬门槛 7 的\"没有 LOD 的低模\"属合格项。",
+    "validation": {
+      "tool": "Khronos glTF Validator 2.0.0-dev.3.10",
+      "errors": 0,
+      "warnings": [
+        "MESH_PRIMITIVE_GENERATED_TANGENT_SPACE"
+      ],
+      "warning_note": "网格未带 TANGENT 属性，运行时需自行生成切线空间；UE / Unity 导入器会处理，管线侧如需可在中间件生成。"
+    },
+    "texture_notes": "3 张 PNG 均内嵌于 .glb（1024×1024，无外部依赖）；法线贴图 PNG 自带 sRGB 色块（validator 报 transfer=srgb），导入时法线需按线性（非 sRGB）处理。",
+    "notes": "单棵树（一个 .glb 只含 1 个树的节点树）；无 LOD；贴图内嵌；原点已归一化到树干底部中心。"
+  },
+  {
+    "file": "broadleaf.glb",
+    "species": "broadleaf",
+    "source_url": "https://poly.pizza/m/QVOop92WmG",
+    "author": "Quaternius",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "height_m": 9.425,
+    "origin": "trunk_base",
+    "up_axis": "Y",
+    "unit": "m",
+    "tri_count_lod0": 3505,
+    "lods": [],
+    "materials": 2,
+    "textures": [
+      "Bark_NormalTree_Normal.png",
+      "Bark_NormalTree.png",
+      "Leaves_NormalTree_C.png"
+    ],
+    "downloaded_at": "2026-11-22",
+    "source_site": "Poly Pizza",
+    "source_model_title": "Tree",
+    "source_model_id": "QVOop92WmG",
+    "download_url": "https://static.poly.pizza/2c5938cb-4005-4958-829b-e191be39b3b9.glb",
+    "original_author_url": "https://quaternius.com",
+    "license_evidence": {
+      "page": "https://poly.pizza/m/QVOop92WmG",
+      "stated_as": "Public Domain (CC0)"
+    },
+    "file_bytes": 2430300,
+    "sha256": "96da9f60a2f09b0675e0e10dfc2c1a8162168601f77a242fe45f3a6670a0a8af",
+    "gltf_version": "2.0",
+    "generator": "FBX2glTF v0.9.7",
+    "nodes": 2,
+    "meshes": 1,
+    "mesh_node_names": [
+      "CommonTree_3"
+    ],
+    "vertex_count": 4704,
+    "vertex_count_note": "glTF 顶点数（未按 position 去重）",
+    "bbox_min_m": [
+      -1.994,
+      0.0,
+      -2.061
+    ],
+    "bbox_max_m": [
+      2.068,
+      9.425,
+      2.18
+    ],
+    "bbox_size_m": [
+      4.063,
+      9.425,
+      4.241
+    ],
+    "materials_detail": [
+      {
+        "name": "Bark_NormalTree",
+        "base_color_texture": true,
+        "metallic_roughness_texture": false,
+        "normal_texture": true,
+        "occlusion_texture": false,
+        "emissive_texture": false,
+        "alpha_mode": "OPAQUE",
+        "double_sided": false
+      },
+      {
+        "name": "Leaves_NormalTree",
+        "base_color_texture": true,
+        "metallic_roughness_texture": false,
+        "normal_texture": false,
+        "occlusion_texture": false,
+        "emissive_texture": false,
+        "alpha_mode": "BLEND",
+        "double_sided": false
+      }
+    ],
+    "texture_details": [
+      {
+        "name": "Bark_NormalTree_Normal.png",
+        "mime": "image/png",
+        "width": 1024,
+        "height": 1024,
+        "mode": "RGBA",
+        "encoded_bytes": 1061891
+      },
+      {
+        "name": "Bark_NormalTree.png",
+        "mime": "image/png",
+        "width": 1024,
+        "height": 1024,
+        "mode": "RGBA",
+        "encoded_bytes": 959943
+      },
+      {
+        "name": "Leaves_NormalTree_C.png",
+        "mime": "image/png",
+        "width": 1024,
+        "height": 1024,
+        "mode": "RGBA",
+        "encoded_bytes": 158015
+      }
+    ],
+    "external_uri": [],
+    "animations": 0,
+    "pivot_normalization": {
+      "method": "root node translation (Y-up scene space)",
+      "delta_m": [
+        -0.008,
+        0.2428,
+        0.0
+      ],
+      "original_bbox_min_y_m": -0.2428,
+      "original_base_center_xz_m": [
+        0.008,
+        -0.0
+      ],
+      "result_bbox_min_y_m": 0.0,
+      "result_base_center_xz_m": [
+        0.0,
+        -0.0
+      ],
+      "note": "原始下载资产树根底部位于 y<0；已将根节点整体平移，使树根底部中心落在原点上。"
+    },
+    "single_tree": true,
+    "textures_embedded": true,
+    "lod_note": "无 LOD；LOD0 三角面 3505 ≤ 2 万，按硬门槛 7 的\"没有 LOD 的低模\"属合格项。",
+    "validation": {
+      "tool": "Khronos glTF Validator 2.0.0-dev.3.10",
+      "errors": 0,
+      "warnings": [
+        "MESH_PRIMITIVE_GENERATED_TANGENT_SPACE"
+      ],
+      "warning_note": "网格未带 TANGENT 属性，运行时需自行生成切线空间；UE / Unity 导入器会处理，管线侧如需可在中间件生成。"
+    },
+    "texture_notes": "3 张 PNG 均内嵌于 .glb（1024×1024，无外部依赖）；法线贴图 PNG 自带 sRGB 色块（validator 报 transfer=srgb），导入时法线需按线性（非 sRGB）处理。",
+    "notes": "单棵树（一个 .glb 只含 1 个树的节点树）；无 LOD；贴图内嵌；原点已归一化到树干底部中心。"
+  }
+]

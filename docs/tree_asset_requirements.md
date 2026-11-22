@@ -4,6 +4,19 @@
 >
 > 采集者不需要懂 UE。只要按本文交付，放进 `D:\Projects\AssetPipeline-EngineAgnostic\assets\raw\trees\`，后续由 lead 跑链路。
 
+## 已采用资产（2026-11-22 落地）
+
+| 类型 | 文件 | 来源 | 许可 | 高度 | 三角面 | 材质 / 贴图 | 原点 |
+|---|---|---|---|---|---|---|---|
+| 针叶（pine） | `conifer.glb` | Poly Pizza「Pine」/ Quaternius | CC0-1.0 | 10.24 m | 3,370 | 2 材质；3 张 1024² PNG 内嵌（含法线） | 树干底部中心（已归一化） |
+| 阔叶 | `broadleaf.glb` | Poly Pizza「Tree」(CommonTree_3) / Quaternius | CC0-1.0 | 9.43 m | 3,505 | 2 材质；3 张 1024² PNG 内嵌（含法线） | 树干底部中心（已归一化） |
+
+机器可读字段见 `assets/raw/trees/source_assets.json`：来源 URL、作者、CC0 证据、sha256、包围盒、三角面、贴图尺寸、原点归一化平移量、Khronos glTF Validator 结果都在里面。
+
+- 两棵均为**单棵树、Y-up、米制、贴图内嵌、无外部依赖**；无 LOD（LOD0 远低于 2 万，按硬门槛 7 的"没有 LOD 的低模"合格）。
+- 原始下载资产的树根底部在 y<0（约 -0.24 m），落地时已用**根节点平移**把树干底部中心对齐到原点；平移量写在 sidecar 的 `pivot_normalization.delta_m`，可复现。
+- Khronos glTF Validator：**0 error**，各 1 条 `MESH_PRIMITIVE_GENERATED_TANGENT_SPACE` warning（无 TANGENT 属性，导入端会自行生成切线空间）。
+
 ---
 
 ## 一、为什么要求这么多
