@@ -35,8 +35,11 @@ DEFAULT_OUT = r"D:\Projects\AssetPipeline-EngineAgnostic\docs\placed_pilot.json"
 DEFAULT_VERIFY_OUT = r"D:\Projects\AssetPipeline-EngineAgnostic\docs\placed_verify.json"
 ACTOR_LABEL = "EAP_Placements"
 MAT_DIR = "/Game/EAP/Materials"
-FOLIAGE_MAT = MAT_DIR + "/M_EAP_Foliage_Masked"
-OPAQUE_MAT = MAT_DIR + "/M_EAP_Opaque"
+# _v2：第一版母材质把法线采样节点建成了"没法线贴图"的法线采样器，编译失败 → 全白，改名重建
+FOLIAGE_MAT = MAT_DIR + "/M_EAP_Foliage_Masked_v2"
+OPAQUE_MAT = MAT_DIR + "/M_EAP_Opaque_v2"
+LEGACY_MATS = (MAT_DIR + "/M_EAP_Opaque", MAT_DIR + "/M_EAP_Foliage_Masked",
+               MAT_DIR + "/M_EAP_Tree_Bark", MAT_DIR + "/M_EAP_Tree_Leaf")
 USAGE_FLAGS = ("MATUSAGE_STATIC_MESH", "MATUSAGE_INSTANCED_STATIC_MESHES", "MATUSAGE_NANITE")
 
 
@@ -251,17 +254,23 @@ def _material_source_map(mi):
     return out
 
 
-def _ensure_material(pkg, masked):
-    """建/复用 EAP 母材质：BaseColor + Normal 参数化、metallic 0、roughness 0.9、用法标记齐全。
+def _ensure_material(pkg, masked, normal_tex=None, base_tex=None):
+    """建/复用 EAP 母材质：BaseColor(+Normal) 参数化、metallic 0、roughness 0.9、用法标记齐全。
 
     2026-11-22 实测：`-nullrhi` 下建材质 + `recompile_material` 都能跑（没有渲染管线也能编译节点图），
     所以材质规范化可以完全无头做，不需要用户点编辑器。
+
+    **两个必须遵守的建法（踩过才写下来）**：
+    1. 法线采样节点必须有默认贴图（`texture`），否则编译器报
+       `Sampler type is Normal, should be Color for DefaultTexture` → 整个材质编译失败 → 退回**默认白材质**。
+       没有法线贴图的资产（树叶）就干脆不建法线节点。
+    2. BaseColor 采样节点也给它默认贴图，这样即使 MIC 参数没生效也是"带贴图的"，不会是纯白。
     """
     alb = unreal.EditorAssetLibrary
     mel = unreal.MaterialEditingLibrary
+    _safe(lambda: alb.make_directory(MAT_DIR))
     if bool(_safe(lambda: alb.does_asset_exist(pkg), False)):
         return alb.load_asset(pkg)
-    _safe(lambda: alb.make_directory(MAT_DIR))
     mat = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
         pkg.rsplit("/", 1)[-1], MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
     _safe(lambda: mat.set_editor_property(
@@ -272,13 +281,18 @@ def _ensure_material(pkg, masked):
     _safe(lambda: mat.set_editor_property("two_sided", bool(masked)))
     bc = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSampleParameter2D, -500, -200)
     _safe(lambda: bc.set_editor_property("parameter_name", "BaseColor"))
+    _safe(lambda: bc.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_COLOR))
+    if base_tex is not None:
+        _safe(lambda: bc.set_editor_property("texture", base_tex))
     _safe(lambda: mel.connect_material_property(bc, "RGB", unreal.MaterialProperty.MP_BASE_COLOR))
     if masked:
         _safe(lambda: mel.connect_material_property(bc, "A", unreal.MaterialProperty.MP_OPACITY_MASK))
-    nm = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSampleParameter2D, -500, 200)
-    _safe(lambda: nm.set_editor_property("parameter_name", "Normal"))
-    _safe(lambda: nm.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL))
-    _safe(lambda: mel.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL))
+    if normal_tex is not None:
+        nm = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSampleParameter2D, -500, 200)
+        _safe(lambda: nm.set_editor_property("parameter_name", "Normal"))
+        _safe(lambda: nm.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL))
+        _safe(lambda: nm.set_editor_property("texture", normal_tex))
+        _safe(lambda: mel.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL))
     for pname, val, y, prop in (("Metallic", 0.0, 420, unreal.MaterialProperty.MP_METALLIC),
                                 ("Roughness", 0.9, 560, unreal.MaterialProperty.MP_ROUGHNESS)):
         sp = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -300, y)
@@ -290,7 +304,9 @@ def _ensure_material(pkg, masked):
             _safe(lambda u=getattr(unreal.MaterialUsage, usage_name): mel.set_material_usage(mat, u))
     _safe(lambda: mel.recompile_material(mat))
     _safe(lambda: alb.save_loaded_asset(mat))
-    _log("已建 EAP 母材质 %s（%s）" % (pkg, "MASKED" if masked else "OPAQUE"))
+    _log("已建 EAP 母材质 %s（%s%s%s）" % (pkg, "MASKED" if masked else "OPAQUE",
+                                         "，带法线" if normal_tex is not None else "",
+                                         "，带默认 BaseColor" if base_tex is not None else ""))
     return mat
 
 
@@ -327,14 +343,6 @@ def _normalize_materials(mesh, tag, expected_alpha_modes=None):
         want = (expected_alpha_modes[slot].get("alphaMode")
                 if slot < len(expected_alpha_modes) and isinstance(expected_alpha_modes[slot], dict) else None)
         masked = _is_alpha_material(src, want)
-        pkg = MAT_DIR + "/MI_EAP_%s_%d_%s" % (tag, slot, "masked" if masked else "opaque")
-        base_mat = _ensure_material(FOLIAGE_MAT if masked else OPAQUE_MAT, masked)
-        mi = alb.load_asset(pkg) if bool(_safe(lambda: alb.does_asset_exist(pkg), False)) else None
-        if mi is None:
-            mi = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
-                pkg.rsplit("/", 1)[-1], MAT_DIR, unreal.MaterialInstanceConstant,
-                unreal.MaterialInstanceConstantFactoryNew())
-        _safe(lambda: mi.set_editor_property("parent", base_mat))
         src_map = _material_source_map(src)
         tex_map = {}
         for pname, tex in (src_map.get("textures") or {}).items():
@@ -343,10 +351,26 @@ def _normalize_materials(mesh, tag, expected_alpha_modes=None):
                 tex_map["BaseColor"] = tex
             elif "normal" in low:
                 tex_map["Normal"] = tex
+        # 有法线贴图才建法线节点（否则材质编译失败 → 全白）；母材质按"带不带法线"分变体
+        base_pkg = (FOLIAGE_MAT if masked else OPAQUE_MAT) + ("_N" if "Normal" in tex_map else "")
+        pkg = MAT_DIR + "/MI_EAP_%s_%d_%s%s" % (tag, slot, "masked" if masked else "opaque",
+                                                "_n" if "Normal" in tex_map else "")
+        base_mat = _ensure_material(base_pkg, masked, normal_tex=tex_map.get("Normal"),
+                                    base_tex=tex_map.get("BaseColor"))
+        mi = alb.load_asset(pkg) if bool(_safe(lambda: alb.does_asset_exist(pkg), False)) else None
+        if mi is None:
+            mi = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+                pkg.rsplit("/", 1)[-1], MAT_DIR, unreal.MaterialInstanceConstant,
+                unreal.MaterialInstanceConstantFactoryNew())
+        _safe(lambda: mel.set_material_instance_parent(mi, base_mat))
+        _safe(lambda: mel.update_material_instance(mi))
         for param, tex in tex_map.items():
             _safe(lambda param=param, tex=tex: mel.set_material_instance_texture_parameter_value(mi, param, tex))
         _safe(lambda: mel.update_material_instance(mi))
         _safe(lambda: alb.save_loaded_asset(mi))
+        applied_base = _safe(lambda: str(mel.get_material_instance_texture_parameter_value(mi, "BaseColor").get_path_name()))
+        applied_normal = _safe(lambda: str(mel.get_material_instance_texture_parameter_value(mi, "Normal").get_path_name())) \
+            if "Normal" in tex_map else None
         overrides.append(mi)
         evidence.append({
             "slot": slot,
@@ -354,22 +378,42 @@ def _normalize_materials(mesh, tag, expected_alpha_modes=None):
             "sourceBlend": blend,
             "kind": "masked" if masked else "opaque",
             "material": pkg,
+            "baseMaterial": base_pkg,
             "baseColorTex": _safe(lambda t=tex_map["BaseColor"]: str(t.get_path_name())) if "BaseColor" in tex_map else None,
             "normalTex": _safe(lambda t=tex_map["Normal"]: str(t.get_path_name())) if "Normal" in tex_map else None,
+            "appliedBaseColor": applied_base,
+            "appliedNormal": applied_normal,
+            "texturesApplied": bool(applied_base and applied_base.endswith(
+                str(_safe(lambda t=tex_map["BaseColor"]: t.get_path_name())) if "BaseColor" in tex_map else "?")),
             "sourceMetallic": (src_map.get("scalars") or {}).get("MetallicFactor"),
             "metallic": 0.0,
             "roughness": 0.9,
             "opacityClip": 0.33 if masked else None,
             "twoSided": bool(masked),
             "blendModeAfter": _safe(lambda: str(base_mat.get_editor_property("blend_mode"))),
+            "normalDefaultTexture": bool(tex_map.get("Normal") is not None),
             "usage": {u: bool(_safe(lambda u=u: mel.has_material_usage(base_mat, getattr(unreal.MaterialUsage, u)), False))
                       for u in USAGE_FLAGS},
         })
-        _log("材质规范化 slot %d: %s %s → %s（metallic %.2f→0）"
-             % (slot, evidence[-1]["sourceMaterial"], blend, pkg, float(evidence[-1]["sourceMetallic"] or 0.0)))
+        _log("材质规范化 slot %d: %s %s → %s（metallic %.2f→0，贴图 BaseColor=%s）"
+             % (slot, evidence[-1]["sourceMaterial"], blend, pkg,
+                float(evidence[-1]["sourceMetallic"] or 0.0), applied_base))
     bad = [e for e in evidence if not all(e["usage"].values())]
     if bad:
         _warn("材质用法标记仍然缺失: %s" % [e["material"] for e in bad])
+    # 清理同一资产的历史 MIC（命名变了/槽位数变了留下的孤儿）
+    keep = set(e["material"] for e in evidence)
+    prefix = MAT_DIR + "/MI_EAP_" + tag + "_"
+    for p in _safe(lambda: list(alb.list_assets(MAT_DIR, recursive=False, include_folder=False)), []) or []:
+        p = str(p).split(".")[0]
+        if p.startswith(prefix) and p not in keep:
+            _safe(lambda p=p: alb.delete_asset(p))
+            _log("清理旧材质实例 %s" % p)
+    # 清理第一版（编译失败）的母材质
+    for legacy in LEGACY_MATS:
+        if bool(_safe(lambda legacy=legacy: alb.does_asset_exist(legacy), False)):
+            _safe(lambda legacy=legacy: alb.delete_asset(legacy))
+            _log("清理旧母材质 %s" % legacy)
     return {"overrideMaterials": overrides, "evidence": evidence}
 
 

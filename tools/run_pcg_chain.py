@@ -30,6 +30,7 @@ import time
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXPORT_SCRIPT = os.path.join(REPO, "ue", "Content", "Python", "pcg_export.py")
 PLACE_SCRIPT = os.path.join(REPO, "ue", "Content", "Python", "place_manifest.py")
+COMPILE_SCRIPT = os.path.join(REPO, "ue", "Content", "Python", "check_material_compile.py")
 SCATTER_JSON = os.path.join(REPO, "docs", "pcg_forest_pilot.json")
 MANIFEST_JSON = os.path.join(REPO, "schemas", "pcg_manifest.json")
 PLACE_JSON = os.path.join(REPO, "docs", "placed_pilot.json")
@@ -37,6 +38,7 @@ VERIFY_JSON = os.path.join(REPO, "docs", "placed_verify.json")
 TREE_MANIFEST_JSON = os.path.join(REPO, "schemas", "tree_manifest.json")
 TREE_PLACE_JSON = os.path.join(REPO, "docs", "placed_tree.json")
 TREE_VERIFY_JSON = os.path.join(REPO, "docs", "placed_tree_verify.json")
+COMPILE_JSON = os.path.join(REPO, "docs", "material_compile_check.json")
 DEFAULT_LEVEL_PKG = "/Game/EAP/PCG/PlacedPilot"
 DEFAULT_TREE_LEVEL_PKG = "/Game/EAP/PCG/PlacedTrees"
 DEFAULT_UE = r"C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
@@ -116,8 +118,11 @@ def _run(label, cmd, timeout=900, env=None):
     return p, lines
 
 
-def _ue_cmd(ue, project, script):
-    return [ue, project, "-ExecutePythonScript=%s" % script, "-unattended", "-nosplash", "-nullrhi", "-stdout"]
+def _ue_cmd(ue, project, script, nullrhi=True):
+    cmd = [ue, project, "-ExecutePythonScript=%s" % script, "-unattended", "-nosplash", "-stdout"]
+    if nullrhi:
+        cmd.insert(-1, "-nullrhi")   # 材质编译复检必须带 RHI，其余步骤用 -nullrhi 免得依赖显卡
+    return cmd
 
 
 def main(argv):
@@ -137,6 +142,8 @@ def main(argv):
     ap.add_argument("--tree-species", default="conifer", help="source_assets.json 里选哪个树种（默认 conifer）")
     ap.add_argument("--tree-source", default=os.path.join(REPO, "assets", "raw", "trees", "source_assets.json"),
                     help="树资产清单（默认 assets/raw/trees/source_assets.json）")
+    ap.add_argument("--skip-compile-check", action="store_true",
+                    help="跳过带 RHI 的材质编译复检（--tree 时默认会跑，约多 30~60s）")
     args = ap.parse_args(argv[1:])
 
     fails = []
@@ -234,6 +241,7 @@ def main(argv):
     # ---- 5) placements 落位（UE 无头：建 Actor + ISM，落 233 条，存专用关卡） ----
     placed = None
     verify = None
+    compile_bad = None
     if not args.skip_place:
         place_env = {
             "EAP_PLACE_MODE": "place",
@@ -270,6 +278,25 @@ def main(argv):
                   % (verify.get("count"), verify.get("mesh"), verify.get("bboxPlacedM")))
         else:
             fails.append("验证证据未生成: " + verify_json)
+
+        # ---- 6b) 材质编译复检（必须带 RHI：-nullrhi 下材质不真正编译，坏了也看不出来 → 树会全白）----
+        if args.tree and not args.skip_compile_check:
+            compile_env = dict(place_env)
+            compile_env["EAP_COMPILE_OUT"] = COMPILE_JSON
+            p, _ = _run("6b/7 UE 材质编译复检", _ue_cmd(args.ue, args.project, COMPILE_SCRIPT, nullrhi=False),
+                        env=compile_env, timeout=900)
+            out = (p.stdout or "") + "\n" + (p.stderr or "")
+            compile_bad = [ln.strip() for ln in out.splitlines() if "Failed to compile Material" in ln]
+            print("[6b/7] 材质编译: failed=%d（期望 0）" % len(compile_bad))
+            for ln in compile_bad[:4]:
+                print("     " + ln[:200])
+            if os.path.isfile(COMPILE_JSON):
+                with open(COMPILE_JSON, "r", encoding="utf-8-sig") as fh:
+                    cs = json.load(fh)
+                print("[6b/7] 复检材质 %d 个: %s" % (len(cs.get("materials") or {}),
+                                                   sorted((cs.get("materials") or {}).keys())))
+            else:
+                fails.append("材质编译复检证据未生成: " + COMPILE_JSON)
     else:
         print("[5/7][6/7] 跳过 placements 落位与验证")
 
@@ -332,6 +359,13 @@ def main(argv):
             if vmat:
                 checks.append(("落位组件材质覆盖 = EAP 材质资产",
                                all("/MI_EAP_" in (m or "") for m in vmat), str(vmat)))
+            if mat_ev:
+                tex_ok = all(e.get("texturesApplied") for e in mat_ev)
+                checks.append(("材质贴图参数已生效（BaseColor 挂上目标贴图）", tex_ok,
+                               str([str(e.get("appliedBaseColor")).rsplit(".", 1)[0] for e in mat_ev])))
+            if compile_bad is not None:
+                checks.append(("材质编译通过（无 Failed to compile，否则会退回白材质）",
+                               not compile_bad, "failed=%d" % len(compile_bad)))
     print("[7/7] 断言")
     for name, ok, detail in checks:
         print("     %-42s %s  (%s)" % (name, "PASS" if ok else "FAIL", detail))

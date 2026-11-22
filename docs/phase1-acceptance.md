@@ -59,7 +59,9 @@ python tools/run_pcg_chain.py --tree --expect-span-m 200
 | 11 | UE 侧树高 == glTF 树高（<5 cm） | UE=10.236 m / glTF=10.236 m |
 | 12 | 材质槽已规范化（metallic=0 且 usage 标记齐全） | 2 槽 `['opaque','masked']`，STATIC_MESH/ISM/NANITE 三项全 True |
 | 13 | alpha 材质已从 BLEND 转 MASKED | 树皮 `BLEND_OPAQUE` / 叶子 `BLEND_MASKED`（clip 0.33、双面） |
-| 14 | 落位组件材质覆盖 = EAP 材质资产 | `MI_EAP_conifer_0_opaque` / `MI_EAP_conifer_1_masked`（新进程读回仍在） |
+| 14 | 落位组件材质覆盖 = EAP 材质资产 | `MI_EAP_conifer_0_opaque_n` / `MI_EAP_conifer_1_masked`（新进程读回仍在） |
+| 15 | 材质贴图参数已生效（BaseColor 挂上目标贴图） | `base_color_texture` / `base_color_texture1` |
+| 16 | 材质编译通过（带 RHI 复检，无 `Failed to compile`） | failed=0 |
 
 产物与证据（换树链路）：
 
@@ -143,3 +145,10 @@ Unity 端尚未实跑、`PlacedTrees` 关卡无灯光地面（需真实编辑器
     现在沿用 Interchange 的 `TC_DEFAULT`；边缘可能出现锯齿/渗色，出图前再改并重导。
 23. **roughness 0.9 是拍脑袋值（v1.3）**：EAP 母材质把 roughness 设成常量 0.9、metallic 常量 0，
     没有走贴图（glb 本身也没 MR 贴图）。这是"去塑料感"的最小修法，不是最终材质方案。
+24. **白模事故（v1.3，已修 + 已加防线）**：第一版母材质的法线采样节点没默认贴图，编译失败 →
+    UE 回退默认白材质 → 1892 棵树全白。修法：没法线贴图的槽不建法线节点、BaseColor 也设默认贴图、
+    母材质改名 `_v2`、清理旧材质（含探针残留 `M_EAP_Tree_Bark/Leaf`）。
+    **更重要的教训**：`-nullrhi` 不真正编译材质，"材质挂上了"的断言全 PASS 也可能是白模；
+    现在链路末尾用带 RHI 的进程复检关卡里实际用到的材质，抓 `Failed to compile Material` → 第 16 条断言。
+25. **美化后的实拍图还没补（待办）**：`docs/ue_trees_placed_20261122.png` 是**规范化之前**（Interchange 材质）的实拍；
+    材质规范化后的绿树实拍要等下次开编辑器补拍（用户 2026-11-22 收工）。

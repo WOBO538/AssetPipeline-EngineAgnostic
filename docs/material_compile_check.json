@@ -1,0 +1,31 @@
+{
+  "when": "2026-11-22T18:37:55",
+  "level": "/Game/EAP/PCG/PlacedTrees",
+  "materials": {
+    "/Game/EAP/Materials/MI_EAP_conifer_0_opaque_n.MI_EAP_conifer_0_opaque_n": {
+      "class": "MaterialInstanceConstant",
+      "blend": "ERR: Exception(\"MaterialInstanceConstant: Failed to find property 'blend_mode' for attribute 'blend_mode' on 'MaterialInstanceConstant'\")",
+      "recompile": "MIC(继承父材质)",
+      "parent": "/Game/EAP/Materials/M_EAP_Opaque_v2_N.M_EAP_Opaque_v2_N"
+    },
+    "/Game/EAP/Materials/M_EAP_Opaque_v2_N.M_EAP_Opaque_v2_N": {
+      "class": "Material(父)",
+      "blend": "<BlendMode.BLEND_OPAQUE: 0>",
+      "recompile": null
+    },
+    "/Game/EAP/Materials/MI_EAP_conifer_1_masked.MI_EAP_conifer_1_masked": {
+      "class": "MaterialInstanceConstant",
+      "blend": "ERR: Exception(\"MaterialInstanceConstant: Failed to find property 'blend_mode' for attribute 'blend_mode' on 'MaterialInstanceConstant'\")",
+      "recompile": "MIC(继承父材质)",
+      "parent": "/Game/EAP/Materials/M_EAP_Foliage_Masked_v2.M_EAP_Foliage_Masked_v2"
+    },
+    "/Game/EAP/Materials/M_EAP_Foliage_Masked_v2.M_EAP_Foliage_Masked_v2": {
+      "class": "Material(父)",
+      "blend": "<BlendMode.BLEND_MASKED: 1>",
+      "recompile": null
+    }
+  },
+  "loaded": "<Object '/Game/EAP/PCG/PlacedTrees.PlacedTrees' (0x00000136FB88A800) Class 'World'>",
+  "levelMaterialCount": 2,
+  "seconds": 2.67
+}

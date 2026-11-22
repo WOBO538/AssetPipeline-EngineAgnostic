@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-22T18:30:00+08:00",
+  "updatedAt": "2026-11-22T18:40:00+08:00",
   "today": "2026-11-22",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -29,8 +29,8 @@
       "id": "P1",
       "name": "EAP 多引擎资产管线",
       "subtitle": "主线 · 补 PCG 资格缺口 · NO.01 下一代",
-      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化（MASKED/metallic 0/usage flag）",
-      "progress": 80,
+      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化（16/16 断言）",
+      "progress": 83,
       "status": "进行中",
       "items": [
         {
@@ -79,9 +79,20 @@
           "date": "11-22"
         },
         {
-          "name": "清理 PlacedTrees_v2 临时关卡 + 用关编辑器后的正式链路重跑",
-          "status": "doing",
+          "name": "清理临时关卡 + 正式链路重跑（关编辑器后），16/16 断言",
+          "status": "done",
           "date": "11-22"
+        },
+        {
+          "name": "白模事故修复：法线采样缺默认贴图导致材质编译失败；补带 RHI 的编译复检",
+          "status": "done",
+          "date": "11-22"
+        },
+        {
+          "name": "规范后实拍对比图（等下次开编辑器）",
+          "status": "todo",
+          "owner": "user",
+          "date": "11-23"
         },
         {
           "name": "贴图压缩 TC_MASKED + roughness 走贴图（出图质量）",
@@ -332,7 +343,8 @@
         "date": "2026-11-22",
         "projectMin": 0,
         "learningMin": 0,
-        "note": "lead 跑通换真实树 + 材质规范化：CC0 glTF 独立解析对账 -> tree_manifest（双端）-> 无头 Interchange 导入 -> 自建 MASKED/OPAQUE 母材质 + MIC -> 1892 棵落位，14/14 断言；踩到编辑器占用 umap 导致保存失败的坑"
+        "note": "lead 一天完成三单元：①换真实树 glTF（1892 棵，11/11）②材质规范化（B masked/ metallic 0 / usage flag，14/14）③白模事故修复 + 带 RHI 编译复检（16/16）；踩坑：编辑器占用 umap、无头不编译材质",
+        "intent": "项目线：换真实树 + 材质规范化收工（16/16 断言）；白模事故当天定位并修复"
       },
       {
         "date": "2026-11-21",

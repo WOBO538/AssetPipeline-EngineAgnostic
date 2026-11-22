@@ -189,7 +189,7 @@ python tools/run_pcg_chain.py --tree --expect-span-m 200    # 四次无头 UE + 
 
 ![UE 内实拍：PlacedTrees 关卡 1892 棵树](docs/ue_trees_placed_20261122.png)
 
-> 上图：`/Game/EAP/PCG/PlacedTrees` 引擎内实拍（2026-11-22 18:07，用户手操补灯光后）。
+> 上图：`/Game/EAP/PCG/PlacedTrees` 引擎内实拍（2026-11-22 18:07，用户手操补灯光后；**材质规范化之前**的 Interchange 材质版本）。
 > 大纲 6 个 Actor：`EAP_Placements`（ISM 1892 棵）、`EAP_Ground`、`EAP_Sun`、`EAP_SkyLight`、
 > `EAP_SkyAtmosphere`、`EAP_Fog`。树根落地、投影方向一致、地块边缘可见。
 > **画面偏荧光绿、树皮没层次**——这正是下节列的材质缺陷（`metallicFactor 0.4` + 叶子 `BLEND`）的直接后果。
@@ -259,6 +259,27 @@ Interchange 生成的 MIC（读参数：BaseColorTexture / NormalTexture / Metal
 （`LogFileManager: Error Code 32` → `Failed to move ... to temp directory`），关卡存不进去、
 材质覆盖自然也没落盘。**跑链前必须关掉编辑器（或至少关掉目标关卡）**——这条已写进验收文档。
 
+#### 白模事故（v1.3 第一版材质全部编译失败）
+
+第一版 EAP 母材质里给法线采样节点设了 `sampler type = Normal` 但**没给默认贴图**，而树叶在 glTF 里
+根本没有法线贴图。UE 编译直接报：
+
+```
+M_EAP_Opaque / M_EAP_Foliage_Masked:
+  Failed to compile Material for platform PCD3D_SM6, Default Material will be used in game.
+(Node TextureSampleParameter2D) Sampler type is Normal, should be Color for DefaultTexture
+```
+
+→ 整个材质编译失败 → **UE 回退默认白材质** → 1892 棵树全白（用户在编辑器里一眼看出来的）。
+
+两个教训都写进代码与链路了：
+
+1. **建法**：没法线贴图的槽不建法线节点；BaseColor 采样节点也设默认贴图兜底；母材质改名 `_v2`，
+   旧的坏材质（含探针留下的 `M_EAP_Tree_Bark/Leaf`）在落位时自动清理。
+2. **验法**：`-nullrhi` 下 UE **不会真正编译材质**，所以"材质资产挂上了"这类断言全 PASS 也可能是白模。
+   新增 `ue/Content/Python/check_material_compile.py`：链路末尾用**带 RHI** 的无头进程加载关卡里
+   实际用到的材质并重编译，抓日志里的 `Failed to compile Material` → 进第 16 条断言。自那以后白模会直接 FAIL。
+
 ## 四、阶段一验收（6 条，逐条可判）
 
 | # | 判据 | 判法 |
@@ -272,7 +293,7 @@ Interchange 生成的 MIC（读参数：BaseColorTexture / NormalTexture / Metal
 
 > 没截图、没日志、没退出码 = 没过。这条照搬项目验收标准。
 
-### 四之二、Layer 1 链路验收（9 + 5 条，`python tools/run_pcg_chain.py [--tree]` 自动判）
+### 四之二、Layer 1 链路验收（9 + 7 条，`python tools/run_pcg_chain.py [--tree]` 自动判）
 
 | # | 判据 | 实测（2026-11-22 17:33 / 18:0x / 18:1x） |
 |:--:|---|---|
@@ -289,7 +310,9 @@ Interchange 生成的 MIC（读参数：BaseColorTexture / NormalTexture / Metal
 | 11 | `--tree`：UE 侧树高 == glTF 树高（<5 cm） | UE=10.236 m / glTF=10.236 m |
 | 12 | `--tree`：材质槽已规范化（metallic=0 且 usage 标记齐全） | 2 槽 `['opaque', 'masked']`，三项 usage 全 True |
 | 13 | `--tree`：alpha 材质已从 BLEND 转 MASKED | `BLEND_OPAQUE` + `BLEND_MASKED` |
-| 14 | `--tree`：落位组件材质覆盖 = EAP 材质资产 | `MI_EAP_conifer_0_opaque` / `MI_EAP_conifer_1_masked`（新进程读回仍在） |
+| 14 | `--tree`：落位组件材质覆盖 = EAP 材质资产 | `MI_EAP_conifer_0_opaque_n` / `MI_EAP_conifer_1_masked`（新进程读回仍在） |
+| 15 | `--tree`：材质贴图参数已生效（BaseColor 挂上目标贴图） | `base_color_texture` / `base_color_texture1` |
+| 16 | `--tree`：材质编译通过（带 RHI 复检，无 `Failed to compile`） | failed=0（修好白模事故后） |
 
 产物：`docs/pcg_forest_pilot.json`（1189 KB，图参数 + 1892 条散点）、`schemas/pcg_manifest.json`（626 KB）、
 `docs/placed_pilot.json`（436 KB）、`docs/placed_verify.json`（435 KB）；
@@ -308,6 +331,8 @@ Interchange 生成的 MIC（读参数：BaseColorTexture / NormalTexture / Metal
 - **PCG 点级 metadata 读不到（v1.1）**：`get_generated_graph_output()` 能拿到 `PCGDataCollection`（tagged=1），但点级 attribute（密度/seed）没有暴露的 Python 访问器。所以出口以**实例 transform** 为准——实例是最终结果，反而更可信。
 - **Unity 端跳过引擎内置网格（v1.1）**：`model.source=engine`（如 `/Engine/BasicShapes/Cube`）没有 glb，Unity 不适用；只有文件型资产走双端。
 - **无头导出依赖本机路径（v1.1）**：`run_pcg_chain.py --ue/--project` 可覆盖，默认 `C:\Program Files\Epic Games\UE_5.7` + `D:\UE_Projects\VegetationPCG`。
+- **材质编译必须带 RHI 复检（v1.3）**：`-nullrhi` 下 UE 不真正编译材质，材质图写错了也照样 PASS；
+  现在链路末尾多跑一次带 RHI 的无头复检，抓 `Failed to compile Material`。**白模事故就是这么漏过去的。**
 - **树资产材质已规范化，但仍有视觉短板（v1.3）**：叶子已 `BLEND → MASKED`（clip 0.33、双面），
   两个槽的 metallic 都清零、usage 标记齐全；但**贴图仍是 Interchange 的 `TC_DEFAULT` 压缩**（蒙版用
   `TC_MASKED` 边缘更干净）、roughness 统一 0.9 是拍脑袋值、粗糙度/金属度还没走贴图。要出图得再调一轮。
