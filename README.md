@@ -2,7 +2,7 @@
 
 > 项目代号：`Engine-Agnostic Pipeline`（下称 EAP）
 > 定位：前端 PCG + AIGC 生成 → Python 中台（格式中转 + 合规审查）→ UE5 / Unity 双端消费。
-> **当前进度：阶段一（manifest 标准 + 双端消费端模板）+ Layer1 数据出口与规模化（233 实例）+ placements 落位（回灌成 UE ISM）**。
+> **当前进度：阶段一（manifest 标准 + 双端消费端模板）+ Layer1 数据出口 + 地块扩到 200×200 m（1892 实例）+ placements 落位（回灌成 UE ISM）**。
 
 ## 一、这个项目在作品集里的位置（先读这段）
 
@@ -20,13 +20,13 @@ Engine-Agnostic Pipeline/
 ├─ docs/
 │  ├─ manifest-spec.md            ← manifest 字段规范（v1.1）+ 引擎映射表 + 坑
 │  ├─ phase1-acceptance.md        ← 验收：阶段一 6 条 + Layer1 链路 8 条
-│  ├─ pcg_forest_pilot.json       ← Layer1 导出证据：10 节点图参数 + 233 条散点（cm）
-│  ├─ placed_pilot.json           ← placements 落位证据：233 条落成 UE ISM + 读回 transform
+│  ├─ pcg_forest_pilot.json       ← Layer1 导出证据：10 节点图参数 + 1892 条散点（cm）
+│  ├─ placed_pilot.json           ← placements 落位证据：1892 条落成 UE ISM + 读回 transform
 │  └─ placed_verify.json          ← 新进程重载关卡读回证据（证明持久化）
 ├─ schemas/
 │  ├─ manifest.schema.json        ← JSON Schema（v1.1：placements / engine_native）
 │  ├─ manifest.example.json       ← 两个资产的完整示例（v1.0 结构，v1.1 向后兼容）
-│  └─ pcg_manifest.json           ← 由散点生成的 manifest v1.1（1 资产 + 233 实例）
+│  └─ pcg_manifest.json           ← 由散点生成的 manifest v1.1（1 资产 + 1892 实例）
 ├─ ue/Content/Python/
 │  ├─ consume_manifest.py         ← UE5 消费端（读 manifest → 母材质/MIC → 贴图 → 碰撞 → placements 统计）
 │  ├─ pcg_export.py               ← Layer1 出口：PCG 图参数 + 生成实例 → 散点 JSON（只读）
@@ -74,53 +74,60 @@ consume_manifest.run(r"<repo>/schemas/manifest.example.json", dry_run=False)  # 
 python run.py        # 或 python -m gui.app；暗色三栏 + 拖放区 + Toast
 ```
 
-## 三之二、Layer 1 数据出口 + 规模化（v1.1，一条命令）
+## 三之二、Layer 1 数据出口 + 扩地块（v1.1，一条命令）
 
 **背景**：Layer 1 原先是 2026-10 的 UE PCG 手工试点（`D:\UE_Projects\VegetationPCG`，UE 5.7，
 `/Game/PCG_ForestScatter`，用 `/Engine/BasicShapes/Cube` 方盒子替树，19 个实例）。
-2026-11-22 做了两件事：① 把**数据出口**接到中台；② 把密度 `0.01 → 0.1`，实例 **19 → 233**（真实编辑器重生成）。
+2026-11-22 分两步：① 数据出口接到中台（密度 `0.01 → 0.1`，实例 **19 → 233**）；
+② **地块扩到 200×200 m**（密度 `0.1 → 0.05`，实例 **233 → 1892**，名义 2000、实际 1892 = 94.6%）。
 
 ```
 UE PCG 图（10 节点：GetLandscapeData → SurfaceSampler → TransformPoints → StaticMeshSpawner
            + 5 个用户参数节点 + 1 个 AttributeMathsOp）
-   ↓ pcg_export.py           只读：图参数 + 233 条实例 transform（uu = cm）
-docs/pcg_forest_pilot.json
-   ↓ pcg_to_manifest.py      cm→m；1 个网格 = 1 个 asset + placements[233]（不为每实例造资产）
-schemas/pcg_manifest.json    （manifest v1.1）
+   ↓ pcg_export.py           只读：图参数 + 1892 条实例 transform（uu = cm）
+docs/pcg_forest_pilot.json    （1189 KB）
+   ↓ pcg_to_manifest.py      cm→m；1 个网格 = 1 个 asset + placements[1892]（不为每实例造资产）
+schemas/pcg_manifest.json    （manifest v1.1，626 KB）
    ↓ validate_manifest.py    errors=0
-   ↓ consume_manifest.run(dry_run=True)   读到 placements，统计 233
+   ↓ consume_manifest.run(dry_run=True)   读到 placements，统计 1892
 ```
 
 ```bash
-python tools/run_pcg_chain.py     # 四次无头 UE（各约 13-15s）+ 两次纯 Python；7 步 8 条断言
-# 期望末行：CHAIN PASS points=233 assets=1 placements=233
+python tools/run_pcg_chain.py --expect-span-m 200    # 四次无头 UE（各约 13-15s）+ 两次纯 Python；7 步 9 条断言
+# 期望末行：CHAIN PASS points=1892 assets=1 placements=1892
 ```
 
-**改密度 / 缩放（必须在真实编辑器里做）**：PCG 重生成跑不了无头——
-`PCGComponent.generate()` 在 `-unattended -nullrhi` 下报 `Internal Error - ObjectInstance is null!`。
-做法：UE 编辑器 Output Log 切 Python，粘**一行**
-`pcg_scale.run(density=0.1, save=True, regenerate=True)`
-（`ue/Content/Python/pcg_scale.py`：自动加载 `/Game/Untitled`、存档前备份 `PCG_ForestScatter.uasset`、
-轮询 60 秒数实例、状态写 `Saved/EAP/pcg_scale_run.json`）。生成后在 Details 点一次 Generate 兜底，再 Ctrl+S 存关卡。
+**改体积 / 密度（必须在真实编辑器里做）**——两个坑都是 2026-11-22 实测：
 
-导出文件同时是**图参数的原始证据**（`graph.nodes[*].props`）：`points_per_squared_meter=0.1`（规模化前 0.01）、
+1. **无头不能重生成 PCG**：`PCGComponent.generate()` 在 `-unattended -nullrhi` 下报
+   `Internal Error - ObjectInstance is null!`；带 RHI 的 `-unattended` 也生成不了（233 → 233）。
+2. **旧 PCG 组件可能和 actor 脱钩**：这个工程原 `PCG Component` 处于 `generated=False`、
+   Details 里 `图 None / PCG组件 None` 的坏状态，`generate()` 和 Details 的生成按钮都无效（点了没反应）。
+   解法：**新建一个 PCGVolume → `set_graph()` 挂同一张图 → `generate(True)`**，一次生成 1892 个实例。
+
+体积按米换算：brush 基准 2 m，原 actor scale `25/25/10` = 50×50×20 m；放大到 200 m 用
+`actor scale 99.98 / 97.675 / 10`（**Z 保持 20 m**——把 Z 也非均匀放大 150 倍会让实例被拉长、沉到地面以下，
+2026-11-22 踩过）。落位 bbox 实测 **196.6 × 191.6 m**（边缘点没采到，< 200 m 属正常）。
+
+导出文件同时是**图参数的原始证据**（`graph.nodes[*].props`）：`points_per_squared_meter=0.05`、
 `point_extents=[50,50,50]`、`point_steepness=1.0`、`absolute_rotation=True`、`offset_min/max=±[100,100,50]`、
 `scale_min/max=[0.8]/[1.2]`、`uniform_scale=True`、`seed=-1506168781`、`StaticMeshSpawner` 网格 `/Engine/BasicShapes/Cube`。
 这比截图更可核对：面试被问"你图里到底怎么配的"，直接翻 JSON。
 
-> **关于数量**：PCG 体积实测 **50×50 m（2500 m²）**。0.1 点/m² → 名义 250 个点，实际 **233**（93%）；
-> 试点把 0.01 点/m² → 名义 25、实际 19（76%）。两次偏差都来自网格量化 + `looseness 0.8`，不是丢数据。
+> **关于数量**：PCG 体积实测 **200×200 m（39997.7 m²）**，0.05 点/m² → 名义 2000、实际 **1892**（94.6%）；
+> 上一轮 50×50 m + 0.1 → 名义 250、实际 233（93%）；最早 0.01 → 名义 25、实际 19（76%）。
+> 偏差都来自网格量化 + `looseness 0.8`，不是丢数据。
 
 ## 三之三、placements 落位（回灌）：manifest → UE ISM 实例
 
-前面三之二证明"PCG 生成能变成 manifest"；这一格证明**反过来也能**：拿 manifest 里的 `placements[233]`
-在 UE 里真的落成 233 个 ISM 实例，并验证坐标/旋转/缩放一条不差。
+前面三之二证明"PCG 生成能变成 manifest"；这一格证明**反过来也能**：拿 manifest 里的 `placements[1892]`
+在 UE 里真的落成 1892 个 ISM 实例，并验证坐标/旋转/缩放一条不差。
 
 ```
-schemas/pcg_manifest.json（placements 233 条，m / deg）
+schemas/pcg_manifest.json（placements 1892 条，m / deg）
    ↓ place_manifest.place()     清空 → 逐条 add_instances(世界坐标) → clear/重建可重复跑
-/Game/EAP/PCG/PlacedPilot        专用关卡：1 Actor + 1 InstancedStaticMeshComponent + 233 实例
-   ↓ place_manifest.verify()    新进程重载关卡 → 读回 233 条 transform → docs/placed_verify.json
+/Game/EAP/PCG/PlacedPilot        专用关卡：1 Actor + 1 InstancedStaticMeshComponent + 1892 实例
+   ↓ place_manifest.verify()    新进程重载关卡 → 读回 1892 条 transform → docs/placed_verify.json
 ```
 
 ![placements 落位俯视图](docs/placed_pilot_topdown.png)
@@ -130,8 +137,8 @@ schemas/pcg_manifest.json（placements 233 条，m / deg）
 ![UE 内实拍：PlacedPilot 关卡](docs/ue_placed_pilot_20261122.png)
 
 > 上图：`/Game/EAP/PCG/PlacedPilot` 引擎内实拍（2026-11-22 16:24）。大纲 5 个 Actor：
-> `EAP_Placements`（ISM 233 实例）、`EAP_Ground`、`EAP_Sun`（Movable）、`EAP_SkyAtmosphere`、`EAP_SkyLight`；
-> 机器可读状态见 `docs/placed_level_actors.json`（无头重载复核：5 actors / 233 instances）。
+> `EAP_Placements`（ISM 1892 实例）、`EAP_Ground`、`EAP_Sun`（Movable）、`EAP_SkyAtmosphere`、`EAP_SkyLight`；
+> 机器可读状态见 `docs/placed_level_actors.json`（无头重载复核：5 actors / 1892 instances）。
 
 实现要点（踩过的坑，都写进代码注释了）：
 
@@ -165,21 +172,22 @@ schemas/pcg_manifest.json（placements 233 条，m / deg）
 
 > 没截图、没日志、没退出码 = 没过。这条照搬项目验收标准。
 
-### 四之二、Layer 1 链路验收（8 条，`python tools/run_pcg_chain.py` 自动判）
+### 四之二、Layer 1 链路验收（9 条，`python tools/run_pcg_chain.py` 自动判）
 
-| # | 判据 | 实测（2026-11-22 09:28） |
+| # | 判据 | 实测（2026-11-22 17:33） |
 |:--:|---|---|
-| 1 | 导出散点数 == 图生成实例数 | 233 == 233 |
-| 2 | 导出散点数 == ISM 实例数之和 | 233 == 233 |
-| 3 | 导出散点数 == `manifest.placements.count` | 233 == 233 |
-| 4 | `manifest.placements` == UE 消费端 dry_run 报告里的 placements | 233 == 233 |
-| 5 | `manifest.placements` == 落位实例数（UE ISM） | 233 == 233 |
-| 6 | 新进程重载关卡读回实例数 == placements | 233 == 233（持久化，不是内存假象） |
+| 1 | 导出散点数 == 图生成实例数 | 1892 == 1892 |
+| 2 | 导出散点数 == ISM 实例数之和 | 1892 == 1892 |
+| 3 | 导出散点数 == `manifest.placements.count` | 1892 == 1892 |
+| 4 | `manifest.placements` == UE 消费端 dry_run 报告里的 placements | 1892 == 1892 |
+| 5 | `manifest.placements` == 落位实例数（UE ISM） | 1892 == 1892 |
+| 6 | 新进程重载关卡读回实例数 == placements | 1892 == 1892（持久化，不是内存假象） |
 | 7 | 落位实例 bbox == manifest items bbox | 误差 0.0000 m（阈值 1 cm） |
-| 8 | 落位实例逐条 transform == manifest items | 0/233 不匹配（阈值 1 cm / 0.05°） |
+| 8 | 落位实例逐条 transform == manifest items | 0/1892 不匹配（阈值 1 cm / 0.05°） |
+| 9 | 落位地块跨度 == 200 m（±15%） | X=196.6 m / Y=191.6 m |
 
-产物：`docs/pcg_forest_pilot.json`（155 KB，图参数 + 233 条散点）、`schemas/pcg_manifest.json`（81 KB）、
-`docs/placed_pilot.json`（落位证据，含 233 条读回 transform）、`docs/placed_verify.json`（新进程重载关卡的读回证据）。
+产物：`docs/pcg_forest_pilot.json`（1189 KB，图参数 + 1892 条散点）、`schemas/pcg_manifest.json`（626 KB）、
+`docs/placed_pilot.json`（436 KB，落位证据，含 1892 条读回 transform）、`docs/placed_verify.json`（435 KB，新进程重载读回）。
 
 ## 五、阶段一未覆盖（写在明处，别在面试里含糊）
 
@@ -187,7 +195,7 @@ schemas/pcg_manifest.json（placements 233 条，m / deg）
 - **Unity 的粗糙度通道**：URP 的 `_MetallicGlossMap` 是 R=Metallic、A=Smoothness，**Smoothness = 1 − Roughness**。manifest 里显式写 `channelPacking`，转换在消费端完成（不在导出端预乘），避免两端各算一遍。
 - **贴图压缩格式**：UE 的 `TC_Normalmap` / Unity 的 crunch 等属于平台设置，本阶段只写进 manifest 的期望值，不保证跨机器一致。
 - **LOD/HLOD**：manifest 里记录 `lods[]`，本阶段只校验不生成。
-- **placements 落位只落 transform（v1.1）**：`place_manifest.py` 把 233 条落成 ISM 实例并验证坐标/旋转/缩放，
+- **placements 落位只落 transform（v1.1）**：`place_manifest.py` 把 1892 条落成 ISM 实例并验证坐标/旋转/缩放，
   但 manifest 里的材质、碰撞、LOD 字段本阶段不落；落位只支持"单资产 manifest"（当前就是 1 个 Cube 网格）。
 - **给关卡 Actor 加组件的坑（v1.1）**：`unreal.new_object(InstancedStaticMeshComponent, outer=actor)` 建出来的组件
   不在 `OwnedComponents`，存关卡后会被丢弃；必须用 `SubobjectDataSubsystem.add_new_subobject`（Details→Add Component 的 API）。
@@ -197,7 +205,7 @@ schemas/pcg_manifest.json（placements 233 条，m / deg）
 
 ## 六、下一步（阶段二/三）
 
-- 阶段二 · 换真实树资产 + 扩地块：现在试点体积只有 50×50 m、网格是引擎 Cube（落位复用的也是它）；下一步换树模型（Megaplant/Megascans）并把体积扩到 200×200 m，参数走 Graph 用户参数而不是改节点常量
+- 阶段二 · 换真实树资产：地块已经扩到 200×200 m（1892 实例），但网格还是引擎 Cube；下一步换成真实树模型（Megaplant/Megascans），参数尽量走 Graph 用户参数而不是改节点常量
 - 阶段二 · 落位扩展到材质/碰撞/LOD：现在只落 transform，manifest 里其它字段还没在 UE 侧生效
 - 阶段二 · GUI 接 ComfyUI 客户端（GUI 阶段二的 QThread 异步 + 进度回填）
 - 阶段三：`trimesh` + `numpy` 坐标转换（Y-up↔Z-up、cm↔m）与合规拦截（与 `tools/validate_manifest.py` 合并）

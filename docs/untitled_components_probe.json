@@ -1,0 +1,52 @@
+{
+  "level": "/Game/Untitled",
+  "actors": [
+    {
+      "label": "Landscape",
+      "class": "Landscape",
+      "components": [
+        {
+          "name": "RootComponent0",
+          "class": "SceneComponent"
+        }
+      ]
+    },
+    {
+      "label": "PCGWorldActor",
+      "class": "PCGWorldActor",
+      "components": []
+    },
+    {
+      "label": "SM_SkySphere",
+      "class": "StaticMeshActor",
+      "components": [
+        {
+          "name": "StaticMeshComponent0",
+          "class": "StaticMeshComponent"
+        }
+      ]
+    },
+    {
+      "label": "PCG_ForestScatter",
+      "class": "PCGVolume",
+      "components": [
+        {
+          "name": "BrushComponent0",
+          "class": "BrushComponent"
+        },
+        {
+          "name": "PCG Component",
+          "class": "PCGComponent",
+          "seed": "42",
+          "generation_trigger": "<PCGComponentGenerationTrigger.GENERATE_ON_LOAD: 0>",
+          "generated": "False"
+        },
+        {
+          "name": "ISM_Cube_0",
+          "class": "InstancedStaticMeshComponent",
+          "instances": 233
+        }
+      ]
+    }
+  ]
+}

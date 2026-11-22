@@ -58,7 +58,7 @@ for it in items:
     col = (int(120 + 110 * k), int(190 - 60 * k), int(120 + 60 * k))
     d.polygon(corners, fill=col, outline=(25, 28, 34))
 
-d.text((45, 18), "EAP · placements 回灌：manifest 233 条 → UE ISM 233 实例", font=font, fill=(230, 235, 245))
+d.text((45, 18), "EAP · placements 回灌：manifest %d 条 → UE ISM %d 实例" % (n, n), font=font, fill=(230, 235, 245))
 d.text((45, H - 42), "世界坐标（m，Z 朝上，此图为 XY 俯视）；方块 = 1 m Cube × scale，按 yaw 旋转；"
                       "蓝框 = manifest items bbox", font=font_s, fill=(150, 160, 180))
 d.text((45, 44), "关卡 /Game/EAP/PCG/PlacedPilot · Actor EAP_Placements · ISM · "
