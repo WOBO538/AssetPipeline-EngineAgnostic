@@ -1,0 +1,56 @@
+/* EAP GUI · 暗黑主题（阶段一）
+   设计要点：低饱和背景 + 单一强调蓝；圆角 10px；悬浮提亮而非描边；滑轨与进度条统一 6px 高。 */
+
+* { font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif; font-size: 13px; }
+
+QMainWindow, QWidget#Root { background: #14161a; }
+QWidget#Panel { background: #1c1f26; border: 1px solid #262b34; border-radius: 10px; }
+QLabel#PanelTitle { color: #8b93a7; font-size: 12px; font-weight: 600; letter-spacing: 1px; }
+QLabel#Preview { background: #101216; border: 1px dashed #2c3240; border-radius: 8px; color: #5b6478; }
+QLabel#Status { color: #8b93a7; font-size: 12px; }
+
+QPushButton {
+  background: #232833; color: #d7dbe6; border: 1px solid #303644;
+  border-radius: 8px; padding: 8px 14px;
+}
+QPushButton:hover { background: #2b3240; border-color: #3d4557; }
+QPushButton:pressed { background: #1f242e; }
+QPushButton#Primary { background: #2f6fed; border-color: #2f6fed; color: #ffffff; font-weight: 600; }
+QPushButton#Primary:hover { background: #3d7bf5; }
+QPushButton#Primary:disabled { background: #2a3140; border-color: #2a3140; color: #6b7386; }
+
+QLineEdit, QTextEdit {
+  background: #101216; border: 1px solid #2a303c; border-radius: 8px;
+  color: #d7dbe6; padding: 6px 8px; selection-background-color: #2f6fed;
+}
+QLineEdit:focus, QTextEdit:focus { border-color: #2f6fed; }
+QTextEdit#Log { font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; color: #9aa3b7; }
+
+QProgressBar {
+  background: #101216; border: 1px solid #2a303c; border-radius: 6px;
+  height: 6px; text-align: center; color: transparent;
+}
+QProgressBar::chunk { background: #2f6fed; border-radius: 6px; }
+
+QSlider::groove:horizontal { height: 6px; background: #101216; border-radius: 3px; }
+QSlider::sub-page:horizontal { background: #2f6fed; border-radius: 3px; }
+QSlider::handle:horizontal {
+  background: #e6eaf2; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px;
+}
+QSlider::handle:horizontal:hover { background: #ffffff; }
+
+QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }
+QScrollBar::handle:vertical { background: #2c3240; border-radius: 4px; min-height: 24px; }
+QScrollBar::handle:vertical:hover { background: #3a4152; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+
+QLabel#Toast {
+  background: #3a1f24; border: 1px solid #8c3b46; border-radius: 8px;
+  color: #ffb3bd; padding: 10px 16px; font-weight: 600;
+}
+QLabel#DropZone {
+  background: #101216; border: 2px dashed #2c3240; border-radius: 10px;
+  color: #6b7386; padding: 18px;
+}
+QLabel#DropZone[dragActive="true"] { border-color: #2f6fed; color: #9fc0ff; background: #131a29; }
+QLabel#ValueTag { color: #9fc0ff; font-family: Consolas, monospace; }
