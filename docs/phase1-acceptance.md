@@ -67,6 +67,8 @@ python tools/run_pcg_chain.py --tree --expect-span-m 200
 | `docs/placed_tree.json` | 落位证据：关卡 `/Game/EAP/PCG/PlacedTrees`、ISM 1892 棵 conifer、`meshInfo`（高 10.236 m / 2 材质） |
 | `docs/placed_tree_verify.json` | 新进程重载读回：1892 条，网格路径与 bbox 与落位一致 |
 | `docs/placed_tree_topdown.png` | 俯视图（树冠圆，读回 transform 绘制） |
+| `docs/ue_trees_placed_20261122.png` | 引擎内实拍（2026-11-22 18:07 用户手操）：1892 棵落地、投影方向一致、6 Actor |
+| `docs/ue_material_usage_warning_20261122.png` | `地图检测` 截图：材质缺 `bUsedWithNanite` / `bUsedWithInstancedStaticMeshes` 用法标记 |
 | `Content/EAP/PCG/PlacedTrees.umap`（UE 工程内） | 落位关卡：1 Actor + 1 ISM（1892 棵 conifer），无灯光/地面（补灯需真实编辑器） |
 | `assets/raw/trees/_previews/*.png` | 采集会话附的两棵树预览图（非引擎内实拍） |
 
@@ -126,3 +128,9 @@ UE 侧三角面口径为 Nanite fallback（1 414 / 源 3 370）、Unity 端尚�
 17. **树资产材质未规范化（v1.2）**：叶子 `alphaMode=BLEND`（应改 MASKED 省排序开销）、`metallicFactor=0.4`（应改 0），
     当前只在 manifest checks 与日志里告警，没有自动改材质。**这是视觉质量的主要缺口。**
 18. **树资产无 LOD（v1.2）**：两棵树各只有 1 个 LOD，1892 棵全量靠 Nanite/实例剔除撑；LOD 链是下一项工作。
+19. **导入材质缺用法标记（v1.2，用户实拍的地图检测报出）**：`/InterchangeAssets/gltf/M_Default` 与
+    `/Game/EAP/Trees/conifer/Materials/Bark_NormalTree` 缺 `bUsedWithNanite` / `bUsedWithInstancedStaticMeshes`；
+    编辑器内渲染正常（实拍证明），但材质未重存时**打包后可能渲染不出来**。修法：补 usage flag + 重存材质，
+    与材质规范化（BLEND→MASKED、metallic→0）同一单元做。
+20. **画面观感（v1.2 实拍结论）**：树成片、落地、投影方向一致；但叶片偏**荧光绿**、树皮无层次，
+    与 `metallicFactor 0.4` + 叶子 `BLEND` 的预期缺陷吻合。**当前不主张画面质量，只主张管线连通。**

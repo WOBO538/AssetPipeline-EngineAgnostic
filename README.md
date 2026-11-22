@@ -187,6 +187,13 @@ python tools/run_pcg_chain.py --tree --expect-span-m 200    # 四次无头 UE + 
 
 > 上图仍是读回的**真实 transform**（1892 条），只是标记换成树冠圆（半径按 glb bbox X/2 = 2.90 m × scale）。
 
+![UE 内实拍：PlacedTrees 关卡 1892 棵树](docs/ue_trees_placed_20261122.png)
+
+> 上图：`/Game/EAP/PCG/PlacedTrees` 引擎内实拍（2026-11-22 18:07，用户手操补灯光后）。
+> 大纲 6 个 Actor：`EAP_Placements`（ISM 1892 棵）、`EAP_Ground`、`EAP_Sun`、`EAP_SkyLight`、
+> `EAP_SkyAtmosphere`、`EAP_Fog`。树根落地、投影方向一致、地块边缘可见。
+> **画面偏荧光绿、树皮没层次**——这正是下节列的材质缺陷（`metallicFactor 0.4` + 叶子 `BLEND`）的直接后果。
+
 **资产体检（我独立解析 GLB，不采信 `source_assets.json` 的自述）**
 
 | 项 | conifer | broadleaf |
@@ -208,6 +215,10 @@ python tools/run_pcg_chain.py --tree --expect-span-m 200    # 四次无头 UE + 
 3. **Nanite 默认开着**：导入后 `mesh.get_num_triangles(0)` 报 **1 414**（源 3 370）、broadleaf 报
    2 354（源 3 505）——返回的是 Nanite 的 fallback 简化网格，不是源数据。**验收表用 glTF 侧的 3 370**，
    UE 侧的 1 414 当作"Nanite fallback"记录，别混着引用。
+4. **导入的材质缺用法标记**（用户实拍时 `地图检测` 报出）：`/InterchangeAssets/gltf/M_Default` 与
+   `/Game/EAP/Trees/conifer/Materials/Bark_NormalTree` 都报"缺失使用标记 `bUsedWithNanite` /
+   `bUsedWithInstancedStaticMeshes`，材质资产未重新保存时**编辑器外运行时可能渲染不出来**"。
+   编辑器里没事（实拍正常），但这是打包前的必修项——和材质规范化一起做。
 
 **这一节明确没做的**（写进第五节）：叶子 `BLEND` 改 `MASKED`、`metallicFactor 0.4 → 0`、补 LOD、双树种混排、
 Unity 端实跑。当前只证明"管线能连续吃真资产"，不主张画面质量。
@@ -259,7 +270,10 @@ Unity 端实跑。当前只证明"管线能连续吃真资产"，不主张画面
 - **Unity 端跳过引擎内置网格（v1.1）**：`model.source=engine`（如 `/Engine/BasicShapes/Cube`）没有 glb，Unity 不适用；只有文件型资产走双端。
 - **无头导出依赖本机路径（v1.1）**：`run_pcg_chain.py --ue/--project` 可覆盖，默认 `C:\Program Files\Epic Games\UE_5.7` + `D:\UE_Projects\VegetationPCG`。
 - **树资产材质没规范化（v1.2）**：glTF 的叶子材质是 `BLEND`（1892 个实例会有排序/开销问题，正式出图应改 `MASKED`）、
-  树皮/树叶 `metallicFactor = 0.4`（转换器默认值，UE 里偏塑料感）。目前只在 manifest 的 `checks`/日志里告警，**没有自动改材质**。
+  树皮/树叶 `metallicFactor = 0.4`（转换器默认值，UE 里偏塑料感，实拍已确认画面荧光绿）。目前只在 manifest 的
+  `checks`/日志里告警，**没有自动改材质**。
+- **导入材质缺用法标记（v1.2）**：Interchange 生成的 `M_Default` 与树材质缺 `bUsedWithNanite` /
+  `bUsedWithInstancedStaticMeshes`，编辑器内渲染正常，但打包后可能丢材质。修法：材质规范化单元里补 usage flag + 重存。
 - **UE 侧三角面数要看清口径（v1.2）**：glTF 源数据 conifer 3 370 面，导入 UE 后 `get_num_triangles(0)` 报 1 414
   （broadleaf 3 505 → 2 354）——返回的是 **Nanite fallback** 简化网格。引用数字时写明是哪一侧。
 - **树资产没有 LOD（v1.2）**：两棵树都只有 1 个 LOD（3 370 / 3 505 面，符合"低模无 LOD"门槛），

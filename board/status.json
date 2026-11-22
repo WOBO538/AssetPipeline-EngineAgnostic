@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-22T18:25:00+08:00",
+  "updatedAt": "2026-11-22T18:15:00+08:00",
   "today": "2026-11-22",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -30,7 +30,7 @@
       "name": "EAP 多引擎资产管线",
       "subtitle": "主线 · 补 PCG 资格缺口 · NO.01 下一代",
       "phase": "阶段一 + Layer1 出口 + 地块 200x200 m + 真实树 glb 落位（1892 棵，11/11 断言）",
-      "progress": 72,
+      "progress": 75,
       "status": "进行中",
       "items": [
         {
@@ -79,10 +79,9 @@
           "date": "11-23"
         },
         {
-          "name": "PlacedTrees 关卡补灯光 + 引擎内实拍截图",
-          "status": "doing",
-          "owner": "user",
-          "date": "11-23"
+          "name": "PlacedTrees 补灯光 + 引擎内实拍（1892 棵，6 Actor，用户手操）",
+          "status": "done",
+          "date": "11-22"
         },
         {
           "name": "双树种混排（阔叶树接入落位，多资产 ISM）",
