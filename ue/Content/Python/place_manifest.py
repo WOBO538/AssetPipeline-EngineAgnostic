@@ -266,10 +266,101 @@ def verify(level_pkg=None, out_path=None):
     return state
 
 
+def _level_actors():
+    eas = _safe(lambda: unreal.get_editor_subsystem(unreal.EditorActorSubsystem), None)
+    if eas is None or isinstance(eas, str):
+        return []
+    return _safe(lambda: list(eas.get_all_level_actors()), []) or []
+
+
+def _find_by_class(cls):
+    for a in _level_actors():
+        if _safe(lambda a=a: str(a.get_class().get_name()), "") == cls.__name__:
+            return a
+    return None
+
+
+def _spawn(cls, label=None):
+    eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+    a = eas.spawn_actor_from_class(cls, unreal.Vector(0, 0, 0), unreal.Rotator())
+    if label:
+        _safe(lambda: a.set_actor_label(label))
+    _log("新增 Actor: %s %s" % (cls.__name__, label or ""))
+    return a
+
+
+def stage(level_pkg=None, out_path=None, save=True):
+    """给空关卡补灯光/天空/地面，让视口截图能用（不是落位逻辑的一部分）。
+
+    **只能在真实编辑器里跑**：2026-11-22 无头（-unattended -nullrhi）跑这个会
+    EXCEPTION_INT_DIVIDE_BY_ZERO 崩溃（SkyAtmosphere/SkyLight 需要渲染管线）。
+    真实编辑器里可以用一行 Python 等价实现（或直接跑本函数）。
+    """
+    level_pkg = level_pkg or os.environ.get("EAP_LEVEL_PKG") or DEFAULT_LEVEL
+    out_path = out_path or os.environ.get("EAP_STAGE_OUT") or r"D:\Projects\AssetPipeline-EngineAgnostic\docs\placed_level_stage.json"
+    if os.environ.get("EAP_PLACE_SAVE") == "0":
+        save = False
+    loaded = _safe(lambda: unreal.EditorLoadingAndSavingUtils.load_map(level_pkg))
+    _log("加载落位关卡: %r" % (loaded,))
+    created = []
+
+    if _find_by_class(unreal.DirectionalLight) is None:
+        dl = _spawn(unreal.DirectionalLight, "EAP_Sun")
+        _safe(lambda: dl.set_actor_rotation(unreal.Rotator(pitch=-42.0, yaw=35.0, roll=0.0), False))
+        created.append("DirectionalLight")
+    if _find_by_class(unreal.SkyLight) is None:
+        _spawn(unreal.SkyLight, "EAP_SkyLight")
+        created.append("SkyLight")
+    if _find_by_class(unreal.SkyAtmosphere) is None:
+        _spawn(unreal.SkyAtmosphere, "EAP_SkyAtmosphere")
+        created.append("SkyAtmosphere")
+    if _find_by_class(unreal.ExponentialHeightFog) is None:
+        _spawn(unreal.ExponentialHeightFog, "EAP_Fog")
+        created.append("ExponentialHeightFog")
+
+    ground = None
+    for a in _level_actors():
+        if _safe(lambda a=a: str(a.get_actor_label()), "") == "EAP_Ground":
+            ground = a
+            break
+    actor = _find_actor(ACTOR_LABEL)
+    comp = _ism_of(actor) if actor is not None else None
+    items = _instance_items(comp) if comp is not None else []
+    if ground is None and items:
+        bx = _bbox([it["t"] for it in items])
+        cx = (bx["min"][0] + bx["max"][0]) / 2.0 * CM_PER_M
+        cy = (bx["min"][1] + bx["max"][1]) / 2.0 * CM_PER_M
+        ex = (bx["max"][0] - bx["min"][0]) / 2.0 + 25.0
+        ey = (bx["max"][1] - bx["min"][1]) / 2.0 + 25.0
+        ground = _spawn(unreal.StaticMeshActor, "EAP_Ground")
+        plane = unreal.EditorAssetLibrary.load_asset("/Engine/BasicShapes/Plane")
+        _safe(lambda: ground.static_mesh_component.set_static_mesh(plane))
+        ground.set_actor_scale3d(unreal.Vector(ex, ey, 1.0))
+        ground.set_actor_location(unreal.Vector(cx, cy, -50.0), False)
+        created.append("EAP_Ground")
+
+    saved = None
+    if save:
+        saved = _safe(lambda: unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).save_current_level())
+        _log("关卡已保存: %r" % (saved,))
+    state = {
+        "when": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "schema": "eap.placement.stage/1",
+        "levelPackage": level_pkg,
+        "created": created,
+        "levelSaved": saved,
+        "actorCount": len(_level_actors()),
+    }
+    _dump(out_path, state)
+    return state
+
+
 def main():
     mode = (os.environ.get("EAP_PLACE_MODE") or "place").lower()
     if mode == "verify":
         return verify()
+    if mode == "stage":
+        return stage()
     return place()
 
 
