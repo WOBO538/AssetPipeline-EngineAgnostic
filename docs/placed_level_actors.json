@@ -1,0 +1,58 @@
+{
+  "levelPackage": "/Game/EAP/PCG/PlacedPilot",
+  "actorCount": 5,
+  "actors": [
+    {
+      "label": "EAP_Placements",
+      "class": "Actor",
+      "loc": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "isms": [
+        {
+          "name": "InstancedStaticMesh",
+          "count": 233
+        }
+      ]
+    },
+    {
+      "label": "EAP_Sun",
+      "class": "DirectionalLight",
+      "loc": [
+        720.0,
+        -11770.0,
+        800.0
+      ],
+      "mobility": "<ComponentMobility.MOVABLE: 2>"
+    },
+    {
+      "label": "EAP_Ground",
+      "class": "StaticMeshActor",
+      "loc": [
+        720.0,
+        -11770.0,
+        -52.0
+      ]
+    },
+    {
+      "label": "EAP_SkyAtmosphere",
+      "class": "SkyAtmosphere",
+      "loc": [
+        720.0,
+        -11770.0,
+        0.0
+      ]
+    },
+    {
+      "label": "EAP_SkyLight",
+      "class": "SkyLight",
+      "loc": [
+        720.0,
+        -11770.0,
+        600.0
+      ]
+    }
+  ]
+}

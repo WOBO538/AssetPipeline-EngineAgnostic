@@ -50,6 +50,8 @@ python tools/run_pcg_chain.py
 | `schemas/pcg_manifest.ue_report.json` | UE 消费端 dry_run 回执（`*_report.json` 按 .gitignore 不入库，本地留证） |
 | `docs/placed_pilot.json` | 落位证据：目标关卡 `/Game/EAP/PCG/PlacedPilot`、Actor `EAP_Placements`、ISM 233 条、读回 transform |
 | `docs/placed_verify.json` | 新进程重载关卡读回证据（证明实例真存进关卡，不是内存对象） |
+| `docs/placed_level_actors.json` | 关卡 Actor 清单（5 个：EAP_Placements + 地面/太阳/天空大气/天空光，太阳 Movable） |
+| `docs/ue_placed_pilot_20261122.png` | 引擎内实拍：PlacedPilot 关卡，233 个 ISM 实例 + 灯光/地面/天空 |
 | `Content/EAP/PCG/PlacedPilot.umap`（UE 工程内） | 落位关卡（42 KB，含 233 实例） |
 | `Saved/EAP/pcg_scale_run.json`（UE 工程内） | 规模化执行状态：关卡 / actor 数 76 / 面积 2500 m² / 19 → 233 |
 | `Saved/EAP/backup/PCG_ForestScatter_*.uasset`（UE 工程内） | 改密度前的图资产备份，可回退 |
@@ -73,3 +75,6 @@ python tools/run_pcg_chain.py
    对应编辑器 Details 面板的 "Add Component"。
 9. **`Transform.rotation` 是 Quat**：读回旋转要 `quat.rotator()`；`unreal.Rotator(pitch=, yaw=, roll=)` 用关键字，
    位置参数顺序是 `(roll, pitch, yaw)`（`Rotator(10,20,30)` 实际 roll=10/pitch=20/yaw=30）。
+10. **新建空关卡没有灯光/地面**：`new_level` 造出来的关卡只有空世界，视口里实例是黑的。补灯必须在**真实编辑器**里做——
+    无头跑 `place_manifest.stage()` 会 `EXCEPTION_INT_DIVIDE_BY_ZERO` 崩溃（SkyAtmosphere/SkyLight 需要渲染管线，实测 2026-11-22）；
+    而且 DirectionalLight 默认 Static，新关卡没烘焙时对物体无贡献，必须改成 Movable。
