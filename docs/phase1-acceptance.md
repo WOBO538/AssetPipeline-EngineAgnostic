@@ -17,7 +17,7 @@
 **证据**：`python tools/test_validator.py` 末行 `拦截成功 9/9`；
 正例 `python tools/validate_manifest.py schemas/manifest.example.json` → `assets=2 errors=0 ... OK`。
 
-## B. Layer 1 数据出口链路（v1.1 试点）
+## B. Layer 1 数据出口链路（v1.1，规模化后 233 实例）
 
 复现（一条命令，不需要手工点编辑器）：
 
@@ -28,29 +28,35 @@ python tools/run_pcg_chain.py
 # 可用 --ue / --project 覆盖；--skip-ue-export 复用已有散点
 ```
 
-| # | 判据 | 实测（2026-11-22 08:52） |
+| # | 判据 | 实测（2026-11-22 09:15） |
 |:--:|---|---|
-| 1 | 导出散点数 == 图生成实例数 | 19 == 19 |
-| 2 | 导出散点数 == ISM 实例数之和 | 19 == 19 |
-| 3 | 导出散点数 == `manifest.placements.count` | 19 == 19 |
-| 4 | `manifest.placements` == UE 消费端 dry_run 报告 placements | 19 == 19 |
+| 1 | 导出散点数 == 图生成实例数 | 233 == 233 |
+| 2 | 导出散点数 == ISM 实例数之和 | 233 == 233 |
+| 3 | 导出散点数 == `manifest.placements.count` | 233 == 233 |
+| 4 | `manifest.placements` == UE 消费端 dry_run 报告 placements | 233 == 233 |
 
-末行输出：`CHAIN PASS points=19 assets=1 placements=19`（退出码 0）。
+末行输出：`CHAIN PASS points=233 assets=1 placements=233`（退出码 0）。
 
 产物与证据：
 
 | 文件 | 说明 |
 |---|---|
-| `docs/pcg_forest_pilot.json` | 导出证据：UE 5.7 / `/Game/Untitled` / 图 10 节点参数 / 19 条散点（cm） |
-| `schemas/pcg_manifest.json` | 中台产物：manifest v1.1，1 资产 + placements[19]（m） |
+| `docs/pcg_forest_pilot.json` | 导出证据：UE 5.7 / `/Game/Untitled` / 图 10 节点参数（密度 0.1）/ 233 条散点（cm），155 KB |
+| `schemas/pcg_manifest.json` | 中台产物：manifest v1.1，1 资产 + placements[233]（m），81 KB |
 | `schemas/pcg_manifest.ue_report.json` | UE 消费端 dry_run 回执（`*_report.json` 按 .gitignore 不入库，本地留证） |
+| `Saved/EAP/pcg_scale_run.json`（UE 工程内） | 规模化执行状态：关卡 / actor 数 76 / 面积 2500 m² / 19 → 233 |
+| `Saved/EAP/backup/PCG_ForestScatter_*.uasset`（UE 工程内） | 改密度前的图资产备份，可回退 |
 
 **已知限制（不算过的地方，别在面试里含糊）**：
-1. 19 个实例是 2026-10 的**试点规模**：PCG 体积 50×50 m（2500 m²）× 密度 `0.01 点/m²` → 名义 25 个，
-   实际 19 个（网格量化 + looseness 0.8 的正常偏差）。规模化（≈0.1 点/m²，约 250 棵）是下一单元。
+1. 规模刻意压在试点体积：PCG 体积 50×50 m（2500 m²），密度 `0.1 点/m²` → 名义 250 个点、实际 233（93%）；
+   换真实树资产 + 扩到 200×200 m 是下一单元。
 2. `placements` 只被读取和统计，**没有落位**成 UE ISM 实例。
 3. 散点里没有 PCG 点级 metadata（密度/seed attribute），只有最终实例 transform。
 4. Unity 端不参与（`/Engine/BasicShapes/Cube` 是引擎内置网格，没有 glb）。
 5. **无头编辑器不能重新生成 PCG**：`PCGComponent.generate()` 在 `-unattended -nullrhi` 下报
    `Internal Error - ObjectInstance is null!`（2026-11-22 实测），所以"改参数 + 重生成"必须在真实编辑器里做；
    导出/校验/消费 dry_run 可以无头。
+6. **生成是异步的**：编辑器里 `generate()` 调用后 10 秒内实例没变（当时引擎在编译 shader），
+   要等 30~60 秒，或直接选中卷在 Details 面板点 Generate 兜底。
+7. **脚本必须先确认关卡**：首跑时编辑器当前关卡是空白 `/Temp/Untitled_1`，`get_all_level_actors()` 为空，
+   读到"体积 None / 实例 0"；`pcg_scale.py` 现在会先比对并加载 `/Game/Untitled` 再扫 actor。

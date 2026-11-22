@@ -190,8 +190,8 @@ def run(map_path=DEFAULT_MAP, graph_path=DEFAULT_GRAPH, out_path=DEFAULT_OUT):
         "instancedMeshes": [],
         "instanceCount": 0,
         "points": [],
-        "pilot": True,
-        "note": "2026-10 试点：用 /Engine/BasicShapes/Cube 方盒子代替树，19 个实例；规模小是当时刻意试点，不是缺陷。",
+        "pilot": False,
+        "note": "2026-10 试点（19 实例，密度 0.01）→ 2026-11-22 规模化（密度 0.1，233 实例）；网格仍用 /Engine/BasicShapes/Cube 方盒子代替树。",
     }
 
     for a in actors:
