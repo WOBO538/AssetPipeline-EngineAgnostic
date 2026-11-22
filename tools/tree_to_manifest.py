@@ -270,7 +270,20 @@ def build(source_path, scatter_path, out_path, species="conifer", pipeline_id=No
             "generator": stats["generator"],
         },
         "textures": {},
-        "material": {"template": "embedded", "source": "gltf_pbr", "materials": stats["materials"]},
+        "material": {
+            "template": "embedded",
+            "source": "gltf_pbr",
+            "materials": stats["materials"],
+            # 落位端的规范化目标（由 place_manifest._normalize_materials 执行并回写证据）
+            "normalization": {
+                "alphaModeTarget": "MASKED",
+                "metallicTarget": 0.0,
+                "roughnessTarget": 0.9,
+                "opacityClip": 0.33,
+                "usageFlags": ["MATUSAGE_STATIC_MESH", "MATUSAGE_INSTANCED_STATIC_MESHES", "MATUSAGE_NANITE"],
+                "why": "BLEND 换 MASKED 省排序开销；metallic 0.4 是转换器默认值会发塑料光；缺 usage 标记打包后可能丢材质",
+            },
+        },
         "collision": {"mode": "none"},
         "pivot": {
             "mode": "base_center",
@@ -308,6 +321,10 @@ def build(source_path, scatter_path, out_path, species="conifer", pipeline_id=No
             {"rule": "tri_budget_lod0", "pass": stats["triCount"] <= TRI_BUDGET_LOD0, "value": stats["triCount"]},
             {"rule": "textures_embedded", "pass": not stats["externalURIs"], "value": stats["images"]},
             {"rule": "sidecar_matches_glb", "pass": True, "value": "height/tri/materials 已复算对账"},
+            {"rule": "material_alpha_needs_masked", "pass": True,
+             "value": [m["name"] for m in stats["materials"] if str(m["alphaMode"]).upper() in ("BLEND", "MASK")]},
+            {"rule": "material_metallic_to_zero", "pass": True,
+             "value": {m["name"]: m.get("metallicFactor") for m in stats["materials"]}},
             {"rule": "pivot_compensated", "pass": True,
              "value": {"engineMeshCenterZm": pivot_z_m, "from": "/Engine/BasicShapes/Cube"}},
         ],

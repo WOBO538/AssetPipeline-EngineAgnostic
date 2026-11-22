@@ -1,10 +1,14 @@
 {
-  "when": "2026-11-22T18:01:26",
+  "when": "2026-11-22T18:25:15",
   "schema": "eap.placement.verify/1",
   "levelPackage": "/Game/EAP/PCG/PlacedTrees",
   "actor": "EAP_Placements",
   "component": "InstancedStaticMesh",
   "mesh": "/Game/EAP/Trees/conifer/StaticMeshes/conifer.conifer",
+  "materials": [
+    "/Game/EAP/Materials/MI_EAP_conifer_0_opaque.MI_EAP_conifer_0_opaque",
+    "/Game/EAP/Materials/MI_EAP_conifer_1_masked.MI_EAP_conifer_1_masked"
+  ],
   "count": 1892,
   "bboxPlacedM": {
     "min": [

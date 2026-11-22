@@ -1,7 +1,7 @@
 {
   "manifestVersion": "1.1",
   "pipelineId": "eap-tree-conifer-20261122",
-  "generatedAt": "2026-11-22T18:00:39+08:00",
+  "generatedAt": "2026-11-22T18:24:40+08:00",
   "units": "m",
   "source": {
     "kind": "glb_ingest",
@@ -62,7 +62,19 @@
             "hasMetallicRoughnessTexture": false,
             "hasNormalTexture": false
           }
-        ]
+        ],
+        "normalization": {
+          "alphaModeTarget": "MASKED",
+          "metallicTarget": 0.0,
+          "roughnessTarget": 0.9,
+          "opacityClip": 0.33,
+          "usageFlags": [
+            "MATUSAGE_STATIC_MESH",
+            "MATUSAGE_INSTANCED_STATIC_MESHES",
+            "MATUSAGE_NANITE"
+          ],
+          "why": "BLEND 换 MASKED 省排序开销；metallic 0.4 是转换器默认值会发塑料光；缺 usage 标记打包后可能丢材质"
+        }
       },
       "collision": {
         "mode": "none"
@@ -32311,6 +32323,21 @@
           "rule": "sidecar_matches_glb",
           "pass": true,
           "value": "height/tri/materials 已复算对账"
+        },
+        {
+          "rule": "material_alpha_needs_masked",
+          "pass": true,
+          "value": [
+            "Leaves_Pine"
+          ]
+        },
+        {
+          "rule": "material_metallic_to_zero",
+          "pass": true,
+          "value": {
+            "Bark_NormalTree": 0.400000005960464,
+            "Leaves_Pine": 0.400000005960464
+          }
         },
         {
           "rule": "pivot_compensated",

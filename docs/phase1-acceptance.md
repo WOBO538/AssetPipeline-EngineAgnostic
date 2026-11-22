@@ -57,6 +57,9 @@ python tools/run_pcg_chain.py --tree --expect-span-m 200
 | 9 | 落位地块跨度 == 200 m（±15%） | X=196.6 m / Y=191.6 m |
 | 10 | 落位网格是树资产（非引擎 Cube） | `/Game/EAP/Trees/conifer/StaticMeshes/conifer.conifer` |
 | 11 | UE 侧树高 == glTF 树高（<5 cm） | UE=10.236 m / glTF=10.236 m |
+| 12 | 材质槽已规范化（metallic=0 且 usage 标记齐全） | 2 槽 `['opaque','masked']`，STATIC_MESH/ISM/NANITE 三项全 True |
+| 13 | alpha 材质已从 BLEND 转 MASKED | 树皮 `BLEND_OPAQUE` / 叶子 `BLEND_MASKED`（clip 0.33、双面） |
+| 14 | 落位组件材质覆盖 = EAP 材质资产 | `MI_EAP_conifer_0_opaque` / `MI_EAP_conifer_1_masked`（新进程读回仍在） |
 
 产物与证据（换树链路）：
 
@@ -70,10 +73,11 @@ python tools/run_pcg_chain.py --tree --expect-span-m 200
 | `docs/ue_trees_placed_20261122.png` | 引擎内实拍（2026-11-22 18:07 用户手操）：1892 棵落地、投影方向一致、6 Actor |
 | `docs/ue_material_usage_warning_20261122.png` | `地图检测` 截图：材质缺 `bUsedWithNanite` / `bUsedWithInstancedStaticMeshes` 用法标记 |
 | `Content/EAP/PCG/PlacedTrees.umap`（UE 工程内） | 落位关卡：1 Actor + 1 ISM（1892 棵 conifer），无灯光/地面（补灯需真实编辑器） |
+| `Content/EAP/Materials/`（UE 工程内） | 规范化材质：`M_EAP_Foliage_Masked` / `M_EAP_Opaque` 母材质 + `MI_EAP_<资产>_<槽>_<kind>` 实例 |
 | `assets/raw/trees/_previews/*.png` | 采集会话附的两棵树预览图（非引擎内实拍） |
 
-**换树链路的已知限制**：叶子材质 `BLEND` 未改 `MASKED`、`metallicFactor 0.4` 未清零、无 LOD、单树种、
-UE 侧三角面口径为 Nanite fallback（1 414 / 源 3 370）、Unity 端尚未实跑、`PlacedTrees` 关卡无灯光地面。
+**换树链路的已知限制**：无 LOD、单树种、UE 侧三角面口径为 Nanite fallback（1 414 / 源 3 370）、
+Unity 端尚未实跑、`PlacedTrees` 关卡无灯光地面（需真实编辑器补）、贴图压缩仍是 `TC_DEFAULT`。
 
 产物与证据：
 
@@ -125,12 +129,17 @@ UE 侧三角面口径为 Nanite fallback（1 414 / 源 3 370）、Unity 端尚�
     否则 1892 棵树整体悬空 0.5 m。manifest 里记 `pivot.zOffsetM`，链路上有断言守着树高对账。
 16. **UE 三角面口径（v1.2）**：glTF 源 3 370 面，导入后 `get_num_triangles(0)` 报 1 414（broadleaf 3 505 → 2 354），
     返回的是 Nanite fallback 网格。**不要混用两侧数字**，验收表统一引用 glTF 侧。
-17. **树资产材质未规范化（v1.2）**：叶子 `alphaMode=BLEND`（应改 MASKED 省排序开销）、`metallicFactor=0.4`（应改 0），
-    当前只在 manifest checks 与日志里告警，没有自动改材质。**这是视觉质量的主要缺口。**
+17. **树资产材质已规范化（v1.3 解决）**：叶子 `BLEND → MASKED`（clip 0.33、双面）、两槽 metallic 0.4 → 0、
+    usage 标记齐全，全部由 `place_manifest._normalize_materials()` 无头完成，第 12–14 条断言守着。
 18. **树资产无 LOD（v1.2）**：两棵树各只有 1 个 LOD，1892 棵全量靠 Nanite/实例剔除撑；LOD 链是下一项工作。
-19. **导入材质缺用法标记（v1.2，用户实拍的地图检测报出）**：`/InterchangeAssets/gltf/M_Default` 与
-    `/Game/EAP/Trees/conifer/Materials/Bark_NormalTree` 缺 `bUsedWithNanite` / `bUsedWithInstancedStaticMeshes`；
-    编辑器内渲染正常（实拍证明），但材质未重存时**打包后可能渲染不出来**。修法：补 usage flag + 重存材质，
-    与材质规范化（BLEND→MASKED、metallic→0）同一单元做。
+19. **导入材质用法标记已补齐（v1.3 解决）**：自建 EAP 母材质时用 `set_material_usage` 设了
+    `MATUSAGE_STATIC_MESH / INSTANCED_STATIC_MESHES / NANITE`，派生 MIC 继承，原 Interchange 材质的告警不再适用。
 20. **画面观感（v1.2 实拍结论）**：树成片、落地、投影方向一致；但叶片偏**荧光绿**、树皮无层次，
     与 `metallicFactor 0.4` + 叶子 `BLEND` 的预期缺陷吻合。**当前不主张画面质量，只主张管线连通。**
+21. **跑链前必须关 UE 编辑器（v1.3 实测）**：编辑器占着 `PlacedTrees.umap` 时，无头保存关卡报
+    `LogFileManager: Error Code 32` + `Failed to move ... to temp directory`，`save_current_level()` 返回 False，
+    实例与材质覆盖都不落盘（但脚本其它断言仍会 PASS，属"假通过"）。所以落位前后要确认编辑器已关该关卡。
+22. **贴图压缩仍是 TC_DEFAULT（v1.3）**：叶子 alpha 贴图（70.5% 全透明）配 MASKED 更该用 `TC_MASKED`，
+    现在沿用 Interchange 的 `TC_DEFAULT`；边缘可能出现锯齿/渗色，出图前再改并重导。
+23. **roughness 0.9 是拍脑袋值（v1.3）**：EAP 母材质把 roughness 设成常量 0.9、metallic 常量 0，
+    没有走贴图（glb 本身也没 MR 贴图）。这是"去塑料感"的最小修法，不是最终材质方案。

@@ -14,7 +14,8 @@
   6) UE 无头跑 place_manifest.verify() → 新进程重载关卡读回实例
   7) 断言：散点数 == 实例数 == manifest placements == 消费端报告 placements == 落位实例数，
      且落位 bbox / 每条 transform 与 manifest 一致（< 1 cm、< 0.05°）；
-     `--tree` 还会断言落位网格确实是树资产、UE 侧树高 == glTF 树高（< 5 cm）
+     `--tree` 还会断言落位网格确实是树资产、UE 侧树高 == glTF 树高（< 5 cm）、
+     材质槽已规范化（metallic=0 / usage 标记齐全 / alpha 槽 MASKED / 组件覆盖是 EAP 材质资产）
 
 退出码：0 全绿；1 任一断言失败（失败信息打在最后）。
 """
@@ -316,6 +317,21 @@ def main(argv):
                 checks.append(("UE 侧树高 == glTF 树高 (<5cm)",
                                abs(float(got_h) - expect_h) <= 0.05,
                                "UE=%.3f m / glTF=%.3f m" % (float(got_h), expect_h)))
+            # 材质规范化（v1.3）：EAP 母材质派生 MIC，metallic 清零、usage 标记齐全、alpha 槽转 MASKED
+            mat_ev = (placed or {}).get("materials") or []
+            if mat_ev:
+                all_usage = all(all((e.get("usage") or {}).values()) for e in mat_ev)
+                all_metal = all(abs(float(e.get("metallic") or 0.0)) < 1e-6 for e in mat_ev)
+                checks.append(("材质槽已规范化（metallic=0 且 usage 标记齐全）", all_usage and all_metal,
+                               "%d 槽 %s" % (len(mat_ev), [e.get("kind") for e in mat_ev])))
+                masked_ok = all("MASKED" in str(e.get("blendModeAfter", ""))
+                                for e in mat_ev if e.get("kind") == "masked")
+                checks.append(("alpha 材质已从 BLEND 转 MASKED", masked_ok,
+                               str([e.get("blendModeAfter") for e in mat_ev])))
+            vmat = verify.get("materials") or []
+            if vmat:
+                checks.append(("落位组件材质覆盖 = EAP 材质资产",
+                               all("/MI_EAP_" in (m or "") for m in vmat), str(vmat)))
     print("[7/7] 断言")
     for name, ok, detail in checks:
         print("     %-42s %s  (%s)" % (name, "PASS" if ok else "FAIL", detail))

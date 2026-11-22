@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-22T18:15:00+08:00",
+  "updatedAt": "2026-11-22T18:30:00+08:00",
   "today": "2026-11-22",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -29,8 +29,8 @@
       "id": "P1",
       "name": "EAP 多引擎资产管线",
       "subtitle": "主线 · 补 PCG 资格缺口 · NO.01 下一代",
-      "phase": "阶段一 + Layer1 出口 + 地块 200x200 m + 真实树 glb 落位（1892 棵，11/11 断言）",
-      "progress": 75,
+      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化（MASKED/metallic 0/usage flag）",
+      "progress": 80,
       "status": "进行中",
       "items": [
         {
@@ -74,9 +74,19 @@
           "date": "11-22"
         },
         {
-          "name": "树资产规范化：叶子 BLEND→MASKED、metallic 0.4→0、补 LOD 链",
+          "name": "树资产规范化：BLEND→MASKED + metallic 0 + usage 标记（无头全自动，14/14 断言）",
+          "status": "done",
+          "date": "11-22"
+        },
+        {
+          "name": "清理 PlacedTrees_v2 临时关卡 + 用关编辑器后的正式链路重跑",
           "status": "doing",
-          "date": "11-23"
+          "date": "11-22"
+        },
+        {
+          "name": "贴图压缩 TC_MASKED + roughness 走贴图（出图质量）",
+          "status": "todo",
+          "date": "11-25"
         },
         {
           "name": "PlacedTrees 补灯光 + 引擎内实拍（1892 棵，6 Actor，用户手操）",
@@ -322,7 +332,7 @@
         "date": "2026-11-22",
         "projectMin": 0,
         "learningMin": 0,
-        "note": "lead 跑通换真实树链路：公开仓库 CC0 glTF（Poly Pizza/Quaternius）独立解析复算对账 -> tree_manifest（双端）-> 无头 Interchange 导入 -> 1892 棵落位 PlacedTrees，11/11 断言通过"
+        "note": "lead 跑通换真实树 + 材质规范化：CC0 glTF 独立解析对账 -> tree_manifest（双端）-> 无头 Interchange 导入 -> 自建 MASKED/OPAQUE 母材质 + MIC -> 1892 棵落位，14/14 断言；踩到编辑器占用 umap 导致保存失败的坑"
       },
       {
         "date": "2026-11-21",

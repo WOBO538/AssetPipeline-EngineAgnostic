@@ -1,5 +1,5 @@
 {
-  "when": "2026-11-22T18:01:07",
+  "when": "2026-11-22T18:25:02",
   "schema": "eap.placement.run/1",
   "manifest": "D:\\Projects\\AssetPipeline-EngineAgnostic\\schemas\\tree_manifest.json",
   "levelPackage": "/Game/EAP/PCG/PlacedTrees",
@@ -23,10 +23,66 @@
       "Leaves_Pine"
     ]
   },
+  "materials": [
+    {
+      "slot": 0,
+      "sourceMaterial": "Bark_NormalTree",
+      "sourceBlend": "<BlendMode.BLEND_OPAQUE: 0>",
+      "kind": "opaque",
+      "material": "/Game/EAP/Materials/MI_EAP_conifer_0_opaque",
+      "baseColorTex": "/Game/EAP/Trees/conifer/Textures/base_color_texture.base_color_texture",
+      "normalTex": "/Game/EAP/Trees/conifer/Textures/normalmap_texture.normalmap_texture",
+      "sourceMetallic": 0.4000000059604645,
+      "metallic": 0.0,
+      "roughness": 0.9,
+      "opacityClip": null,
+      "twoSided": false,
+      "blendModeAfter": "<BlendMode.BLEND_OPAQUE: 0>",
+      "usage": {
+        "MATUSAGE_STATIC_MESH": true,
+        "MATUSAGE_INSTANCED_STATIC_MESHES": true,
+        "MATUSAGE_NANITE": true
+      }
+    },
+    {
+      "slot": 1,
+      "sourceMaterial": "Leaves_Pine",
+      "sourceBlend": "<BlendMode.BLEND_OPAQUE: 0>",
+      "kind": "masked",
+      "material": "/Game/EAP/Materials/MI_EAP_conifer_1_masked",
+      "baseColorTex": "/Game/EAP/Trees/conifer/Textures/base_color_texture1.base_color_texture1",
+      "normalTex": null,
+      "sourceMetallic": 0.4000000059604645,
+      "metallic": 0.0,
+      "roughness": 0.9,
+      "opacityClip": 0.33,
+      "twoSided": true,
+      "blendModeAfter": "<BlendMode.BLEND_MASKED: 1>",
+      "usage": {
+        "MATUSAGE_STATIC_MESH": true,
+        "MATUSAGE_INSTANCED_STATIC_MESHES": true,
+        "MATUSAGE_NANITE": true
+      }
+    }
+  ],
+  "materialOverrides": [
+    "/Game/EAP/Materials/MI_EAP_conifer_0_opaque.MI_EAP_conifer_0_opaque",
+    "/Game/EAP/Materials/MI_EAP_conifer_1_masked.MI_EAP_conifer_1_masked"
+  ],
   "expected": 1892,
   "placed": 1892,
   "levelSaved": true,
-  "ground": null,
+  "ground": {
+    "centerM": [
+      8.37,
+      -114.35
+    ],
+    "sizeM": [
+      246.6,
+      241.6
+    ],
+    "zM": -1.5
+  },
   "bboxManifestM": {
     "min": [
       -89.9285,

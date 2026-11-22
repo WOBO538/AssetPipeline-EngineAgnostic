@@ -173,13 +173,13 @@ assets/raw/trees/conifer.glb（Poly Pizza / Quaternius，CC0，3 370 面，10.23
    ↓ tree_to_manifest.py   自己解析 GLB 二进制复算 bbox/面数/本证，再和 sidecar 对账（不信上游）
 schemas/tree_manifest.json   manifest v1.1：model.source=file + 双端 engineTargets + placements[1892]
    ↓ validate_manifest.py    errors=0
-   ↓ place_manifest.place() 无头 Interchange 导入 glb → StaticMesh → ISM 落 1892 个实例
-/Game/EAP/PCG/PlacedTrees   专用关卡：1 Actor + 1 ISM（1892 棵 conifer）
+   ↓ place_manifest.place() 无头 Interchange 导入 glb → StaticMesh → 材质规范化 → ISM 落 1892 个实例
+/Game/EAP/PCG/PlacedTrees   专用关卡：1 Actor + 1 ISM（1892 棵 conifer）+ 2 个 EAP 材质覆盖
    ↓ place_manifest.verify() 新进程重载读回 → docs/placed_tree_verify.json
 ```
 
 ```bash
-python tools/run_pcg_chain.py --tree --expect-span-m 200    # 四次无头 UE + 两次纯 Python；11 条断言
+python tools/run_pcg_chain.py --tree --expect-span-m 200    # 四次无头 UE + 两次纯 Python；14 条断言
 # 期望末行：CHAIN PASS points=1892 assets=1 placements=1892
 ```
 
@@ -220,8 +220,44 @@ python tools/run_pcg_chain.py --tree --expect-span-m 200    # 四次无头 UE + 
    `bUsedWithInstancedStaticMeshes`，材质资产未重新保存时**编辑器外运行时可能渲染不出来**"。
    编辑器里没事（实拍正常），但这是打包前的必修项——和材质规范化一起做。
 
-**这一节明确没做的**（写进第五节）：叶子 `BLEND` 改 `MASKED`、`metallicFactor 0.4 → 0`、补 LOD、双树种混排、
-Unity 端实跑。当前只证明"管线能连续吃真资产"，不主张画面质量。
+**这一节只解决"网格换成真资产"**；材质三个坑（BLEND / metallic 0.4 / usage 标记）由下一节处理，
+LOD、双树种混排、Unity 端实跑仍留在第五节。
+
+### 三之五、材质规范化：Interchange 的默认材质不能直接上
+
+Interchange 导入 glTF 时自动生成的材质有三个坑，实拍（上一节）全暴露出来了：
+叶子是 `BLEND`（1892 个实例半透明排序）、`metallicFactor = 0.4`（画面荧光绿/塑料感）、
+缺 `bUsedWithNanite` / `bUsedWithInstancedStaticMeshes` 用法标记（打包后可能丢材质）。
+
+解法不是去改 Interchange 的引擎默认材质（那是污染引擎资产），而是**在落位端把材质换掉**：
+
+```
+Interchange 生成的 MIC（读参数：BaseColorTexture / NormalTexture / MetallicFactor）
+   ↓ place_manifest._normalize_materials()
+读贴图映射 → 建/复用 EAP 母材质 M_EAP_Foliage_Masked（MASKED、双面、metallic 0、roughness 0.9）
+                               + M_EAP_Opaque（OPAQUE、metallic 0）
+          → 派生 MIC（MI_EAP_<资产>_<槽>_<masked|opaque>）→ 设到 ISM 两个材质槽
+```
+
+三个关键点：
+
+- **分类看 manifest 里 glTF 原始的 `alphaMode`**，不靠猜：`BLEND/MASK → MASKED`，其余 OPAQUE。
+  顺带记一个坑：UE 的枚举字符串是 `"<BlendMode.BLEND_OPAQUE: 0>"`，**OPAQUE 里也含 "BLEND"**，
+  用子串判断会把树皮也当成半透明材质（第一版就是这样，被断言抓出来了）。
+- **贴图映射从源 MIC 的参数里读**（`BaseColorTexture` / `NormalTexture`），不按文件名猜——换任何 glTF 都能自动对上。
+- **用法标记在母材质上设**（`set_material_usage` × STATIC_MESH / INSTANCED_STATIC_MESHES / NANITE），
+  这样派生出来的所有 MIC 都继承，不用逐个改。
+
+实测（2026-11-22 18:1x，无头全自动，不需要点编辑器）：
+
+| 槽 | 源材质 | 源 alphaMode | 源 metallic | 规范化后 | 贴图 |
+|---|---|---|---|---|---|
+| 0 | Bark_NormalTree | OPAQUE | 0.40 | `MI_EAP_conifer_0_opaque`（OPAQUE） | BaseColor + Normal |
+| 1 | Leaves_Pine | BLEND | 0.40 | `MI_EAP_conifer_1_masked`（**MASKED**，clip 0.33，双面） | BaseColor（alpha 70.5% 全透明，正好适合 masked） |
+
+顺带记一个**真踩到的坑**：用户开着 UE 编辑器占着 `PlacedTrees.umap` 时，无头落位保存关卡会失败
+（`LogFileManager: Error Code 32` → `Failed to move ... to temp directory`），关卡存不进去、
+材质覆盖自然也没落盘。**跑链前必须关掉编辑器（或至少关掉目标关卡）**——这条已写进验收文档。
 
 ## 四、阶段一验收（6 条，逐条可判）
 
@@ -236,9 +272,9 @@ Unity 端实跑。当前只证明"管线能连续吃真资产"，不主张画面
 
 > 没截图、没日志、没退出码 = 没过。这条照搬项目验收标准。
 
-### 四之二、Layer 1 链路验收（9 + 2 条，`python tools/run_pcg_chain.py [--tree]` 自动判）
+### 四之二、Layer 1 链路验收（9 + 5 条，`python tools/run_pcg_chain.py [--tree]` 自动判）
 
-| # | 判据 | 实测（2026-11-22 17:33 / 18:0x） |
+| # | 判据 | 实测（2026-11-22 17:33 / 18:0x / 18:1x） |
 |:--:|---|---|
 | 1 | 导出散点数 == 图生成实例数 | 1892 == 1892 |
 | 2 | 导出散点数 == ISM 实例数之和 | 1892 == 1892 |
@@ -251,6 +287,9 @@ Unity 端实跑。当前只证明"管线能连续吃真资产"，不主张画面
 | 9 | 落位地块跨度 == 200 m（±15%） | X=196.6 m / Y=191.6 m |
 | 10 | `--tree`：落位网格是树资产（非引擎 Cube） | `/Game/EAP/Trees/conifer/StaticMeshes/conifer.conifer` |
 | 11 | `--tree`：UE 侧树高 == glTF 树高（<5 cm） | UE=10.236 m / glTF=10.236 m |
+| 12 | `--tree`：材质槽已规范化（metallic=0 且 usage 标记齐全） | 2 槽 `['opaque', 'masked']`，三项 usage 全 True |
+| 13 | `--tree`：alpha 材质已从 BLEND 转 MASKED | `BLEND_OPAQUE` + `BLEND_MASKED` |
+| 14 | `--tree`：落位组件材质覆盖 = EAP 材质资产 | `MI_EAP_conifer_0_opaque` / `MI_EAP_conifer_1_masked`（新进程读回仍在） |
 
 产物：`docs/pcg_forest_pilot.json`（1189 KB，图参数 + 1892 条散点）、`schemas/pcg_manifest.json`（626 KB）、
 `docs/placed_pilot.json`（436 KB）、`docs/placed_verify.json`（435 KB）；
@@ -269,11 +308,12 @@ Unity 端实跑。当前只证明"管线能连续吃真资产"，不主张画面
 - **PCG 点级 metadata 读不到（v1.1）**：`get_generated_graph_output()` 能拿到 `PCGDataCollection`（tagged=1），但点级 attribute（密度/seed）没有暴露的 Python 访问器。所以出口以**实例 transform** 为准——实例是最终结果，反而更可信。
 - **Unity 端跳过引擎内置网格（v1.1）**：`model.source=engine`（如 `/Engine/BasicShapes/Cube`）没有 glb，Unity 不适用；只有文件型资产走双端。
 - **无头导出依赖本机路径（v1.1）**：`run_pcg_chain.py --ue/--project` 可覆盖，默认 `C:\Program Files\Epic Games\UE_5.7` + `D:\UE_Projects\VegetationPCG`。
-- **树资产材质没规范化（v1.2）**：glTF 的叶子材质是 `BLEND`（1892 个实例会有排序/开销问题，正式出图应改 `MASKED`）、
-  树皮/树叶 `metallicFactor = 0.4`（转换器默认值，UE 里偏塑料感，实拍已确认画面荧光绿）。目前只在 manifest 的
-  `checks`/日志里告警，**没有自动改材质**。
-- **导入材质缺用法标记（v1.2）**：Interchange 生成的 `M_Default` 与树材质缺 `bUsedWithNanite` /
-  `bUsedWithInstancedStaticMeshes`，编辑器内渲染正常，但打包后可能丢材质。修法：材质规范化单元里补 usage flag + 重存。
+- **树资产材质已规范化，但仍有视觉短板（v1.3）**：叶子已 `BLEND → MASKED`（clip 0.33、双面），
+  两个槽的 metallic 都清零、usage 标记齐全；但**贴图仍是 Interchange 的 `TC_DEFAULT` 压缩**（蒙版用
+  `TC_MASKED` 边缘更干净）、roughness 统一 0.9 是拍脑袋值、粗糙度/金属度还没走贴图。要出图得再调一轮。
+- **跑链前必须关掉 UE 编辑器（v1.3 实测）**：编辑器打开目标关卡时，无头落位写盘会被 Windows 文件锁挡住
+  （`LogFileManager: Error Code 32` → `Failed to move ... to temp dir`），`save_current_level()` 返回 False、
+  材质覆盖不落盘。**先关编辑器再跑链**，否则会拿到"看着 PASS 但没存住"的假结果。
 - **UE 侧三角面数要看清口径（v1.2）**：glTF 源数据 conifer 3 370 面，导入 UE 后 `get_num_triangles(0)` 报 1 414
   （broadleaf 3 505 → 2 354）——返回的是 **Nanite fallback** 简化网格。引用数字时写明是哪一侧。
 - **树资产没有 LOD（v1.2）**：两棵树都只有 1 个 LOD（3 370 / 3 505 面，符合"低模无 LOD"门槛），
@@ -288,7 +328,7 @@ Unity 端实跑。当前只证明"管线能连续吃真资产"，不主张画面
 
 ## 六、下一步（阶段二/三）
 
-- 阶段二 · 树资产规范化：叶子 `BLEND → MASKED`、`metallic 0.4 → 0`、补 LOD 链（LOD1 ≤5 千 / LOD2 ≤1.5 千）；
+- 阶段二 · 出图质量：贴图压缩改 `TC_MASKED`、roughness/金属度走贴图、必要时换更写实的树（当前两棵是低模风格化）；
   再把阔叶树接进落位做双树种混排（需要落位端支持多资产/多 ISM）
 - 阶段二 · Unity 端实跑同一份 `tree_manifest.json`（glb + placements 双端一致性）
 - 阶段二 · 落位扩展到材质/碰撞/LOD：现在只落 transform，manifest 里其它字段还没在 UE 侧生效

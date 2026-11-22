@@ -34,6 +34,10 @@ DEFAULT_LEVEL = "/Game/EAP/PCG/PlacedPilot"
 DEFAULT_OUT = r"D:\Projects\AssetPipeline-EngineAgnostic\docs\placed_pilot.json"
 DEFAULT_VERIFY_OUT = r"D:\Projects\AssetPipeline-EngineAgnostic\docs\placed_verify.json"
 ACTOR_LABEL = "EAP_Placements"
+MAT_DIR = "/Game/EAP/Materials"
+FOLIAGE_MAT = MAT_DIR + "/M_EAP_Foliage_Masked"
+OPAQUE_MAT = MAT_DIR + "/M_EAP_Opaque"
+USAGE_FLAGS = ("MATUSAGE_STATIC_MESH", "MATUSAGE_INSTANCED_STATIC_MESHES", "MATUSAGE_NANITE")
 
 
 def _log(msg):
@@ -216,6 +220,159 @@ def _mesh_info(mesh):
     }
 
 
+def _blend_of(material_like):
+    """沿父链找到 Material，返回 blend_mode 字符串（MIC 上没有 blend_mode 属性）。"""
+    node = material_like
+    for _ in range(6):
+        if node is None or isinstance(node, str):
+            return None
+        cls = _safe(lambda node=node: str(node.get_class().get_name()), "")
+        if cls == "Material":
+            return _safe(lambda node=node: str(node.get_editor_property("blend_mode")))
+        node = _safe(lambda node=node: node.get_editor_property("parent"))
+    return None
+
+
+def _material_source_map(mi):
+    """从 Interchange 自动生成的 MIC 里读出它挂了哪些贴图/标量参数。
+
+    Interchange glTF 的 MIC 参数名形如 `BaseColorTexture` / `NormalTexture` / `MetallicFactor`，
+    读出来再喂给 EAP 自己的母材质——这样换任何 glTF 都不用猜贴图角色。
+    """
+    out = {"textures": {}, "scalars": {}}
+    for item in _safe(lambda: list(mi.get_editor_property("texture_parameter_values")), []) or []:
+        name = _safe(lambda: str(item.get_editor_property("parameter_info").get_editor_property("name")), "")
+        val = _safe(lambda: item.get_editor_property("parameter_value"))
+        if name and val is not None and not isinstance(val, str):
+            out["textures"][name] = val
+    for item in _safe(lambda: list(mi.get_editor_property("scalar_parameter_values")), []) or []:
+        name = _safe(lambda: str(item.get_editor_property("parameter_info").get_editor_property("name")), "")
+        out["scalars"][name] = _safe(lambda: float(item.get_editor_property("parameter_value")), None)
+    return out
+
+
+def _ensure_material(pkg, masked):
+    """建/复用 EAP 母材质：BaseColor + Normal 参数化、metallic 0、roughness 0.9、用法标记齐全。
+
+    2026-11-22 实测：`-nullrhi` 下建材质 + `recompile_material` 都能跑（没有渲染管线也能编译节点图），
+    所以材质规范化可以完全无头做，不需要用户点编辑器。
+    """
+    alb = unreal.EditorAssetLibrary
+    mel = unreal.MaterialEditingLibrary
+    if bool(_safe(lambda: alb.does_asset_exist(pkg), False)):
+        return alb.load_asset(pkg)
+    _safe(lambda: alb.make_directory(MAT_DIR))
+    mat = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+        pkg.rsplit("/", 1)[-1], MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
+    _safe(lambda: mat.set_editor_property(
+        "blend_mode", unreal.BlendMode.BLEND_MASKED if masked else unreal.BlendMode.BLEND_OPAQUE))
+    if masked:
+        _safe(lambda: mat.set_editor_property("opacity_mask_clip_value", 0.33))
+    # 植被卡片两面可见（glTF 里 doubleSided=false，单面会让背面穿帮）
+    _safe(lambda: mat.set_editor_property("two_sided", bool(masked)))
+    bc = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSampleParameter2D, -500, -200)
+    _safe(lambda: bc.set_editor_property("parameter_name", "BaseColor"))
+    _safe(lambda: mel.connect_material_property(bc, "RGB", unreal.MaterialProperty.MP_BASE_COLOR))
+    if masked:
+        _safe(lambda: mel.connect_material_property(bc, "A", unreal.MaterialProperty.MP_OPACITY_MASK))
+    nm = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSampleParameter2D, -500, 200)
+    _safe(lambda: nm.set_editor_property("parameter_name", "Normal"))
+    _safe(lambda: nm.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL))
+    _safe(lambda: mel.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL))
+    for pname, val, y, prop in (("Metallic", 0.0, 420, unreal.MaterialProperty.MP_METALLIC),
+                                ("Roughness", 0.9, 560, unreal.MaterialProperty.MP_ROUGHNESS)):
+        sp = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -300, y)
+        _safe(lambda sp=sp, pname=pname: sp.set_editor_property("parameter_name", pname))
+        _safe(lambda sp=sp, val=val: sp.set_editor_property("default_value", val))
+        _safe(lambda sp=sp, prop=prop: mel.connect_material_property(sp, "", prop))
+    for usage_name in USAGE_FLAGS:
+        if hasattr(unreal.MaterialUsage, usage_name):
+            _safe(lambda u=getattr(unreal.MaterialUsage, usage_name): mel.set_material_usage(mat, u))
+    _safe(lambda: mel.recompile_material(mat))
+    _safe(lambda: alb.save_loaded_asset(mat))
+    _log("已建 EAP 母材质 %s（%s）" % (pkg, "MASKED" if masked else "OPAQUE"))
+    return mat
+
+
+def _is_alpha_material(src, expected_alpha_mode=None):
+    """判断某个槽是不是"带 alpha 的植被材质"。
+
+    优先用 manifest 里 glTF 原始的 `alphaMode`（BLEND/MASK → masked），这是最可靠的口径；
+    拿不到时再沿父链看 blend_mode（注意枚举串 "BLEND_OPAQUE" 里也含 "BLEND"，不能简单包含匹配）。
+    """
+    mode = str(expected_alpha_mode or "").upper()
+    if mode:
+        return mode in ("BLEND", "MASK", "MASKED")
+    bu = str(_blend_of(src) or "").upper()
+    return ("MASKED" in bu) or ("BLEND_BLEND" in bu) or ("TRANSLUCENT" in bu)
+
+
+def _normalize_materials(mesh, tag, expected_alpha_modes=None):
+    """把 Interchange 自动生成的树材质换成 EAP 母材质派生的 MIC，返回覆盖材质列表 + 证据。
+
+    三件事一次做完：叶子 BLEND → MASKED（省排序、能正常裁边）、metallic 0.4 → 0（去塑料感）、
+    补 `bUsedWithNanite` / `bUsedWithInstancedStaticMeshes` 用法标记（否则打包后可能丢材质）。
+    """
+    alb = unreal.EditorAssetLibrary
+    mel = unreal.MaterialEditingLibrary
+    n = int(_safe(lambda: mesh.get_num_sections(0), 0) or 0)
+    expected_alpha_modes = list(expected_alpha_modes or [])
+    overrides, evidence = [], []
+    for slot in range(n):
+        src = _safe(lambda slot=slot: mesh.get_material(slot))
+        if src is None:
+            overrides.append(None)
+            continue
+        blend = str(_blend_of(src) or "")
+        want = (expected_alpha_modes[slot].get("alphaMode")
+                if slot < len(expected_alpha_modes) and isinstance(expected_alpha_modes[slot], dict) else None)
+        masked = _is_alpha_material(src, want)
+        pkg = MAT_DIR + "/MI_EAP_%s_%d_%s" % (tag, slot, "masked" if masked else "opaque")
+        base_mat = _ensure_material(FOLIAGE_MAT if masked else OPAQUE_MAT, masked)
+        mi = alb.load_asset(pkg) if bool(_safe(lambda: alb.does_asset_exist(pkg), False)) else None
+        if mi is None:
+            mi = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+                pkg.rsplit("/", 1)[-1], MAT_DIR, unreal.MaterialInstanceConstant,
+                unreal.MaterialInstanceConstantFactoryNew())
+        _safe(lambda: mi.set_editor_property("parent", base_mat))
+        src_map = _material_source_map(src)
+        tex_map = {}
+        for pname, tex in (src_map.get("textures") or {}).items():
+            low = pname.lower()
+            if "basecolor" in low:
+                tex_map["BaseColor"] = tex
+            elif "normal" in low:
+                tex_map["Normal"] = tex
+        for param, tex in tex_map.items():
+            _safe(lambda param=param, tex=tex: mel.set_material_instance_texture_parameter_value(mi, param, tex))
+        _safe(lambda: mel.update_material_instance(mi))
+        _safe(lambda: alb.save_loaded_asset(mi))
+        overrides.append(mi)
+        evidence.append({
+            "slot": slot,
+            "sourceMaterial": _safe(lambda src=src: str(src.get_name())),
+            "sourceBlend": blend,
+            "kind": "masked" if masked else "opaque",
+            "material": pkg,
+            "baseColorTex": _safe(lambda t=tex_map["BaseColor"]: str(t.get_path_name())) if "BaseColor" in tex_map else None,
+            "normalTex": _safe(lambda t=tex_map["Normal"]: str(t.get_path_name())) if "Normal" in tex_map else None,
+            "sourceMetallic": (src_map.get("scalars") or {}).get("MetallicFactor"),
+            "metallic": 0.0,
+            "roughness": 0.9,
+            "opacityClip": 0.33 if masked else None,
+            "twoSided": bool(masked),
+            "blendModeAfter": _safe(lambda: str(base_mat.get_editor_property("blend_mode"))),
+            "usage": {u: bool(_safe(lambda u=u: mel.has_material_usage(base_mat, getattr(unreal.MaterialUsage, u)), False))
+                      for u in USAGE_FLAGS},
+        })
+        _log("材质规范化 slot %d: %s %s → %s（metallic %.2f→0）"
+             % (slot, evidence[-1]["sourceMaterial"], blend, pkg, float(evidence[-1]["sourceMetallic"] or 0.0)))
+    bad = [e for e in evidence if not all(e["usage"].values())]
+    if bad:
+        _warn("材质用法标记仍然缺失: %s" % [e["material"] for e in bad])
+    return {"overrideMaterials": overrides, "evidence": evidence}
+
+
 def _instance_items(comp):
     """把 ISM 实例读回成 manifest 同格式（m / deg roll,pitch,yaw / scale）。"""
     n = int(comp.get_instance_count())
@@ -293,6 +450,15 @@ def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
     if comp is None:
         comp = _add_ism(actor)
     comp.set_static_mesh(mesh)
+    mat_info = None
+    if str(model.get("source", "file")) == "file":
+        tag = os.path.splitext(os.path.basename(str(model.get("path") or "asset")))[0]
+        tag = "".join(ch for ch in tag if ch.isalnum() or ch == "_")
+        mat_info = _normalize_materials(
+            mesh, tag, expected_alpha_modes=(asset.get("material") or {}).get("materials"))
+        for slot, mi in enumerate(mat_info["overrideMaterials"]):
+            if mi is not None:
+                _safe(lambda slot=slot, mi=mi: comp.set_material(slot, mi))
     _safe(lambda: comp.clear_instances())
 
     transforms = [_transform_of(it) for it in items]
@@ -326,6 +492,9 @@ def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
         "component": _safe(lambda: str(comp.get_name())),
         "mesh": mesh_path,
         "meshInfo": mesh_info,
+        "materials": (mat_info or {}).get("evidence"),
+        "materialOverrides": [_safe(lambda mi=mi: str(mi.get_path_name())) if mi is not None else None
+                              for mi in ((mat_info or {}).get("overrideMaterials") or [])],
         "expected": len(items),
         "placed": placed,
         "levelSaved": saved,
@@ -347,6 +516,11 @@ def verify(level_pkg=None, out_path=None):
     comp = _ism_of(actor) if actor is not None else None
     items = _instance_items(comp) if comp is not None else []
     mesh = _safe(lambda: comp.get_editor_property("static_mesh")) if comp is not None else None
+    mats = []
+    if comp is not None:
+        for i in range(int(_safe(lambda: comp.get_num_materials(), 0) or 0)):
+            mi = _safe(lambda i=i: comp.get_material(i))
+            mats.append(_safe(lambda mi=mi: str(mi.get_path_name()), None))
     state = {
         "when": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "schema": "eap.placement.verify/1",
@@ -354,6 +528,7 @@ def verify(level_pkg=None, out_path=None):
         "actor": _safe(lambda: str(actor.get_actor_label())) if actor is not None else None,
         "component": _safe(lambda: str(comp.get_name())) if comp is not None else None,
         "mesh": str(mesh.get_path_name()) if mesh else None,
+        "materials": mats,
         "count": len(items),
         "bboxPlacedM": _bbox([it["t"] for it in items]) if items else None,
         "items": items,
