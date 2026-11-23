@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T22:10:00+08:00",
+  "updatedAt": "2026-11-23T22:20:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -29,8 +29,8 @@
       "id": "P1",
       "name": "EAP 多引擎资产管线",
       "subtitle": "主线 · 补 PCG 资格缺口 · NO.01 下一代",
-      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化 + 多资产 20 资产（13/13 断言） + 真实双树种混排（20/20 断言）+ --with-compile 严格模式（21/21 断言）+ 贴图三档压缩 & roughness 贴图（v1.6）；--tree 单树种链路已降级为历史",
-      "progress": 90,
+      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化 + 多资产 20 资产（13/13 断言） + 真实双树种混排（20/20 断言）+ --with-compile 严格模式（21/21 断言）+ 贴图三档压缩 & roughness 贴图（v1.6）+ Unity 吃真模型（v1.7：fbx + 内嵌贴图 + Prefab，--unity-check 4/4）；--tree 单树种链路已降级为历史",
+      "progress": 93,
       "status": "进行中",
       "items": [
         {
@@ -169,10 +169,11 @@
           "date": "11-23"
         },
         {
-          "name": "Unity 吃真模型（任务单 5 已下发 docs/_TRAE任务_Unity吃glb_20261123.md：glb→fbx + 内嵌贴图导出 + manifest v1.2 modelPath + --unity-check 4/4）",
-          "status": "doing",
+          "name": "Unity 吃真模型（任务单 5：glb→fbx + 内嵌贴图导出 + manifest v1.2 modelPath + --unity-check 4/4）",
+          "status": "done",
           "owner": "trae",
-          "date": "11-23"
+          "date": "11-23",
+          "note": "Blender 5.2 无头转 fbx（X 预镜像 + FBX_SCALE_ALL，bboxMaxDiff=0、tri 3370/3505 一致）；6 张贴图入 assets/eap_textures（入库）；manifest v1.2（textures 槽 0 + Unity.modelPath/materialPathPrefix）；Unity batchmode 导入 exit=0 ok=2 failed=0（13.4s），2 Prefab + 4/4 贴图（Assets/ 路径）读回；bounds 误差 ≤2e-5 m。反向验证：删 Prefab/贴图后断言 2/3 FAIL，删 modelPath 后断言 2 FAIL。老命令 13/13、20/20、21/21 不变"
         },
         {
           "name": "Unity placements 落地 + 双端一致性断言（任务单 6，待任务单 5 完成）",

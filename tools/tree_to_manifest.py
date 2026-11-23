@@ -14,10 +14,12 @@
    再和 `source_assets.json` 对账，对不上就报错——中间件的活就是"别信上游"。
 2. **轴心补偿**：散点的 t 是引擎 Cube 的**中心**（Cube 半高 0.5 m），而树的轴心在**树根底部**。
    直接照抄 t 会让 1892 棵树全体悬空 0.5 m，所以落位前统一减半高（`pivotZOffsetM`）。
-3. **贴图内嵌**：glb 自带 PNG（无外部 uri），manifest 里 `material.template = "embedded"`、
-   `textures = {}`，由校验器放行；Unity/UE 各自从 glb 里解出贴图。
+3. **贴图内嵌 + 导出**：glb 自带 PNG（无外部 uri）。v1.2 起把它们原样导出到
+   `assets/eap_textures/` 并填进 manifest 的 `textures`（Unity 端读 fbx + 显式贴图）；
+   `material.template = "embedded"` 与旧版空 `textures` 仍被校验器接受。
 """
 import argparse
+import hashlib
 import json
 import os
 import struct
@@ -25,8 +27,10 @@ import sys
 import time
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MANIFEST_VERSION = "1.1"
+MANIFEST_VERSION = "1.2"
 CM_TO_M = 0.01
+EAP_TEX_DIR = os.path.join(REPO, "assets", "eap_textures")
+FBX_DIR = os.path.join(REPO, "assets", "raw", "trees", "fbx")
 PERMISSIVE = ("cc0-1.0", "cc-by-4.0", "cc-by-3.0", "cc-by-2.0", "public domain (cc0)")
 TRI_BUDGET_LOD0 = 20000
 
@@ -38,16 +42,90 @@ def parse_glb(path):
     magic, version, length = struct.unpack_from("<III", data, 0)
     if magic != 0x46546C67:
         raise ValueError("不是 glTF 二进制文件: " + path)
-    off, js = 12, None
+    off, js, binary = 12, None, b""
     while off < len(data):
         clen, ctype = struct.unpack_from("<II", data, off)
         body = data[off + 8: off + 8 + clen]
         if ctype == 0x4E4F534A:
             js = json.loads(body.decode("utf-8"))
+        elif ctype == 0x004E4942:
+            binary = body
         off += 8 + clen + ((4 - clen % 4) % 4 if clen % 4 else 0)
     if js is None:
         raise ValueError("GLB 里没有 JSON chunk: " + path)
-    return {"json": js, "version": version, "declared_len": length, "actual_len": len(data)}
+    return {"json": js, "bin": binary, "version": version,
+            "declared_len": length, "actual_len": len(data)}
+
+
+def _png_size(data):
+    """从 PNG IHDR 读宽高与颜色类型（不解压像素）。"""
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    w, h = struct.unpack_from(">II", data, 16)
+    return {"width": int(w), "height": int(h), "colorType": int(data[25])}
+
+
+def glb_images(path):
+    """按 glTF material 顺序列出可导出的贴图（slot/channel/png 字节）。
+
+    只取 BaseColor 与 Normal：`textures` 是资产级字典，通道维度比材质槽更粗，
+    约定用 slot 0（树皮）作为资产级 BaseColor/Normal 来源（与任务单示例一致）。
+    """
+    g = parse_glb(path)
+    js, binary = g["json"], g["bin"]
+    textures = js.get("textures") or []
+    images = js.get("images") or []
+    views = js.get("bufferViews") or []
+    out = []
+    for slot, mat in enumerate(js.get("materials") or []):
+        pbr = mat.get("pbrMetallicRoughness") or {}
+        for channel, ref in (("BaseColor", pbr.get("baseColorTexture")),
+                             ("Normal", mat.get("normalTexture"))):
+            if not ref:
+                continue
+            src = int(textures[int(ref.get("index", 0))].get("source", 0))
+            view = views[int(images[src]["bufferView"])]
+            start = int(view.get("byteOffset", 0))
+            png = binary[start:start + int(view["byteLength"])]
+            size = _png_size(png)
+            if size is None:
+                continue
+            out.append({"slot": slot, "channel": channel, "png": png,
+                        "width": size["width"], "height": size["height"],
+                        "colorType": size["colorType"]})
+    return out
+
+
+def export_textures(glb_path, asset_id, out_dir=None):
+    """把 glb 内嵌 PNG 原样落到 assets/eap_textures/（确定性：字节即源字节）。"""
+    out_dir = out_dir or EAP_TEX_DIR
+    if not os.path.isdir(out_dir):
+        os.makedirs(out_dir)
+    written = []
+    for item in glb_images(glb_path):
+        name = "%s_%d_%s.png" % (asset_id, item["slot"], item["channel"])
+        abs_path = os.path.join(out_dir, name)
+        with open(abs_path, "wb") as fh:
+            fh.write(item["png"])
+        written.append({
+            "slot": item["slot"], "channel": item["channel"],
+            "path": os.path.relpath(abs_path, REPO).replace("\\", "/"),
+            "size": [item["width"], item["height"]],
+            "sha256": hashlib.sha256(item["png"]).hexdigest(),
+        })
+    return written
+
+
+def manifest_textures(tex_files):
+    """资产级 textures：slot 0 的 BaseColor / Normal（Normal 必须 sRGB=false）。"""
+    out = {}
+    for chan, srgb in (("BaseColor", True), ("Normal", False)):
+        hit = next((t for t in tex_files if t["slot"] == 0 and t["channel"] == chan), None)
+        if hit is None:
+            continue
+        out[chan] = {"path": hit["path"], "srgb": srgb, "size": hit["size"],
+                     "channels": "RGB", "source": "glb-embedded"}
+    return out
 
 
 def _node_matrix(n):
@@ -205,10 +283,9 @@ def check_entry(entry, stats):
 
 
 def _asset_payload(entry, species, stats, glb_rel, items, pivot_z_m,
-                   name_suffix, id_suffix, pivot_from, pivot_note):
+                   name_suffix, asset_id, pivot_from, pivot_note, textures, fbx_rel):
     """单条树 asset 的 payload；单树种 / 双树种共用，只有命名与 pivot 说明不同。"""
     name = str(entry.get("source_model_title") or species)
-    asset_id = "SM_Tree_%s%s" % (species, id_suffix)
     dest = "/Game/EAP/Trees"
     mesh_name = entry["file"].rsplit(".", 1)[0]
     ue_mesh = "%s/%s/StaticMeshes/%s.%s" % (dest, mesh_name, mesh_name, mesh_name)
@@ -229,7 +306,7 @@ def _asset_payload(entry, species, stats, glb_rel, items, pivot_z_m,
             "triCount": stats["triCount"],
             "generator": stats["generator"],
         },
-        "textures": {},
+        "textures": textures,
         "material": {
             "template": "embedded",
             "source": "gltf_pbr",
@@ -262,8 +339,10 @@ def _asset_payload(entry, species, stats, glb_rel, items, pivot_z_m,
             },
             "Unity": {
                 "destPath": "Assets/EAP/Trees",
+                "materialPathPrefix": "Assets/EAP/Trees",
+                "modelPath": fbx_rel,
                 "sourceGlb": glb_rel,
-                "note": "Unity 端直接导 .glb；placements 同一份数据",
+                "note": "Unity 原生不认 .glb：用 Blender 转出的 fbx（内嵌贴图另存 assets/eap_textures）",
             },
         },
         "placements": {"space": "world", "unit": "m", "count": len(items), "items": items},
@@ -330,11 +409,17 @@ def build(source_path, scatter_path, out_path, species="conifer", pipeline_id=No
             "s": [round(float(x), 4) for x in (p.get("s") or [1, 1, 1])],
         })
 
+    asset_id = "SM_Tree_%s_PCG_Pilot" % species
+    tex_files = export_textures(glb_abs, asset_id)
+    textures = manifest_textures(tex_files)
+    fbx_rel = "assets/raw/trees/fbx/%s.fbx" % species
     asset = _asset_payload(
         entry, species, stats, glb_rel, items, pivot_z_m,
-        name_suffix="真实树试点", id_suffix="_PCG_Pilot", pivot_from="/Engine/BasicShapes/Cube",
+        name_suffix="真实树试点", asset_id=asset_id,
+        pivot_from="/Engine/BasicShapes/Cube",
         pivot_note="glTF 根节点已把树根底部中心归零；散点 t 是引擎 Cube 中心（半高 %.3f m），"
-                   "落位前统一扣掉，避免全体悬空" % pivot_z_m)
+                   "落位前统一扣掉，避免全体悬空" % pivot_z_m,
+        textures=textures, fbx_rel=fbx_rel)
     manifest = {
         "manifestVersion": MANIFEST_VERSION,
         "pipelineId": pipeline_id or ("eap-tree-%s-%s" % (species, time.strftime("%Y%m%d"))),
@@ -419,13 +504,18 @@ def build_multi(source_path, scatter_path, out_path, species_pair=("conifer", "b
         pivot_note = ("散点 t 已是树根底部世界坐标（scatterOrigin=tree_base），不再扣 Cube 半高"
                       if tree_base else
                       "散点 t 是引擎 Cube 中心（半高 %.3f m），落位前统一扣掉" % pivot_z_m)
+        asset_id = "SM_Tree_%s_PCG_Multi" % species
+        tex_files = export_textures(glb_abs, asset_id)
+        textures = manifest_textures(tex_files)
+        fbx_rel = "assets/raw/trees/fbx/%s.fbx" % species
         asset = _asset_payload(entry, species, stats, glb_rel, items, pivot_z_m,
-                               name_suffix="真实树混排", id_suffix="_PCG_Multi",
-                               pivot_from=pivot_from, pivot_note=pivot_note)
+                               name_suffix="真实树混排", asset_id=asset_id,
+                               pivot_from=pivot_from, pivot_note=pivot_note,
+                               textures=textures, fbx_rel=fbx_rel)
         assets.append(asset)
         species_summary.append({"species": species, "asset": asset["id"], "glb": glb_rel,
                                 "triCount": stats["triCount"], "heightM": bbox_height(stats),
-                                "placements": len(items),
+                                "placements": len(items), "textures": len(tex_files),
                                 "ueMeshPath": asset["engineTargets"]["UE5"]["meshPath"]})
 
     manifest = {

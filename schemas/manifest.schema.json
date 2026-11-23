@@ -70,7 +70,8 @@
               "path": { "type": "string" },
               "srgb": { "type": "boolean" },
               "size": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 2, "maxItems": 2 },
-              "channels": { "type": "string" }
+              "channels": { "type": "string" },
+              "source": { "type": "string", "enum": ["glb-embedded"], "description": "v1.2：贴图来源；老文件可省略" }
             }
           }
         },
@@ -166,7 +167,9 @@
               "properties": {
                 "destPath": { "type": "string", "pattern": "^Assets/" },
                 "shader": { "type": "string" },
-                "propertyMap": { "type": "object", "additionalProperties": { "type": "string" } }
+                "propertyMap": { "type": "object", "additionalProperties": { "type": "string" } },
+                "modelPath": { "type": "string", "description": "v1.2：Unity 侧模型路径（通常为 fbx），缺省回落到 model.path" },
+                "materialPathPrefix": { "type": "string", "pattern": "^Assets/", "description": "v1.2：材质输出目录前缀，默认 Assets/EAP/Trees" }
               }
             }
           }

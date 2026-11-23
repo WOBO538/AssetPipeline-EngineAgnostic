@@ -1,7 +1,7 @@
 {
-  "manifestVersion": "1.1",
+  "manifestVersion": "1.2",
   "pipelineId": "eap-tree-pair-20261123",
-  "generatedAt": "2026-11-23T19:11:44+08:00",
+  "generatedAt": "2026-11-23T22:11:52+08:00",
   "units": "m",
   "source": {
     "kind": "glb_ingest",
@@ -39,7 +39,28 @@
         "triCount": 3370,
         "generator": "FBX2glTF v0.9.7"
       },
-      "textures": {},
+      "textures": {
+        "BaseColor": {
+          "path": "assets/eap_textures/SM_Tree_conifer_PCG_Multi_0_BaseColor.png",
+          "srgb": true,
+          "size": [
+            1024,
+            1024
+          ],
+          "channels": "RGB",
+          "source": "glb-embedded"
+        },
+        "Normal": {
+          "path": "assets/eap_textures/SM_Tree_conifer_PCG_Multi_0_Normal.png",
+          "srgb": false,
+          "size": [
+            1024,
+            1024
+          ],
+          "channels": "RGB",
+          "source": "glb-embedded"
+        }
+      },
       "material": {
         "template": "embedded",
         "source": "gltf_pbr",
@@ -103,8 +124,10 @@
         },
         "Unity": {
           "destPath": "Assets/EAP/Trees",
+          "materialPathPrefix": "Assets/EAP/Trees",
+          "modelPath": "assets/raw/trees/fbx/conifer.fbx",
           "sourceGlb": "assets/raw/trees/conifer.glb",
-          "note": "Unity 端直接导 .glb；placements 同一份数据"
+          "note": "Unity 原生不认 .glb：用 Blender 转出的 fbx（内嵌贴图另存 assets/eap_textures）"
         }
       },
       "placements": {
@@ -22720,7 +22743,28 @@
         "triCount": 3505,
         "generator": "FBX2glTF v0.9.7"
       },
-      "textures": {},
+      "textures": {
+        "BaseColor": {
+          "path": "assets/eap_textures/SM_Tree_broadleaf_PCG_Multi_0_BaseColor.png",
+          "srgb": true,
+          "size": [
+            1024,
+            1024
+          ],
+          "channels": "RGB",
+          "source": "glb-embedded"
+        },
+        "Normal": {
+          "path": "assets/eap_textures/SM_Tree_broadleaf_PCG_Multi_0_Normal.png",
+          "srgb": false,
+          "size": [
+            1024,
+            1024
+          ],
+          "channels": "RGB",
+          "source": "glb-embedded"
+        }
+      },
       "material": {
         "template": "embedded",
         "source": "gltf_pbr",
@@ -22784,8 +22828,10 @@
         },
         "Unity": {
           "destPath": "Assets/EAP/Trees",
+          "materialPathPrefix": "Assets/EAP/Trees",
+          "modelPath": "assets/raw/trees/fbx/broadleaf.fbx",
           "sourceGlb": "assets/raw/trees/broadleaf.glb",
-          "note": "Unity 端直接导 .glb；placements 同一份数据"
+          "note": "Unity 原生不认 .glb：用 Blender 转出的 fbx（内嵌贴图另存 assets/eap_textures）"
         }
       },
       "placements": {

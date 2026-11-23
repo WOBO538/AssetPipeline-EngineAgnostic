@@ -16,3 +16,11 @@ docs/material_compile_check*.json
 
 # Unity 消费端跑完写在 manifest 旁边的报告（每次跑都会变，不入库）
 *.unity_report.md
+*.unity_verify.json
+*.unity_log.txt
+*.unity_verify.unity_log.txt
+
+# fbx 转换产物与报告要入库（两棵树的 fbx + 贴图）
+!docs/fbx_convert_report.json
+!assets/raw/trees/fbx/
+!assets/raw/trees/fbx/*.fbx

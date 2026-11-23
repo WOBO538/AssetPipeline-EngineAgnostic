@@ -1,0 +1,179 @@
+{
+  "conversions": {
+    "SM_Tree_broadleaf_PCG_Multi": {
+      "assetId": "SM_Tree_broadleaf_PCG_Multi",
+      "axisNote": "Unity 左手系导入 FBX 会把 X 取反；fbx 已沿 X 预镜像，bboxFbxM 是 Unity 世界坐标下的包围盒",
+      "bboxBlenderM": {
+        "max": [
+          1.9945,
+          9.4252,
+          2.1801
+        ],
+        "min": [
+          -2.0684,
+          0.0,
+          -2.061
+        ]
+      },
+      "bboxFbxM": {
+        "max": [
+          2.0684,
+          9.4252,
+          2.1801
+        ],
+        "min": [
+          -1.9945,
+          0.0,
+          -2.061
+        ]
+      },
+      "bboxGlbM": {
+        "max": [
+          2.0684,
+          9.4252,
+          2.1801
+        ],
+        "min": [
+          -1.9945,
+          0.0,
+          -2.061
+        ],
+        "size": [
+          4.0629,
+          9.4252,
+          4.2411
+        ]
+      },
+      "bboxMaxDiffM": 0.0,
+      "blenderVersion": "5.2.3 LTS",
+      "fbx": "assets/raw/trees/fbx/broadleaf.fbx",
+      "meshObjects": [
+        "CommonTree_3"
+      ],
+      "ok": true,
+      "sourceGlb": "assets/raw/trees/broadleaf.glb",
+      "textures": [
+        {
+          "channel": "BaseColor",
+          "path": "assets/eap_textures/SM_Tree_broadleaf_PCG_Multi_0_BaseColor.png",
+          "sha256": "0f44db85650c8b134d2e484716559653c06a53082f685a8804d80a2672a75d8a",
+          "size": [
+            1024,
+            1024
+          ],
+          "slot": 0
+        },
+        {
+          "channel": "Normal",
+          "path": "assets/eap_textures/SM_Tree_broadleaf_PCG_Multi_0_Normal.png",
+          "sha256": "92ec2beb16db08e56151d35b1257647d572e099a297cf5a1681130ab7bc8d9bb",
+          "size": [
+            1024,
+            1024
+          ],
+          "slot": 0
+        },
+        {
+          "channel": "BaseColor",
+          "path": "assets/eap_textures/SM_Tree_broadleaf_PCG_Multi_1_BaseColor.png",
+          "sha256": "8e4474241568d60fc8974b0b06691d3cf957a3015b5b9d1cb376b3c2852fe817",
+          "size": [
+            1024,
+            1024
+          ],
+          "slot": 1
+        }
+      ],
+      "triCountFbx": 3505,
+      "triCountGlb": 3505
+    },
+    "SM_Tree_conifer_PCG_Multi": {
+      "assetId": "SM_Tree_conifer_PCG_Multi",
+      "axisNote": "Unity 左手系导入 FBX 会把 X 取反；fbx 已沿 X 预镜像，bboxFbxM 是 Unity 世界坐标下的包围盒",
+      "bboxBlenderM": {
+        "max": [
+          2.8778,
+          10.2364,
+          2.4249
+        ],
+        "min": [
+          -2.9242,
+          0.0,
+          -2.9459
+        ]
+      },
+      "bboxFbxM": {
+        "max": [
+          2.9242,
+          10.2364,
+          2.4249
+        ],
+        "min": [
+          -2.8778,
+          0.0,
+          -2.9459
+        ]
+      },
+      "bboxGlbM": {
+        "max": [
+          2.9242,
+          10.2364,
+          2.4249
+        ],
+        "min": [
+          -2.8778,
+          0.0,
+          -2.9459
+        ],
+        "size": [
+          5.802,
+          10.2364,
+          5.3708
+        ]
+      },
+      "bboxMaxDiffM": 0.0,
+      "blenderVersion": "5.2.3 LTS",
+      "fbx": "assets/raw/trees/fbx/conifer.fbx",
+      "meshObjects": [
+        "Pine_4"
+      ],
+      "ok": true,
+      "sourceGlb": "assets/raw/trees/conifer.glb",
+      "textures": [
+        {
+          "channel": "BaseColor",
+          "path": "assets/eap_textures/SM_Tree_conifer_PCG_Multi_0_BaseColor.png",
+          "sha256": "0f44db85650c8b134d2e484716559653c06a53082f685a8804d80a2672a75d8a",
+          "size": [
+            1024,
+            1024
+          ],
+          "slot": 0
+        },
+        {
+          "channel": "Normal",
+          "path": "assets/eap_textures/SM_Tree_conifer_PCG_Multi_0_Normal.png",
+          "sha256": "92ec2beb16db08e56151d35b1257647d572e099a297cf5a1681130ab7bc8d9bb",
+          "size": [
+            1024,
+            1024
+          ],
+          "slot": 0
+        },
+        {
+          "channel": "BaseColor",
+          "path": "assets/eap_textures/SM_Tree_conifer_PCG_Multi_1_BaseColor.png",
+          "sha256": "25d2fad0ca1cea96fd027315c6018ed3ac341a1a2ff2547e3465397ccbd613c6",
+          "size": [
+            1024,
+            1024
+          ],
+          "slot": 1
+        }
+      ],
+      "triCountFbx": 3370,
+      "triCountGlb": 3370
+    }
+  },
+  "schema": "eap.fbx_convert/1"
+}

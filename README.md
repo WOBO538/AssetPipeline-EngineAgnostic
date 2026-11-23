@@ -18,7 +18,7 @@
 Engine-Agnostic Pipeline/
 ├─ README.md                      ← 本文件
 ├─ docs/
-│  ├─ manifest-spec.md            ← manifest 字段规范（v1.1）+ 引擎映射表 + 坑
+│  ├─ manifest-spec.md            ← manifest 字段规范（v1.2）+ 引擎映射表 + 坑
 │  ├─ phase1-acceptance.md        ← 验收：阶段一 6 条 + Layer1 链路 11 条
 │  ├─ tree_asset_requirements.md   ← 树资产采集要求（给采集会话的硬门槛）
 │  ├─ pcg_forest_pilot.json       ← Layer1 导出证据：10 节点图参数 + 1892 条散点（cm）
@@ -26,7 +26,7 @@ Engine-Agnostic Pipeline/
 │  ├─ placed_tree.json            ← 真实树落位证据（同上格式，网格换成 conifer.glb）
 │  └─ placed_verify.json          ← 新进程重载关卡读回证据（证明持久化）
 ├─ schemas/
-│  ├─ manifest.schema.json        ← JSON Schema（v1.1：placements / engine_native）
+│  ├─ manifest.schema.json        ← JSON Schema（v1.2：placements / engine_native / Unity.modelPath / textures.source）
 │  ├─ manifest.example.json       ← 两个资产的完整示例（v1.0 结构，v1.1 向后兼容）
 │  └─ pcg_manifest.json           ← 由散点生成的 manifest v1.1（1 资产 + 1892 实例）
 ├─ ue/Content/Python/
@@ -34,16 +34,17 @@ Engine-Agnostic Pipeline/
 │  ├─ pcg_export.py               ← Layer1 出口：PCG 图参数 + 生成实例 → 散点 JSON（只读）
 │  └─ place_manifest.py           ← Layer1 回灌：placements → UE ISM 实例（落位；glb 走无头 Interchange 导入）
 ├─ unity/Editor/
-│  └─ ManifestImporter.cs         ← Unity 编辑端（读同一份 manifest → Material → Prefab → Collider）
+│  └─ ManifestImporter.cs         ← Unity 编辑端（读同一份 manifest → Material → 贴图 → Prefab；另有 VerifyFromArgs 读回）
 ├─ tools/
 │  ├─ validate_manifest.py        ← 中台侧轻量校验（结构 + 2 的幂 + 通道 + 单位 + v1.1 placements）
 │  ├─ pcg_to_manifest.py          ← 散点 JSON → manifest v1.1（cm→m，1 网格 = 1 asset + N placements）
-│  ├─ tree_to_manifest.py         ← 真实树 glb + 散点 → manifest v1.1（双端；不信任 sidecar，自己解析 GLB 复算）
-│  ├─ run_pcg_chain.py            ← 一条命令跑完整条 Layer1 链（7 步 / 4 次无头 UE）+ 9 条断言；--multi 13 条 / --real-multi 20 条（--with-compile 21 条）；--tree 16 条为历史链路
+│  ├─ tree_to_manifest.py         ← 真实树 glb + 散点 → manifest v1.2（双端；不信任 sidecar，自己解析 GLB 复算）
+│  ├─ glb_to_fbx.py               ← Blender 无头 glb → fbx（Unity 用；X 预镜像 + FBX_SCALE_ALL + 内嵌贴图）
+│  ├─ run_pcg_chain.py            ← 一条命令跑完整条 Layer1 链（7 步 / 4 次无头 UE）+ 9 条断言；--multi 13 条 / --real-multi 20 条（--with-compile 21 条）；--unity-check 4 条；--tree 16 条为历史链路
 │  ├─ draw_placements.py          ← 从读回 transform 画俯视图（方块 / 树冠圆两种标记）
 │  ├─ test_validator.py           ← 校验器 9 条负例（拦截 9/9）
 │  └─ test_gui_smoke.py           ← GUI 冒烟（12/12）
-└─ assets/raw/trees/              ← 真实树资产（conifer / broadleaf .glb + source_assets.json 许可证凭证；模型不入库）
+└─ assets/                      ← raw/trees/*.glb（不入库）、raw/trees/fbx/*.fbx（Unity 用，入库）、eap_textures/*.png（glb 内嵌贴图导出，入库）
 ```
 
 ## 三、阶段一怎么跑
@@ -448,6 +449,79 @@ MIC: set_material_instance_texture_parameter_value(mi, "Roughness", tex)
 实测（2026-11-23）：`--multi` 13/13、`--real-multi` 20/20、`--real-multi --with-compile` 21/21
 （exit=0、`Failed to compile`=0、MIC 4/4），`placements=1892`、`conifer` 10.236 m / `broadleaf` 9.425 m 不变。
 
+## 三之九、Unity 端吃真模型：glb → fbx + 内嵌贴图 + Prefab（v1.7）
+
+v1.2.1 的 Unity 端只能建材质，**模型 / Prefab / 贴图全都不存在**：Unity 原生不认 `.glb`，两棵树的贴图又内嵌在
+glb 里（`textures = {}`）。v1.7 把这三件事补齐，并新增一条独立命令 `--unity-check` 做机器可判。
+
+```
+assets/raw/trees/{conifer,broadleaf}.glb
+   ↓ tools/glb_to_fbx.py（Blender 5.2 无头，-b --factory-startup --python）
+assets/raw/trees/fbx/{conifer,broadleaf}.fbx（内嵌贴图）
+assets/eap_textures/<assetId>_<slot>_<BaseColor|Normal>.png（6 张，入库）
+   ↓ tools/tree_to_manifest.py（manifestVersion 1.2：textures 填槽 0 + Unity.modelPath）
+schemas/tree_manifest_multi.json
+   ↓ run_pcg_chain.py --unity-check
+Unity batchmode ImportFromArgs（复制外部文件进工程 → Material → Prefab）
+   ↓ VerifyFromArgs（新进程读回）
+<manifest>.unity_verify.json
+```
+
+```powershell
+# 1) glb → fbx（Blender 成功也可能返回退出码 1：判成功看输出文件 + 脚本打印的 FBX_OK）
+"D:\Apps\Blender 5.2\blender.exe" -b --factory-startup --python tools\glb_to_fbx.py -- `
+  assets\raw\trees\conifer.glb assets\raw\trees\fbx\conifer.fbx --asset-id SM_Tree_conifer_PCG_Multi
+
+# 2) manifest v1.2（导出内嵌贴图 + 写 Unity.modelPath）
+python tools\tree_to_manifest.py --scatter docs\pcg_multi_species_fixture.json `
+  --out schemas\tree_manifest_multi.json --species-pair conifer,broadleaf
+
+# 3) Unity 端 4 条断言（先确认 Unity GUI 没开）
+python tools\run_pcg_chain.py --unity-check `
+  --unity "D:\Program Files\unity AZ\2022.3.62f3c1\Editor\Unity.exe" `
+  --unity-project "D:\unity\EAP_Unity_Consumer" --manifest schemas\tree_manifest_multi.json
+# 期望末行：UNITY-CHECK PASS assets=2 prefabs=2 textures=4/4
+```
+
+实测（2026-11-23）：导入 `exit=0`（13.4 s，`ok=2 failed=0`），读回 `exit=0`（11.7 s）；
+两个 Prefab `Assets/EAP/Trees/SM_Tree_{conifer,broadleaf}_PCG_Multi.prefab` 均存在；
+贴图 4/4 `texturesApplied=true`，读回路径全部 `Assets/EAP/Trees/Textures/...` 开头；
+`meshTriCount` 3 370 / 3 505 与 manifest 完全一致；bounds 每轴误差 ≤ 2e-5 m（浮点精度级）。
+
+| # | 判据 | 数据来源 |
+|:--:|---|---|
+| 1 | 导入 `exit==0` 且报告 `ok=2 failed=0` | 进程退出码 + `<manifest>.unity_report.md` 的 `summary:` |
+| 2 | 两个 Prefab 真实存在 | 磁盘 + `<manifest>.unity_verify.json` 的 `prefabExists` |
+| 3 | BaseColor/Normal 路径 `Assets/` 开头且 `texturesApplied` 全 true | 读回 JSON |
+| 4 | `meshTriCount` 完全一致 + bounds 每轴 < 0.05 m | 读回 JSON vs manifest `model.boundingBoxM` |
+
+设计要点（都是踩过的坑）：
+
+- **`AssetDatabase` 只认工程内路径**：manifest 里是仓库相对路径，Unity 看不到。消费端导入前先把
+  `<repo>/assets/eap_textures/*.png` 复制到 `<proj>/Assets/EAP/Trees/Textures/`、
+  `<repo>/assets/raw/trees/fbx/*.fbx` 复制到 `<proj>/Assets/EAP/Trees/Models/`，
+  用 **SHA256 内容哈希**判断是否覆盖（没变就不写、不弄脏工程），再 `AssetDatabase.Refresh()` 后加载。
+  读回 JSON 的贴图路径必须是 `Assets/` 开头，断言 3 专门检查这一点。
+- **Blender 退出码不可信**：成功时也可能返回 1，判成功只看「输出文件存在 + 脚本打印 `FBX_OK <path>`」。
+- **单位差 100 倍**：fbx 导出用 `apply_scale_options='FBX_SCALE_ALL'`，让几何真按米落地；
+  bounds 断言会抓住缩放错误，**不要用换算绕过**。
+- **左右手系**：Unity 导入 FBX 会把 X 取反，直接导会得到 `(-x, y, z)` 的包围盒（实测 broadleaf 差 0.0739 m）。
+  修法是在 Blender 导出前把网格**沿世界 X 预镜像**（先 `parent_clear + transform_apply` 把根变换烘进网格，
+  再镜像、重算法线），Unity 取反后与 glb 一致，`bboxMaxDiffM=0.0`。
+- **报告文件不变**：菜单入口 `Tools → EAP → Import Manifest…` 与 `<manifest>.unity_report.md` 保持原样；
+  读回走独立入口 `VerifyFromArgs`，写 `<manifest>.unity_verify.json`。
+- **`--unity-check` 先查进程**：检测到 `Unity.exe` 直接 FAIL（提示关掉 Unity 再来），不硬跑；
+  失败时把 Unity 日志最后 40 行带进 `CHAIN FAIL` 原因。日志 `<manifest>.unity_log.txt` 与
+  `<manifest>.unity_verify.unity_log.txt` 已 gitignore。
+- **`--multi` / `--real-multi` / `--with-compile` 的断言数与判据一字未动**（13 / 20 / 21），
+  `--unity-check` 是独立命令、独立 4 条。
+
+**反向验证（清态后做）**：① 删掉 Unity 工程里的 2 个 `Assets/EAP/Trees/*.prefab` 与导入贴图资产，
+再跑 `--unity-check --unity-verify-only`（跳过导入、只读回）——断言 2/3 **确实 FAIL**
+（`prefab 不存在`、`texturesApplied=None`），断言 4 无 prefab 也 FAIL；② 再临时删掉
+`engineTargets.Unity.modelPath` 跑完整 `--unity-check`，导入回落到 glb（`ok=2` 仍成立），
+但断言 2 **FAIL**（模型未找到、无 Prefab）。恢复 manifest 后复跑 4/4 PASS。
+
 ## 四、阶段一验收（6 条，逐条可判）
 
 | # | 判据 | 判法 |
@@ -535,13 +609,16 @@ MIC: set_material_instance_texture_parameter_value(mi, "Roughness", tex)
 - **落位关卡不带灯光与地面（v1.2）**：`PlacedTrees` 由无头新建，只有 `EAP_Placements`。灯光/天空/地面
   （`place_manifest.stage()`）**只能在真实编辑器里跑**——无头加 SkyAtmosphere/SkyLight 会
   `EXCEPTION_INT_DIVIDE_BY_ZERO` 崩掉（2026-11-22 实测）。
-- **Unity 端空工程已跑通材质通路（v1.2.1，2026-11-23）**：`tree_manifest_multi.json`（v1.1，2 assets）在 Unity
-  **2022.3.62f3c1 + URP Empty Template** 工程里用 `Tools → EAP → Import Manifest…` 导入，得到
-  `pipeline=URP shader=Universal Render Pipeline/Lit`、`ok=2 failed=0`，两个 `.mat` 落在
-  `Assets/EAP/Trees/`（shader guid 与 URP `Lit.shader.meta` 一致）。**仍未导入**：模型 / Prefab / 内嵌贴图 /
-  placements——因为两棵树的贴图内嵌在 glb 里（`textures = {}`）、且 **Unity 原生不认 .glb**（Console 会报
-  `Invalid AssetDatabase path`，属预期）。记录与证据：`docs/unity_consumer_run_20261123.md`。
-  下一步：Blender 转 fbx + manifest 加 Unity 目标模型路径覆盖字段 + glb 内嵌贴图导出。
+- **Unity 端已导入真模型（v1.7，2026-11-23）**：`tree_manifest_multi.json`（v1.2，2 assets）在 Unity
+  **2022.3.62f3c1 + URP Empty Template** 工程里用 batchmode 导入，得到
+  `pipeline=URP shader=Universal Render Pipeline/Lit`、`ok=2 failed=0`：2 个 Prefab、2 个 `.mat`、
+  4 张导入贴图落在 `Assets/EAP/Trees/`，`--unity-check` 4/4 PASS（`meshTriCount` 3 370 / 3 505 与
+  bounds 均读回一致）。**仍未做**：Unity 端 placements 落位（留给任务单 6）、Unity 端 roughness
+  贴图通路（仍是常量 0.9）、Collider。历史记录：`docs/unity_consumer_run_20261123.md`。
+- **fbx 是派生产物（v1.7）**：`assets/raw/trees/fbx/*.fbx` 由 `tools/glb_to_fbx.py` 从 glb 转出并入库
+  （体积小、可复跑）。fbx 里沿 X 做了预镜像以抵消 Unity 左手系取反，**只能给 Unity 用**；
+  UE 仍走原 glb，`engineTargets.UE5` 与 `model.path` 未改。fbx 二进制含时间戳，重跑字节会变，
+  但 `docs/fbx_convert_report.json` 的几何数字（triCount / bbox）逐字一致。
 - **`--with-compile` 是严格模式（v1.5）**：`--real-multi` 默认不跑带 RHI 的材质编译复检；加上 `--with-compile`
   后判据是「编译子进程 `exit == 0` **且**日志无 `Failed to compile Material`，**且**证据里的 MIC 数
   == manifest 材质槽位总数」三条件同时满足。**进程崩溃就是 CHAIN FAIL**（不是 SKIP、更不是 PASS），
@@ -563,7 +640,7 @@ MIC: set_material_instance_texture_parameter_value(mi, "Roughness", tex)
 
 - 阶段二 · 出图质量：贴图压缩改 `TC_MASKED`、roughness/金属度走贴图、必要时换更写实的树（当前两棵是低模风格化）；
   双树种混排已在 v1.5 接通（`--real-multi`），下一步是把它接到**真实 PCG 图输出**而不是合成散点
-- 阶段二 · Unity 端实跑同一份 `tree_manifest.json`（glb + placements 双端一致性）
+- 阶段二 · Unity 端 placements 落位 + 双端一致性（模型 / 贴图 / Prefab 已由 v1.7 打通，`--unity-check` 4/4）
 - 阶段二 · 落位扩展到材质/碰撞/LOD：现在只落 transform，manifest 里其它字段还没在 UE 侧生效
 - 阶段二 · GUI 接 ComfyUI 客户端（GUI 阶段二的 QThread 异步 + 进度回填）
 - 阶段三：`trimesh` + `numpy` 坐标转换（Y-up↔Z-up、cm↔m）与合规拦截（与 `tools/validate_manifest.py` 合并）

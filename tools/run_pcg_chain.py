@@ -22,6 +22,7 @@
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -54,6 +55,9 @@ DEFAULT_MULTI_LEVEL_PKG = "/Game/EAP/PCG/PlacedMulti"
 DEFAULT_REAL_MULTI_LEVEL_PKG = "/Game/EAP/PCG/PlacedTreeMulti"
 DEFAULT_UE = r"C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
 DEFAULT_PROJECT = r"D:\UE_Projects\VegetationPCG\VegetationPCG.uproject"
+DEFAULT_UNITY = r"D:\Program Files\unity AZ\2022.3.62f3c1\Editor\Unity.exe"
+DEFAULT_UNITY_PROJECT = r"D:\unity\EAP_Unity_Consumer"
+UNITY_CS = os.path.join(REPO, "unity", "Editor", "ManifestImporter.cs")
 
 sys.path.insert(0, os.path.join(REPO, "tools"))
 
@@ -586,6 +590,189 @@ def _run_real_multi(args):
     return 0
 
 
+def _unity_running():
+    try:
+        p = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Unity.exe", "/NH"],
+                           capture_output=True, text=True, timeout=30)
+        return "Unity.exe" in (p.stdout or "")
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _tail(text, n=40):
+    lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
+    return " | ".join(lines[-n:])
+
+
+def _deploy_unity_script(project):
+    """把仓库里的消费端脚本同步进 Unity 工程（改了脚本要重编，必须覆盖）。"""
+    dst = os.path.join(project, "Assets", "Editor", "ManifestImporter.cs")
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    with open(UNITY_CS, "rb") as fh:
+        src = fh.read()
+    cur = None
+    if os.path.isfile(dst):
+        with open(dst, "rb") as fh:
+            cur = fh.read()
+    if cur != src:
+        with open(dst, "wb") as fh:
+            fh.write(src)
+        return True
+    return False
+
+
+def _run_unity(unity, project, method, manifest, log_path, timeout=1200):
+    cmd = [unity, "-batchmode", "-quit", "-projectPath", project,
+           "-executeMethod", method, "-eapManifest", manifest, "-logFile", log_path]
+    print("[unity] %s ..." % method.split(".")[-1])
+    if os.path.isfile(log_path):
+        os.remove(log_path)
+    t0 = time.time()
+    p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=timeout)
+    log = ""
+    if os.path.isfile(log_path):
+        with open(log_path, "r", encoding="utf-8", errors="replace") as fh:
+            log = fh.read()
+    else:
+        log = (p.stdout or "") + (p.stderr or "")
+    print("[unity] exit=%d %.1fs log=%s" % (p.returncode, time.time() - t0, log_path))
+    return p.returncode, log
+
+
+def _report_summary(report_path):
+    if not os.path.isfile(report_path):
+        return None
+    with open(report_path, "r", encoding="utf-8", errors="replace") as fh:
+        for ln in fh:
+            if "summary:" in ln:
+                toks = ln.split("summary:")[-1].strip().split()
+                out = {}
+                for t in toks:
+                    if "=" in t:
+                        k, v = t.split("=", 1)
+                        out[k] = int(v)
+                return out
+    return None
+
+
+def _run_unity_check(args):
+    """Unity 端吃真模型：batchmode 导入 → 新进程读回 → 4 条断言（独立计数）。"""
+    manifest = os.path.abspath(args.manifest)
+    project = os.path.abspath(args.unity_project)
+    fails = []
+    print("[0/4] Unity 端吃真模型（batchmode 导入 + 读回）")
+
+    if _unity_running():
+        print("CHAIN FAIL: Unity.exe 正在运行，先关掉 Unity 再来")
+        return 1
+    if not os.path.isfile(args.unity):
+        fails.append("找不到 Unity.exe: " + args.unity)
+    if not os.path.isfile(manifest):
+        fails.append("找不到 manifest: " + manifest)
+    if not os.path.isdir(project):
+        fails.append("找不到 Unity 工程: " + project)
+    if fails:
+        print("CHAIN FAIL: " + " | ".join(fails))
+        return 1
+
+    changed = _deploy_unity_script(project)
+    print("[0/4] 消费端脚本 %s → %s" % ("已更新" if changed else "无变化", project))
+
+    report_path = os.path.splitext(manifest)[0] + ".unity_report.md"
+    verify_path = os.path.splitext(manifest)[0] + ".unity_verify.json"
+    import_log = os.path.splitext(manifest)[0] + ".unity_log.txt"
+    verify_log = os.path.splitext(manifest)[0] + ".unity_verify.unity_log.txt"
+    for p in (report_path, verify_path):
+        if os.path.isfile(p):
+            os.remove(p)
+
+    with open(manifest, "r", encoding="utf-8-sig") as fh:
+        man = json.load(fh)
+    assets = man.get("assets") or []
+
+    import_rc, import_log_text = None, ""
+    if args.unity_verify_only:
+        print("[1/4] SKIP 导入（--unity-verify-only，反向验证用）")
+    else:
+        import_rc, import_log_text = _run_unity(
+            args.unity, project, "EAP.ManifestImporter.ImportFromArgs", manifest, import_log)
+        summ = _report_summary(report_path)
+        ok1 = import_rc == 0 and summ is not None and summ.get("ok") == len(assets) and summ.get("failed") == 0
+        print("[1/4] Unity batchmode 导入 exit=%s report=%s → %s"
+              % (import_rc, summ, "PASS" if ok1 else "FAIL"))
+        if not ok1:
+            fails.append("断言1 导入失败 exit=%s report=%s | log_tail: %s"
+                         % (import_rc, summ, _tail(import_log_text)))
+
+    verify_rc, verify_log_text = _run_unity(
+        args.unity, project, "EAP.ManifestImporter.VerifyFromArgs", manifest, verify_log)
+    vdata = None
+    if os.path.isfile(verify_path):
+        with open(verify_path, "r", encoding="utf-8-sig") as fh:
+            vdata = json.load(fh)
+    vmap = {a.get("id"): a for a in ((vdata or {}).get("assets") or [])}
+    if verify_rc != 0 or vdata is None:
+        fails.append("读回失败 exit=%s verify=%s | log_tail: %s"
+                     % (verify_rc, verify_path if vdata is not None else "<not written>", _tail(verify_log_text)))
+
+    # 断言 2：两个 Prefab 真实存在
+    ok2 = True
+    for a in assets:
+        v = vmap.get(a.get("id")) or {}
+        prefab = v.get("prefab") or ""
+        exists = bool(v.get("prefabExists")) and prefab.startswith("Assets/") \
+            and os.path.isfile(os.path.join(project, prefab))
+        if not exists:
+            ok2 = False
+            fails.append("断言2 %s prefab 不存在: %r" % (a.get("id"), prefab))
+    print("[2/4] Prefab 存在（%d 个） → %s" % (len(assets), "PASS" if ok2 else "FAIL"))
+
+    # 断言 3：BaseColor/Normal 路径是 Assets/ 开头且 texturesApplied 全 true
+    ok3 = True
+    for a in assets:
+        v = vmap.get(a.get("id")) or {}
+        texs = v.get("textures") or {}
+        applied = v.get("texturesApplied") or {}
+        for chan in ("BaseColor", "Normal"):
+            p = str(texs.get(chan) or "")
+            if not p.startswith("Assets/") or applied.get(chan) is not True:
+                ok3 = False
+                fails.append("断言3 %s %s path=%r applied=%r" % (a.get("id"), chan, p, applied.get(chan)))
+    print("[3/4] 贴图读回（Assets/ 路径 + texturesApplied） → %s" % ("PASS" if ok3 else "FAIL"))
+
+    # 断言 4：bounds 每轴 < 0.05 m，triCount 完全一致
+    ok4 = True
+    for a in assets:
+        v = vmap.get(a.get("id")) or {}
+        want_tri = ((a.get("model") or {}).get("triCount"))
+        if int(v.get("meshTriCount") or 0) != int(want_tri or -1):
+            ok4 = False
+            fails.append("断言4 %s triCount=%r want=%r" % (a.get("id"), v.get("meshTriCount"), want_tri))
+        box = (a.get("model") or {}).get("boundingBoxM") or {}
+        got = v.get("boundsM") or {}
+        if not got.get("min") or not got.get("max"):
+            ok4 = False
+            fails.append("断言4 %s bounds 缺失" % a.get("id"))
+            continue
+        diff = 0.0
+        for axis in range(3):
+            diff = max(diff, abs(float(got["min"][axis]) - float(box["min"][axis])),
+                       abs(float(got["max"][axis]) - float(box["max"][axis])))
+        if diff >= 0.05:
+            ok4 = False
+            fails.append("断言4 %s bounds 误差 %.4fm got=%r want=%r"
+                         % (a.get("id"), diff, got, box))
+    print("[4/4] bounds/triCount → %s" % ("PASS" if ok4 else "FAIL"))
+
+    if fails:
+        print("CHAIN FAIL: " + " | ".join(fails))
+        return 1
+    print("UNITY-CHECK PASS assets=%d prefabs=%d textures=%d/%d"
+          % (len(assets), len(assets), len(assets) * 2, len(assets) * 2))
+    return 0
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--ue", default=DEFAULT_UE)
@@ -620,8 +807,18 @@ def main(argv):
                     help="--real-multi 期望总实例数（默认 1892，200×200 m @ 0.05/m²）")
     ap.add_argument("--with-compile", action="store_true",
                     help="--real-multi 额外跑带 RHI 的材质编译复检（本机会 OOM，默认关闭）")
+    ap.add_argument("--unity-check", action="store_true",
+                    help="Unity 端吃真模型：batchmode 导入 + 读回 + 4 条断言（独立的第 5 条自验命令）")
+    ap.add_argument("--unity-verify-only", action="store_true",
+                    help="--unity-check 时跳过导入，只跑读回（反向验证清态用）")
+    ap.add_argument("--unity", default=DEFAULT_UNITY, help="Unity.exe 路径")
+    ap.add_argument("--unity-project", default=DEFAULT_UNITY_PROJECT, help="Unity 工程路径")
+    ap.add_argument("--manifest", default=REAL_MULTI_MANIFEST_JSON,
+                    help="--unity-check 读取的 manifest（默认 schemas/tree_manifest_multi.json）")
     args = ap.parse_args(argv[1:])
 
+    if args.unity_check:
+        return _run_unity_check(args)
     if args.multi and args.real_multi:
         print("--multi 与 --real-multi 只能选一个")
         return 2

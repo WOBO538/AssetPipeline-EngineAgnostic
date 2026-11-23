@@ -42,8 +42,8 @@ def validate(path, check_files=False, allow_npot=False):
     major = ver_parts[0]
     if major != "1":
         errors.append("manifestVersion 主版本不支持: %s" % data["manifestVersion"])
-    elif len(ver_parts) > 1 and ver_parts[1].isdigit() and int(ver_parts[1]) > 1:
-        warnings.append("manifestVersion 次版本 %s 高于本校验器已知的 1.1（可能有不认识的字段）" % data["manifestVersion"])
+    elif len(ver_parts) > 1 and ver_parts[1].isdigit() and int(ver_parts[1]) > 2:
+        warnings.append("manifestVersion 次版本 %s 高于本校验器已知的 1.2（可能有不认识的字段）" % data["manifestVersion"])
     units = data.get("units")
     if units not in ("m", "cm"):
         errors.append("units 必须是 m 或 cm，实为 %r" % units)
@@ -109,6 +109,9 @@ def validate(path, check_files=False, allow_npot=False):
                 continue
             if "path" not in t:
                 errors.append("%s 贴图 %s 缺 path" % (tag, chan))
+            # v1.2：source 目前只认 glb 内嵌导出；老文件没有该字段，保持可选
+            if "source" in t and t.get("source") != "glb-embedded":
+                errors.append("%s 贴图 %s 的 source 不支持: %r（只允许 glb-embedded）" % (tag, chan, t.get("source")))
             if chan == "Normal" and t.get("srgb") is not False:
                 errors.append("%s Normal 贴图 srgb 必须为 false（当前 %r）" % (tag, t.get("srgb")))
             if chan == "BaseColor" and t.get("srgb") is not True:
@@ -134,9 +137,19 @@ def validate(path, check_files=False, allow_npot=False):
             if not str(dest).startswith("/Game/"):
                 errors.append("%s UE5.destPath 必须以 /Game/ 开头: %r" % (tag, dest))
         if "Unity" in targets:
-            dest = (targets["Unity"] or {}).get("destPath", "")
+            unity = targets["Unity"] or {}
+            dest = unity.get("destPath", "")
             if not str(dest).startswith("Assets/"):
                 errors.append("%s Unity.destPath 必须以 Assets/ 开头: %r" % (tag, dest))
+            # v1.2 可选字段：Unity 侧模型路径（fbx）与材质目录前缀
+            if "modelPath" in unity and not str(unity.get("modelPath") or "").strip():
+                errors.append("%s Unity.modelPath 不能为空字符串" % tag)
+            if "materialPathPrefix" in unity and not str(unity.get("materialPathPrefix") or "").startswith("Assets/"):
+                errors.append("%s Unity.materialPathPrefix 必须以 Assets/ 开头: %r"
+                              % (tag, unity.get("materialPathPrefix")))
+            if check_files and unity.get("modelPath"):
+                if not os.path.isfile(os.path.join(repo, unity["modelPath"])):
+                    warnings.append("%s Unity.modelPath 文件不存在: %s" % (tag, unity["modelPath"]))
         if msource == "engine" and "Unity" in targets:
             warnings.append("%s 引擎内置网格没有 glb，Unity 目标端通常应省略" % tag)
 

@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine;
@@ -26,11 +27,21 @@ namespace EAP
     }
     [Serializable] public class Model { public string path, format, unit, upAxis, forwardAxis; public int triCount; public BBox boundingBoxM; }
     [Serializable] public class BBox { public float[] min, max; }
-    [Serializable] public class Tex { public string path; public bool srgb; public int[] size; public string channels; }
+    [Serializable] public class Tex { public string path, channels, source; public bool srgb; public int[] size; }
     [Serializable] public class MaterialDef { public string template, unityShader; public Dictionary<string, float> @params; }
     [Serializable] public class Collision { public string mode; }
-    [Serializable] public class EngineTarget { public string destPath, shader, materialInstance; public Dictionary<string, string> propertyMap; }
+    [Serializable] public class EngineTarget { public string destPath, shader, materialInstance, modelPath, materialPathPrefix; public Dictionary<string, string> propertyMap; }
     [Serializable] public class Check { public string rule; public bool pass; }
+    [Serializable] public class VerifyDoc { public string schema = "eap.unity_verify/1"; public string pipeline, manifest; public List<VerifyAsset> assets = new List<VerifyAsset>(); }
+    [Serializable] public class VerifyAsset
+    {
+        public string id, prefab, shader;
+        public bool prefabExists;
+        public int meshTriCount;
+        public BBox boundsM;
+        public Dictionary<string, string> textures = new Dictionary<string, string>();
+        public Dictionary<string, bool> texturesApplied = new Dictionary<string, bool>();
+    }
 
     public static class ManifestImporter
     {
@@ -63,9 +74,83 @@ namespace EAP
         {
             string[] args = Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length - 1; i++)
-                if (args[i] == "-eapManifest") { Import(args[i + 1]); return; }
+                if (args[i] == "-eapManifest")
+                {
+                    try { Import(args[i + 1]); EditorApplication.Exit(0); }
+                    catch (Exception e) { Debug.LogError("[EAP] import 失败: " + e); EditorApplication.Exit(1); }
+                    return;
+                }
             Debug.LogError("[EAP] 缺少 -eapManifest 参数");
             EditorApplication.Exit(1);
+        }
+
+        public static void VerifyFromArgs()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++)
+                if (args[i] == "-eapManifest")
+                {
+                    try { Verify(args[i + 1]); EditorApplication.Exit(0); }
+                    catch (Exception e) { Debug.LogError("[EAP] verify 失败: " + e); EditorApplication.Exit(1); }
+                    return;
+                }
+            Debug.LogError("[EAP] 缺少 -eapManifest 参数");
+            EditorApplication.Exit(1);
+        }
+
+        /// <summary>贴图在 Unity 工程内的落点（manifest 里是仓库相对路径，Unity 只认 Assets/）。</summary>
+        static string TextureAssetPath(string rel)
+        {
+            if (string.IsNullOrEmpty(rel)) return rel;
+            string p = rel.Replace('\\', '/');
+            if (p.StartsWith("Assets/", StringComparison.Ordinal)) return p;
+            return "Assets/EAP/Trees/Textures/" + Path.GetFileName(p);
+        }
+
+        /// <summary>模型在 Unity 工程内的落点（fbx 由 Python/Blender 产出后复制进来）。</summary>
+        static string ModelAssetPath(string rel)
+        {
+            if (string.IsNullOrEmpty(rel)) return rel;
+            string p = rel.Replace('\\', '/');
+            if (p.StartsWith("Assets/", StringComparison.Ordinal)) return p;
+            return "Assets/EAP/Trees/Models/" + Path.GetFileName(p);
+        }
+
+        static string Sha256File(string path)
+        {
+            using (var sha = SHA256.Create())
+            using (var fs = File.OpenRead(path))
+                return BitConverter.ToString(sha.ComputeHash(fs)).Replace("-", "").ToLowerInvariant();
+        }
+
+        /// <summary>把仓库里的贴图/模型复制进工程；内容哈希相同就不覆盖（不弄脏工程）。</summary>
+        static void SyncExternalAssets(Manifest manifest, string repoRoot, List<string> report)
+        {
+            string projectRoot = Path.GetDirectoryName(Application.dataPath);
+            int copied = 0, kept = 0;
+            foreach (var a in manifest.assets)
+            {
+                EngineTarget tgt;
+                if (a.engineTargets == null || !a.engineTargets.TryGetValue("Unity", out tgt)) continue;
+                var items = new List<KeyValuePair<string, string>>();
+                string declared = !string.IsNullOrEmpty(tgt.modelPath) ? tgt.modelPath : a.model?.path;
+                if (!string.IsNullOrEmpty(declared)) items.Add(new KeyValuePair<string, string>(declared, ModelAssetPath(declared)));
+                foreach (var kv in a.textures ?? new Dictionary<string, Tex>())
+                    if (!string.IsNullOrEmpty(kv.Value.path)) items.Add(new KeyValuePair<string, string>(kv.Value.path, TextureAssetPath(kv.Value.path)));
+                foreach (var item in items)
+                {
+                    string src = Path.GetFullPath(Path.Combine(repoRoot, item.Key));
+                    if (!File.Exists(src)) { report.Add("- WARN " + a.id + " 外部文件不存在: " + src); continue; }
+                    string dst = Path.Combine(projectRoot, item.Value);
+                    Directory.CreateDirectory(Path.GetDirectoryName(dst));
+                    if (File.Exists(dst) && Sha256File(src) == Sha256File(dst)) { kept++; continue; }
+                    File.Copy(src, dst, true);
+                    copied++;
+                }
+            }
+            if (copied + kept > 0) AssetDatabase.Refresh();
+            report.Add(string.Format("- sync: copied={0} unchanged={1}", copied, kept));
+            Debug.Log(string.Format("[EAP] sync copied={0} unchanged={1}", copied, kept));
         }
 
         static void DetectPipeline()
@@ -96,6 +181,7 @@ namespace EAP
                 "- manifest: " + manifestPath,
                 "- manifestVersion: " + manifest.manifestVersion + "  assets: " + manifest.assets.Count,
             };
+            SyncExternalAssets(manifest, repoRoot, report);
             foreach (var a in manifest.assets)
             {
                 try
@@ -114,6 +200,7 @@ namespace EAP
             }
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+            report.Add($"- summary: ok={ok} failed={failed}");
             string outPath = Path.ChangeExtension(manifestPath, ".unity_report.md");
             File.WriteAllText(outPath, string.Join("\n", report));
             Debug.Log($"[EAP] 完成 ok={ok} failed={failed} → {outPath}");
@@ -145,7 +232,7 @@ namespace EAP
 
             foreach (var kv in a.textures ?? new Dictionary<string, Tex>())
             {
-                string texAssetPath = Path.Combine(repoRoot, kv.Value.path).Replace('\\', '/');
+                string texAssetPath = TextureAssetPath(kv.Value.path);
                 ConfigureImporter(texAssetPath, kv.Key, kv.Value.srgb);
                 var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texAssetPath);
                 if (tex == null) { report.Add("- WARN " + a.id + " 贴图未导入: " + texAssetPath); continue; }
@@ -236,23 +323,78 @@ namespace EAP
 
         static GameObject BuildPrefab(Asset a, EngineTarget tgt, Material mat, string repoRoot, List<string> report)
         {
-            string modelPath = Path.Combine(repoRoot, a.model.path).Replace('\\', '/');
+            string declared = !string.IsNullOrEmpty(tgt.modelPath) ? tgt.modelPath : a.model?.path;
+            string modelPath = ModelAssetPath(declared);
             var mesh = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
             if (mesh == null)
             {
-                report.Add("- WARN " + a.id + " 模型未找到（Unity 原生不认 .glb）: " + modelPath + " → 只输出材质");
+                report.Add("- WARN " + a.id + " 模型未找到（Unity 原生不认 .glb；需要 engineTargets.Unity.modelPath 指向 fbx）: " + modelPath + " → 只输出材质");
                 Debug.LogWarning("[EAP] 模型未找到，只输出材质: " + modelPath);
                 return null;
             }
             var go = (GameObject)PrefabUtility.InstantiatePrefab(mesh);
-            var renderer = go.GetComponent<Renderer>();
-            if (renderer == null) renderer = go.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = mat;
+            var renderers = go.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0) renderers = new Renderer[] { go.AddComponent<MeshRenderer>() };
+            foreach (var r in renderers) r.sharedMaterial = mat;
             AddCollider(go, a);
             string prefabPath = (tgt.destPath ?? "Assets/EAP").TrimEnd('/') + "/" + a.id + ".prefab";
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, prefabPath);
             UnityEngine.Object.DestroyImmediate(go);
             return prefab;
+        }
+
+        /// <summary>新进程读回：prefab 存在性 / 三角面 / 包围盒 / shader / 贴图是否真的挂上。</summary>
+        public static void Verify(string manifestPath)
+        {
+            DetectPipeline();
+            var manifest = JsonConvert.DeserializeObject<Manifest>(File.ReadAllText(manifestPath));
+            if (manifest == null || manifest.assets == null)
+                throw new Exception("manifest 为空或结构不符: " + manifestPath);
+            string projectRoot = Path.GetDirectoryName(Application.dataPath);
+            var doc = new VerifyDoc { pipeline = _isUrp ? "URP" : "BuiltIn", manifest = Path.GetFileName(manifestPath) };
+            foreach (var a in manifest.assets)
+            {
+                EngineTarget tgt;
+                if (a.engineTargets == null || !a.engineTargets.TryGetValue("Unity", out tgt)) continue;
+                string prefabPath = (tgt.destPath ?? "Assets/EAP").TrimEnd('/') + "/" + a.id + ".prefab";
+                var va = new VerifyAsset { id = a.id, prefab = prefabPath };
+                va.prefabExists = File.Exists(Path.Combine(projectRoot, prefabPath));
+                foreach (var kv in a.textures ?? new Dictionary<string, Tex>())
+                    va.textures[kv.Key] = TextureAssetPath(kv.Value.path);
+                if (va.prefabExists)
+                {
+                    var asset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                    if (asset != null)
+                    {
+                        var go = (GameObject)PrefabUtility.InstantiatePrefab(asset);
+                        int tris = 0;
+                        foreach (var mf in go.GetComponentsInChildren<MeshFilter>(true))
+                            if (mf.sharedMesh != null) tris += mf.sharedMesh.triangles.Length / 3;
+                        va.meshTriCount = tris;
+                        var rs = go.GetComponentsInChildren<Renderer>(true);
+                        bool has = false;
+                        Bounds b = default(Bounds);
+                        foreach (var r in rs)
+                        {
+                            if (!has) { b = r.bounds; has = true; } else b.Encapsulate(r.bounds);
+                        }
+                        if (has)
+                            va.boundsM = new BBox { min = new[] { b.min.x, b.min.y, b.min.z }, max = new[] { b.max.x, b.max.y, b.max.z } };
+                        var mat = rs.Length > 0 ? rs[0].sharedMaterial : null;
+                        va.shader = mat != null && mat.shader != null ? mat.shader.name : null;
+                        foreach (var kv in a.textures ?? new Dictionary<string, Tex>())
+                        {
+                            string prop = _pipePropMap.ContainsKey(kv.Key) ? _pipePropMap[kv.Key] : null;
+                            va.texturesApplied[kv.Key] = mat != null && prop != null && mat.HasProperty(prop) && mat.GetTexture(prop) != null;
+                        }
+                        UnityEngine.Object.DestroyImmediate(go);
+                    }
+                }
+                doc.assets.Add(va);
+            }
+            string outPath = Path.ChangeExtension(manifestPath, ".unity_verify.json");
+            File.WriteAllText(outPath, JsonConvert.SerializeObject(doc, Formatting.Indented));
+            Debug.Log("[EAP] verify → " + outPath + " assets=" + doc.assets.Count);
         }
 
         static void AddCollider(GameObject go, Asset a)

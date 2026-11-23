@@ -1,9 +1,11 @@
-# manifest.json 规范（v1.1）
+# manifest.json 规范（v1.2）
 
 > 一份 manifest = 一个批次（batch）的资产清单。**双端消费端只读这一份文件**，不允许各端自己扫描目录。
 > 版本策略：字段只增不改语义；破坏性变更抬 `manifestVersion` 次版本号；消费端遇到不认识的主版本号必须**拒绝执行**。
 > v1.1（2026-11-22）新增：`model.source` / `model.format: engine_native` / `placements[]` /
 > `material.template: none` 时允许 `textures: {}`。v1.0 的 manifest 仍然合法（新字段全可选）。
+> v1.2（2026-11-23）新增：`engineTargets.Unity.modelPath` / `materialPathPrefix`、
+> `textures.<通道>.source`（`glb-embedded`）。v1.0 / v1.1 的 manifest 仍然合法（新字段全可选）。
 
 ## 一、顶层结构
 
@@ -32,12 +34,12 @@
 | `category` | ✅ | 分类路径，如 `env/rock`、`prop/chest`；消费端据此建目录 |
 | `type` | ✅ | `static_mesh` \| `skinned_mesh` \| `material_only` |
 | `model` | ✅ | `{path, format, unit, upAxis, forwardAxis, boundingBoxM{min,max}, triCount}` |
-| `textures` | ✅ | 键必须是 PBR 标准通道：`BaseColor` `Normal` `Roughness` `Metallic` `AO` `ORM` `Height`；每项 `{path, srgb, size[2], channels}` |
+| `textures` | ✅ | 键必须是 PBR 标准通道：`BaseColor` `Normal` `Roughness` `Metallic` `AO` `ORM` `Height`；每项 `{path, srgb, size[2], channels, source?}`（`source` 仅 `glb-embedded`，v1.2 可选） |
 | `material` | ✅ | `{template, params{}, channelPacking{}}` |
 | `collision` | ⬜ | `{mode: auto_convex\|box\|none}`，默认 `box` |
 | `pivot` | ⬜ | `{mode: bbox_center\|center_bottom\|none, offsetM:[x,y,z]}` |
 | `lods` | ⬜ | `[{level, triCount, path?}]` |
-| `engineTargets` | ✅ | `{UE5:{destPath, ...}, Unity:{destPath, ...}}`，见下 |
+| `engineTargets` | ✅ | `{UE5:{destPath, ...}, Unity:{destPath, modelPath?, materialPathPrefix?, ...}}`，见下 |
 | `checks` | ⬜ | 生成/审查阶段写入的检查记录 `[{rule, pass, value}]`，消费端只读不改 |
 
 ## 三、引擎映射表（**这是全项目最容易出错的地方**）
@@ -158,7 +160,50 @@ PCG 的输出不是"一批新资产"，而是"一个网格 + N 个实例"。用�
 **未覆盖**：`placements` 目前只被消费端读取统计、没有落成 ISM 实例；PCG 点级 metadata 没有可用的
 Python 访问器，所以 `items` 来自**最终实例 transform**（不是图里的点属性）。
 
-## 六、五条硬约束（消费端必须校验，违反就整批拒绝）
+## 六、v1.2 新增字段（Unity 目标模型 + 贴图来源）
+
+Unity 原生不认 `.glb`，所以同一份 manifest 里给 Unity 单独指一个模型路径；贴图则从 glb 内嵌资源导出成 PNG 入库。
+两个字段都是**可选**，不写时消费端行为与 v1.1 一致：
+
+```jsonc
+{
+  "textures": {
+    "BaseColor": {
+      "path": "assets/eap_textures/SM_Tree_conifer_PCG_Multi_0_BaseColor.png",
+      "srgb": true, "size": [1024, 1024], "channels": "RGB",
+      "source": "glb-embedded"          // 仅 glb-embedded；表示从 glb 内嵌图像解出
+    },
+    "Normal": {
+      "path": "assets/eap_textures/SM_Tree_conifer_PCG_Multi_0_Normal.png",
+      "srgb": false, "size": [1024, 1024], "channels": "RGB",
+      "source": "glb-embedded"
+    }
+  },
+  "engineTargets": {
+    "UE5":   { "meshPath": "/Game/EAP/Trees/conifer/..." },       // 不变
+    "Unity": {
+      "destPath": "Assets/EAP/Trees",
+      "modelPath": "assets/raw/trees/fbx/conifer.fbx",             // v1.2：Unity 侧模型（fbx），优先于 model.path
+      "materialPathPrefix": "Assets/EAP/Trees"                    // v1.2：可选，默认 Assets/EAP/Trees
+    }
+  }
+}
+```
+
+硬规则（`tools/validate_manifest.py` 已实现）：
+
+1. `Unity.modelPath` / `Unity.materialPathPrefix` / `Unity.destPath` 是**仓库相对路径**（`assets/...`）
+   或 Unity 工程内路径（`Assets/...`）；消费端负责把外部文件复制进工程后再 `AssetDatabase` 加载，
+   manifest 语义不变。
+2. `materialPathPrefix` 与 `destPath` 必须 `Assets/` 开头（Unity 工程内路径）。
+3. `textures.<通道>.source` 只允许 `glb-embedded`；其它值报 error。
+4. `textures = {}` + `material.template = "embedded"` 的 v1.1 老文件**仍然合法**（这条兼容不许破坏）。
+
+> 已知限制：`Unity.modelPath` 指向的 fbx 是**派生产物**（Blender 转换时沿 X 预镜像以抵消 Unity 左手系取反），
+> 只给 Unity 用；UE 继续读 `model.path` 的 glb。两者 `triCount` / `boundingBoxM` 必须一致
+> （`docs/fbx_convert_report.json` 记录转换误差）。
+
+## 七、五条硬约束（消费端必须校验，违反就整批拒绝）
 
 1. `manifestVersion` 主版本不认识 → 拒绝。
 2. `units` 不是 `m`/`cm`，或 `model.unit` 与顶层 `units` 冲突 → 拒绝。
