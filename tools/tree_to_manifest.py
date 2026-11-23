@@ -321,7 +321,9 @@ def _asset_payload(entry, species, stats, glb_rel, items, pivot_z_m,
                 "why": "BLEND 换 MASKED 省排序开销；metallic 0.4 是转换器默认值会发塑料光；缺 usage 标记打包后可能丢材质",
             },
         },
-        "collision": {"mode": "none"},
+        # UE 侧不落碰撞（mode=none 保持不变）；Unity 侧实例需要 Collider → 新增可选字段。
+        # 树冠不是盒状，用凸包比 AABB 贴合，且凸包只烘一份、全部实例共享。
+        "collision": {"mode": "none", "unity": {"collider": "mesh_convex"}},
         "pivot": {"mode": "base_center", "zOffsetM": pivot_z_m, "note": pivot_note},
         "license": {
             "id": entry.get("license"),

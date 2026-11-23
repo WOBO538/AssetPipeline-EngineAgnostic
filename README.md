@@ -522,6 +522,57 @@ python tools\run_pcg_chain.py --unity-check `
 `engineTargets.Unity.modelPath` 跑完整 `--unity-check`，导入回落到 glb（`ok=2` 仍成立），
 但断言 2 **FAIL**（模型未找到、无 Prefab）。恢复 manifest 后复跑 4/4 PASS。
 
+## 三之十、Unity 端 placements 落位 + Collider（v1.8）
+
+v1.7 打通了「模型 + 贴图 + Prefab」，但场景里还没有一棵树。v1.8 把 manifest 的 1892 条 placements
+真正实例化到 `Assets/Scenes/EAP_PlacedTrees.unity`，每个实例带 Collider，并新增独立命令
+`--unity-placements-check`（4 条断言，独立于 `--unity-check` 的 4 条）。
+
+```
+schemas/tree_manifest_multi.json（placements 1892：conifer 1324 + broadleaf 568）
+   ↓ run_pcg_chain.py --unity-placements-check
+Unity batchmode PlaceFromArgs（Import 材质/Prefab → NewScene → 实例化 1892 → 存场景）
+   ↓ VerifyPlacementsFromArgs（新进程重开场景读回）
+<manifest>.unity_placements_verify.json
+```
+
+坐标换算（唯一权威实现，Python `ue_to_unity_point` 与 C# `UeToUnityPos/UeToUnityYaw` 逐字一致）：
+
+```
+unityPos   = (ue_x, ue_z, ue_y)     // UE Z-up → Unity Y-up，米
+unityYaw   = -ue_yaw（度）          // 绕 Y 轴取反，避免镜像
+unityScale = s（三值等比）
+```
+
+**换算验证不是拍脑袋**：把 1892 条 `t` 全换算后算包围盒，与 UE 侧落位证据
+`docs/placed_tree_multi_verify.json` 的 `bboxPlacedM` 逐轴对比，实测 **0.0000 m**（门槛 < 0.05 m）。
+换算写反会以米级误差暴露，不放大容差混过去。
+
+Collider 选型：**MeshCollider（convex）**，不选 BoxCollider。理由：
+① 树冠不是盒状，AABB 会把树冠下方整块堵死，凸包能保留树冠/树干轮廓；
+② 凸包按网格只烘一份、1892 个实例共享，实例又是等比缩放（凸包支持）；
+③ Collider 加在 **Prefab 本体**（`BuildPrefab` 阶段），实例化后不再逐个加组件。
+
+| # | 判据 | 数据来源 |
+|:--:|---|---|
+| 1 | 实例总数 == manifest placements 总和（1892），每棵树 == 各自 `placements.count`（1324 / 568） | 读回 JSON `instances/total` |
+| 2 | 实例世界包围盒 vs manifest `t`（换算后）每轴 < 0.05 m | 读回 JSON `bboxM` |
+| 3 | 每个实例都有 Collider（`colliders == instances == 1892`） | 读回 JSON `colliders` |
+| 4 | 抽样实例材质仍有 BaseColor 贴图（路径 `Assets/` 开头且文件存在） | 读回 JSON `sampleMaterials` |
+
+实测（2026-11-23）：落位 `exit=0`（12.2 s）、读回 `exit=0`（11.8 s）；
+`total=1892`、`colliders=1892`、bbox 误差 `0.00000 m`；场景 6.3 MB，`unknownInstances=0`。
+`--unity-check` 仍为 4/4，`--multi` 13/13、`--real-multi` 20/20、`--with-compile` 21/21 全部不变。
+
+关于「不产生 1892 个 prefab override」：实例 transform 写在**场景**里（落位的必然结果）；
+代码从不调用 `PrefabUtility.ApplyPrefabInstance`，所以 **Prefab 资产本身不被修改**；
+材质只在 Prefab 上赋值一次，实例上没有材质 override。
+
+**反向验证（清态 + 绕过自愈）**：落位会重建场景，所以反向验证必须用
+`--unity-placements-check --unity-placements-verify-only`（跳过落位只读回）。
+删掉 `Assets/Scenes/EAP_PlacedTrees.unity` 后，断言 1/2/3（以及 4）**确实 FAIL**
+（`total=0`、bbox 缺失、`colliders=0`）；恢复场景后复跑回到 **4/4 PASS**。
+
 ## 四、阶段一验收（6 条，逐条可判）
 
 | # | 判据 | 判法 |
@@ -613,8 +664,13 @@ python tools\run_pcg_chain.py --unity-check `
   **2022.3.62f3c1 + URP Empty Template** 工程里用 batchmode 导入，得到
   `pipeline=URP shader=Universal Render Pipeline/Lit`、`ok=2 failed=0`：2 个 Prefab、2 个 `.mat`、
   4 张导入贴图落在 `Assets/EAP/Trees/`，`--unity-check` 4/4 PASS（`meshTriCount` 3 370 / 3 505 与
-  bounds 均读回一致）。**仍未做**：Unity 端 placements 落位（留给任务单 6）、Unity 端 roughness
-  贴图通路（仍是常量 0.9）、Collider。历史记录：`docs/unity_consumer_run_20261123.md`。
+  bounds 均读回一致）。历史记录：`docs/unity_consumer_run_20261123.md`。
+- **Unity placements 落位已完成，但仍是"只落 transform"（v1.8）**：1892 个实例 + 凸包 Collider 落在
+  `Assets/Scenes/EAP_PlacedTrees.unity`，`--unity-placements-check` 4/4；**未做**：地形吸附/烘焙、
+  LOD 与实例剔除、Unity 端 roughness 贴图通路（仍常量 0.9）、运行时性能测试。落位场景与证据都在
+  仓库外（Unity 工程），不入库；仓库只保留换算函数、落位/读回代码与断言。
+- **Unity 落位只吃 yaw（v1.8）**：manifest 的 `r=[roll,pitch,yaw]` 目前只有 yaw 非零，换算按
+  `unityYaw=-ue_yaw` 实现，roll/pitch 被忽略；将来若出现非零 roll/pitch，需要补三轴旋转并扩展断言。
 - **fbx 是派生产物（v1.7）**：`assets/raw/trees/fbx/*.fbx` 由 `tools/glb_to_fbx.py` 从 glb 转出并入库
   （体积小、可复跑）。fbx 里沿 X 做了预镜像以抵消 Unity 左手系取反，**只能给 Unity 用**；
   UE 仍走原 glb，`engineTargets.UE5` 与 `model.path` 未改。fbx 二进制含时间戳，重跑字节会变，

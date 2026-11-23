@@ -4,12 +4,14 @@
 //   - 材质参数按管线映射（RoughnessScale→_Smoothness/_Glossiness，MetallicScale→_Metallic，NormalStrength→_BumpScale）。
 // 依赖：Newtonsoft Json（com.unity.nuget.newtonsoft-json）
 // 用法：菜单 Tools → EAP → Import Manifest…（或 -executeMethod EAP.ManifestImporter.ImportFromArgs -eapManifest <path>）
+// 落位：-executeMethod EAP.ManifestImporter.PlaceFromArgs / VerifyPlacementsFromArgs -eapManifest <path>
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using Newtonsoft.Json;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace EAP
@@ -22,6 +24,7 @@ namespace EAP
         public Dictionary<string, Tex> textures;
         public MaterialDef material;
         public Collision collision;
+        public Placements placements;
         public Dictionary<string, EngineTarget> engineTargets;
         public List<Check> checks;
     }
@@ -29,7 +32,10 @@ namespace EAP
     [Serializable] public class BBox { public float[] min, max; }
     [Serializable] public class Tex { public string path, channels, source; public bool srgb; public int[] size; }
     [Serializable] public class MaterialDef { public string template, unityShader; public Dictionary<string, float> @params; }
-    [Serializable] public class Collision { public string mode; }
+    [Serializable] public class Collision { public string mode; public CollisionUnity unity; }
+    [Serializable] public class CollisionUnity { public string collider; }
+    [Serializable] public class Placements { public string space, unit; public int count; public List<PlacementItem> items; }
+    [Serializable] public class PlacementItem { public float[] t, r, s; }
     [Serializable] public class EngineTarget { public string destPath, shader, materialInstance, modelPath, materialPathPrefix; public Dictionary<string, string> propertyMap; }
     [Serializable] public class Check { public string rule; public bool pass; }
     [Serializable] public class VerifyDoc { public string schema = "eap.unity_verify/1"; public string pipeline, manifest; public List<VerifyAsset> assets = new List<VerifyAsset>(); }
@@ -42,11 +48,27 @@ namespace EAP
         public Dictionary<string, string> textures = new Dictionary<string, string>();
         public Dictionary<string, bool> texturesApplied = new Dictionary<string, bool>();
     }
+    [Serializable] public class PlacementsVerifyDoc
+    {
+        public string schema = "eap.unity_placements_verify/1";
+        public string manifest;
+        public string scene = ManifestImporter.PlaceScenePath;
+        public bool sceneExists;
+        public Dictionary<string, int> instances = new Dictionary<string, int>();
+        public int total;
+        public BBox bboxM;
+        public int colliders;
+        public int unknownInstances;
+        public List<SampleMaterial> sampleMaterials = new List<SampleMaterial>();
+    }
+    [Serializable] public class SampleMaterial { public string instance, baseColor; }
 
     public static class ManifestImporter
     {
         const string UrpShader = "Universal Render Pipeline/Lit";
         const string BuiltInShader = "Standard";
+        public const string PlaceScenePath = "Assets/Scenes/EAP_PlacedTrees.unity";
+        const string PlacementRootName = "EAP_Placements";
 
         static readonly Dictionary<string, string> UrpPropMap = new Dictionary<string, string>
         {
@@ -97,6 +119,46 @@ namespace EAP
             Debug.LogError("[EAP] 缺少 -eapManifest 参数");
             EditorApplication.Exit(1);
         }
+
+        public static void PlaceFromArgs()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++)
+                if (args[i] == "-eapManifest")
+                {
+                    try { Place(args[i + 1]); EditorApplication.Exit(0); }
+                    catch (Exception e) { Debug.LogError("[EAP] place 失败: " + e); EditorApplication.Exit(1); }
+                    return;
+                }
+            Debug.LogError("[EAP] 缺少 -eapManifest 参数");
+            EditorApplication.Exit(1);
+        }
+
+        public static void VerifyPlacementsFromArgs()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++)
+                if (args[i] == "-eapManifest")
+                {
+                    try { VerifyPlacements(args[i + 1]); EditorApplication.Exit(0); }
+                    catch (Exception e) { Debug.LogError("[EAP] placements verify 失败: " + e); EditorApplication.Exit(1); }
+                    return;
+                }
+            Debug.LogError("[EAP] 缺少 -eapManifest 参数");
+            EditorApplication.Exit(1);
+        }
+
+        /// <summary>UE(Z-up) → Unity(Y-up) 唯一权威换算：unityPos = (x, z, y)。</summary>
+        static Vector3 UeToUnityPos(float[] t)
+            => new Vector3(t[0], t[2], t[1]);
+
+        /// <summary>UE yaw（度）→ Unity yaw：Y 轴取反，避免镜像。</summary>
+        static float UeToUnityYaw(float[] r)
+            => (r != null && r.Length >= 3) ? -r[2] : 0f;
+
+        /// <summary>Prefab 在工程内的落点（与 BuildPrefab 的命名规则一致）。</summary>
+        static string PrefabAssetPath(EngineTarget tgt, Asset a)
+            => (tgt.destPath ?? "Assets/EAP").TrimEnd('/') + "/" + a.id + ".prefab";
 
         /// <summary>贴图在 Unity 工程内的落点（manifest 里是仓库相对路径，Unity 只认 Assets/）。</summary>
         static string TextureAssetPath(string rel)
@@ -397,15 +459,150 @@ namespace EAP
             Debug.Log("[EAP] verify → " + outPath + " assets=" + doc.assets.Count);
         }
 
+        /// <summary>把 manifest 的 placements 真正落到场景：Import（材质/Prefab）→ 实例化 → 存场景。</summary>
+        public static void Place(string manifestPath)
+        {
+            Import(manifestPath);   // 同步外部文件 + 重建材质/Prefab（Prefab 本体已带 Collider）
+            var manifest = JsonConvert.DeserializeObject<Manifest>(File.ReadAllText(manifestPath));
+            if (manifest == null || manifest.assets == null)
+                throw new Exception("manifest 为空或结构不符: " + manifestPath);
+
+            EnsureFolder("Assets/Scenes");
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject(PlacementRootName);
+
+            int total = 0, colliders = 0;
+            foreach (var a in manifest.assets)
+            {
+                EngineTarget tgt;
+                if (a.engineTargets == null || !a.engineTargets.TryGetValue("Unity", out tgt)) continue;
+                var items = a.placements != null ? a.placements.items : null;
+                if (items == null || items.Count == 0) continue;
+                string prefabPath = PrefabAssetPath(tgt, a);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                if (prefab == null) throw new Exception("Prefab 不存在（先跑 Import）: " + prefabPath);
+                foreach (var it in items)
+                {
+                    var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
+                    var tr = go.transform;
+                    tr.SetParent(root.transform, false);
+                    tr.localPosition = UeToUnityPos(it.t);
+                    tr.localRotation = Quaternion.Euler(0f, UeToUnityYaw(it.r), 0f);
+                    tr.localScale = (it.s != null && it.s.Length >= 3)
+                        ? new Vector3(it.s[0], it.s[1], it.s[2]) : Vector3.one;
+                    total++;
+                    if (go.GetComponentsInChildren<Collider>(true).Length > 0) colliders++;
+                }
+            }
+            EditorSceneManager.MarkSceneDirty(scene);
+            if (!EditorSceneManager.SaveScene(scene, PlaceScenePath))
+                throw new Exception("场景保存失败: " + PlaceScenePath);
+            Debug.Log(string.Format("[EAP] place instances={0} colliders={1} scene={2}",
+                                    total, colliders, PlaceScenePath));
+        }
+
+        /// <summary>新进程读回落位场景：实例数/包围盒/Collider/抽样材质，写 JSON 供断言。</summary>
+        public static void VerifyPlacements(string manifestPath)
+        {
+            DetectPipeline();
+            var manifest = JsonConvert.DeserializeObject<Manifest>(File.ReadAllText(manifestPath));
+            if (manifest == null || manifest.assets == null)
+                throw new Exception("manifest 为空或结构不符: " + manifestPath);
+
+            string projectRoot = Path.GetDirectoryName(Application.dataPath);
+            var doc = new PlacementsVerifyDoc { manifest = Path.GetFileName(manifestPath) };
+            var prefabToId = new Dictionary<string, string>();
+            foreach (var a in manifest.assets)
+            {
+                doc.instances[a.id] = 0;
+                EngineTarget tgt;
+                if (a.engineTargets != null && a.engineTargets.TryGetValue("Unity", out tgt))
+                    prefabToId[PrefabAssetPath(tgt, a)] = a.id;
+            }
+
+            doc.sceneExists = File.Exists(Path.Combine(projectRoot, PlaceScenePath));
+            if (doc.sceneExists)
+            {
+                var scene = EditorSceneManager.OpenScene(PlaceScenePath, OpenSceneMode.Single);
+                GameObject root = null;
+                foreach (var go in scene.GetRootGameObjects())
+                    if (go.name == PlacementRootName) { root = go; break; }
+                if (root != null)
+                {
+                    Vector3 min = Vector3.zero, max = Vector3.zero;
+                    bool has = false;
+                    int colliders = 0;
+                    var sampled = new HashSet<string>();
+                    foreach (Transform child in root.transform)
+                    {
+                        var go = child.gameObject;
+                        var src = PrefabUtility.GetCorrespondingObjectFromSource(go);
+                        string prefabPath = src != null ? AssetDatabase.GetAssetPath(src) : null;
+                        string id;
+                        if (string.IsNullOrEmpty(prefabPath) || !prefabToId.TryGetValue(prefabPath, out id))
+                        { doc.unknownInstances++; continue; }
+                        doc.instances[id] = doc.instances[id] + 1;
+
+                        Vector3 p = child.position;
+                        if (!has) { min = p; max = p; has = true; }
+                        else { min = Vector3.Min(min, p); max = Vector3.Max(max, p); }
+
+                        if (go.GetComponentsInChildren<Collider>(true).Length > 0) colliders++;
+
+                        if (sampled.Add(id))
+                        {
+                            var r = go.GetComponentInChildren<Renderer>(true);
+                            var mat = r != null ? r.sharedMaterial : null;
+                            string prop = _pipePropMap.ContainsKey("BaseColor") ? _pipePropMap["BaseColor"] : null;
+                            var tex = (mat != null && prop != null && mat.HasProperty(prop))
+                                ? mat.GetTexture(prop) : null;
+                            doc.sampleMaterials.Add(new SampleMaterial
+                            {
+                                instance = id + "[" + (doc.instances[id] - 1) + "]",
+                                baseColor = tex != null ? AssetDatabase.GetAssetPath(tex) : "",
+                            });
+                        }
+                    }
+                    doc.colliders = colliders;
+                    if (has)
+                        doc.bboxM = new BBox
+                        {
+                            min = new[] { min.x, min.y, min.z },
+                            max = new[] { max.x, max.y, max.z },
+                        };
+                }
+            }
+            int total = 0;
+            foreach (var v in doc.instances.Values) total += v;
+            doc.total = total;
+
+            string outPath = Path.ChangeExtension(manifestPath, ".unity_placements_verify.json");
+            File.WriteAllText(outPath, JsonConvert.SerializeObject(doc, Formatting.Indented));
+            Debug.Log(string.Format("[EAP] placements verify → {0} total={1} colliders={2} sceneExists={3}",
+                                    outPath, doc.total, doc.colliders, doc.sceneExists));
+        }
+
         static void AddCollider(GameObject go, Asset a)
         {
-            string mode = a.collision?.mode ?? "box";
-            if (mode == "none") return;
+            // v1.8：Unity 侧可选 collision.unity.collider（老 manifest 没有这个字段，行为不变）。
+            // 选 mesh_convex 的理由：树冠不是盒状，AABB 会把树冠下方也堵死；
+            // 凸包只烘一份、所有实例共享，且实例只做等比缩放（凸包支持），不需要逐实例加组件。
+            string mode = a.collision?.unity?.collider ?? a.collision?.mode ?? "box";
+            if (string.IsNullOrEmpty(mode) || mode == "none") return;
             var bbox = a.model?.boundingBoxM;
-            if (mode == "auto_convex")
+            if (mode == "auto_convex" || mode == "mesh_convex")
             {
-                var mf = go.GetComponentInChildren<MeshFilter>();
-                if (mf != null) { var mc = go.AddComponent<MeshCollider>(); mc.sharedMesh = mf.sharedMesh; mc.convex = true; return; }
+                var filters = go.GetComponentsInChildren<MeshFilter>(true);
+                bool added = false;
+                foreach (var mf in filters)
+                {
+                    if (mf.sharedMesh == null) continue;
+                    var mc = mf.gameObject.AddComponent<MeshCollider>();
+                    mc.sharedMesh = mf.sharedMesh;
+                    mc.convex = true;
+                    added = true;
+                }
+                if (added) return;
             }
             var box = go.AddComponent<BoxCollider>();
             if (bbox != null && bbox.min != null && bbox.max != null)

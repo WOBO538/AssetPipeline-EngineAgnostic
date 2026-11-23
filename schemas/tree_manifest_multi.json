@@ -1,7 +1,7 @@
 {
   "manifestVersion": "1.2",
   "pipelineId": "eap-tree-pair-20261123",
-  "generatedAt": "2026-11-23T22:11:52+08:00",
+  "generatedAt": "2026-11-23T23:12:49+08:00",
   "units": "m",
   "source": {
     "kind": "glb_ingest",
@@ -98,7 +98,10 @@
         }
       },
       "collision": {
-        "mode": "none"
+        "mode": "none",
+        "unity": {
+          "collider": "mesh_convex"
+        }
       },
       "pivot": {
         "mode": "base_center",
@@ -22802,7 +22805,10 @@
         }
       },
       "collision": {
-        "mode": "none"
+        "mode": "none",
+        "unity": {
+          "collider": "mesh_convex"
+        }
       },
       "pivot": {
         "mode": "base_center",

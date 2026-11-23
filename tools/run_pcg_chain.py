@@ -58,6 +58,7 @@ DEFAULT_PROJECT = r"D:\UE_Projects\VegetationPCG\VegetationPCG.uproject"
 DEFAULT_UNITY = r"D:\Program Files\unity AZ\2022.3.62f3c1\Editor\Unity.exe"
 DEFAULT_UNITY_PROJECT = r"D:\unity\EAP_Unity_Consumer"
 UNITY_CS = os.path.join(REPO, "unity", "Editor", "ManifestImporter.cs")
+UNITY_PLACE_SCENE = "Assets/Scenes/EAP_PlacedTrees.unity"
 
 sys.path.insert(0, os.path.join(REPO, "tools"))
 
@@ -110,6 +111,46 @@ def _item_bbox(items):
         return None
     return {"min": [round(min(p[i] for p in pts), 4) for i in range(3)],
             "max": [round(max(p[i] for p in pts), 4) for i in range(3)]}
+
+
+def ue_to_unity_point(t):
+    """UE(Z-up，左手) → Unity(Y-up，左手) 的唯一权威换算。
+
+        unityPos   = (ue_x, ue_z, ue_y)      // 米，Unity 1 unit = 1 m
+        unityYaw   = -ue_yaw（度）           // 绕 Y 轴取反，避免镜像
+        unityScale = s（三值）
+
+    C# 消费端 `ManifestImporter.UeToUnityPos` / `UeToUnityYaw` 必须与此逐字一致；
+    任何一处改动都要同步另一处，并用 --unity-placements-check 的 bbox 断言复验。
+    """
+    return [float(t[0]), float(t[2]), float(t[1])]
+
+
+def ue_to_unity_bounds(box):
+    """把 UE 系 {min,max} 包围盒换算成 Unity 系（逐轴重排后取小的当 min）。"""
+    a = ue_to_unity_point(box["min"])
+    b = ue_to_unity_point(box["max"])
+    return {"min": [min(a[i], b[i]) for i in range(3)],
+            "max": [max(a[i], b[i]) for i in range(3)]}
+
+
+def _placements_unity_bbox(manifest):
+    """manifest placements[].items[].t 全部换算成 Unity 坐标后的包围盒。"""
+    pts = []
+    for a in manifest.get("assets") or []:
+        for it in ((a.get("placements") or {}).get("items") or []):
+            pts.append(ue_to_unity_point(it.get("t") or [0, 0, 0]))
+    if not pts:
+        return None
+    return {"min": [min(p[i] for p in pts) for i in range(3)],
+            "max": [max(p[i] for p in pts) for i in range(3)]}
+
+
+def _bbox_max_diff(a, b):
+    if not a or not b or not a.get("min") or not b.get("min"):
+        return 1e9
+    return max(max(abs(float(a["min"][i]) - float(b["min"][i])) for i in range(3)),
+               max(abs(float(a["max"][i]) - float(b["max"][i])) for i in range(3)))
 
 
 def _run(label, cmd, timeout=900, env=None):
@@ -773,6 +814,152 @@ def _run_unity_check(args):
     return 0
 
 
+def _run_unity_placements_check(args):
+    """Unity 端 placements 落位：换算验证 → batchmode 落位 → 新进程读回 → 4 条断言。
+
+    反向验证必须加 --unity-placements-verify-only：落位会重建场景，跳过落位才看得到清态后的 FAIL。
+    """
+    manifest = os.path.abspath(args.manifest)
+    project = os.path.abspath(args.unity_project)
+    fails = []
+    print("[0/5] Unity 端 placements 落位（换算验证 + 落位 + 读回）")
+
+    if _unity_running():
+        print("CHAIN FAIL: Unity.exe 正在运行，先关掉 Unity 再来")
+        return 1
+    if not os.path.isfile(args.unity):
+        fails.append("找不到 Unity.exe: " + args.unity)
+    if not os.path.isfile(manifest):
+        fails.append("找不到 manifest: " + manifest)
+    if not os.path.isdir(project):
+        fails.append("找不到 Unity 工程: " + project)
+    if fails:
+        print("CHAIN FAIL: " + " | ".join(fails))
+        return 1
+
+    changed = _deploy_unity_script(project)
+    print("[0/5] 消费端脚本 %s → %s" % ("已更新" if changed else "无变化", project))
+
+    scene_abs = os.path.join(project, UNITY_PLACE_SCENE)
+    verify_path = os.path.splitext(manifest)[0] + ".unity_placements_verify.json"
+    place_log = os.path.splitext(manifest)[0] + ".unity_placements_log.txt"
+    verify_log = os.path.splitext(manifest)[0] + ".unity_placements_verify.unity_log.txt"
+    if os.path.isfile(verify_path):
+        os.remove(verify_path)
+
+    with open(manifest, "r", encoding="utf-8-sig") as fh:
+        man = json.load(fh)
+    assets = man.get("assets") or []
+    expected_counts = {a.get("id"): int(((a.get("placements") or {}).get("count")) or 0) for a in assets}
+    expected_total = sum(expected_counts.values())
+
+    # ---- [1/5] 坐标换算验证（纯 Python，权威换算 vs UE 侧落位证据）----
+    expected_box = _placements_unity_bbox(man)
+    ref_path = os.path.join(REPO, "docs", "placed_tree_multi_verify.json")
+    ref_diff = None
+    if os.path.isfile(ref_path):
+        with open(ref_path, "r", encoding="utf-8-sig") as fh:
+            ref = json.load(fh)
+        ref_ue = ref.get("bboxPlacedM")
+        if ref_ue:
+            ref_unity = ue_to_unity_bounds(ref_ue)
+            ref_diff = _bbox_max_diff(expected_box, ref_unity)
+    if expected_box is None or (ref_diff is not None and ref_diff >= 0.05):
+        fails.append("换算验证 manifest 1892 点包围盒 vs bboxPlacedM 误差 %s m（要求 < 0.05）"
+                     % ("n/a" if ref_diff is None else "%.4f" % ref_diff))
+    print("[1/5] 坐标换算 1892 点 → Unity bbox min=%s max=%s；vs bboxPlacedM 逐轴误差=%s → %s"
+          % (["%.4f" % v for v in (expected_box or {}).get("min", [])],
+             ["%.4f" % v for v in (expected_box or {}).get("max", [])],
+             "n/a" if ref_diff is None else "%.4f m" % ref_diff,
+             "PASS" if (expected_box is not None and (ref_diff is None or ref_diff < 0.05)) else "FAIL"))
+
+    # ---- [2/5] 落位（verify-only 时跳过，避免自愈重建场景）----
+    if args.unity_placements_verify_only:
+        print("[2/5] SKIP 落位（--unity-placements-verify-only，反向验证用）；scene=%s"
+              % ("存在" if os.path.isfile(scene_abs) else "缺失"))
+    else:
+        place_rc, place_log_text = _run_unity(
+            args.unity, project, "EAP.ManifestImporter.PlaceFromArgs", manifest, place_log)
+        ok_place = place_rc == 0 and os.path.isfile(scene_abs)
+        print("[2/5] Unity batchmode 落位 exit=%s scene=%s → %s"
+              % (place_rc, "存在" if os.path.isfile(scene_abs) else "缺失",
+                 "PASS" if ok_place else "FAIL"))
+        if not ok_place:
+            fails.append("落位失败 exit=%s scene=%s | log_tail: %s"
+                         % (place_rc, "missing" if not os.path.isfile(scene_abs) else "ok",
+                            _tail(place_log_text)))
+
+    # ---- [3/5] 新进程读回 ----
+    verify_rc, verify_log_text = _run_unity(
+        args.unity, project, "EAP.ManifestImporter.VerifyPlacementsFromArgs", manifest, verify_log)
+    vdata = None
+    if os.path.isfile(verify_path):
+        with open(verify_path, "r", encoding="utf-8-sig") as fh:
+            vdata = json.load(fh)
+    print("[3/5] 读回 exit=%s → %s" % (verify_rc, "PASS" if (verify_rc == 0 and vdata) else "FAIL"))
+    if verify_rc != 0 or vdata is None:
+        fails.append("读回失败 exit=%s verify=%s | log_tail: %s"
+                     % (verify_rc, verify_path if vdata is not None else "<not written>",
+                        _tail(verify_log_text)))
+
+    vdata = vdata or {}
+    got_counts = vdata.get("instances") or {}
+    got_total = int(vdata.get("total") or 0)
+
+    # ---- 断言 1：实例总数 / 每棵树实例数 ----
+    bad1 = ["%s=%s(期望 %d)" % (k, got_counts.get(k, 0), v)
+            for k, v in expected_counts.items() if int(got_counts.get(k, 0)) != v]
+    ok1 = got_total == expected_total and not bad1
+    print("[1/4] 实例数 total=%d(期望 %d) %s → %s"
+          % (got_total, expected_total,
+             " ".join("%s=%s" % (k, got_counts.get(k, 0)) for k in expected_counts),
+             "PASS" if ok1 else "FAIL"))
+    if not ok1:
+        fails.append("断言1 实例数 %d != %d %s" % (got_total, expected_total, "; ".join(bad1)))
+
+    # ---- 断言 2：世界包围盒 vs manifest t（换算后），每轴 < 0.05 m ----
+    got_box = vdata.get("bboxM") or {}
+    box_diff = _bbox_max_diff(got_box, expected_box)
+    ok2 = bool(got_box.get("min")) and bool(got_box.get("max")) and box_diff < 0.05
+    print("[2/4] 落入 bbox 误差=%.5f m（gate < 0.05） → %s" % (box_diff, "PASS" if ok2 else "FAIL"))
+    if not ok2:
+        fails.append("断言2 bbox 误差 %.4fm got=%r want=%r"
+                     % (box_diff, got_box, expected_box))
+
+    # ---- 断言 3：每个实例都有 Collider ----
+    got_colliders = int(vdata.get("colliders") or 0)
+    ok3 = got_colliders == got_total == expected_total
+    print("[3/4] Collider 数=%d / 实例=%d / 期望=%d → %s"
+          % (got_colliders, got_total, expected_total, "PASS" if ok3 else "FAIL"))
+    if not ok3:
+        fails.append("断言3 colliders=%d instances=%d want=%d"
+                     % (got_colliders, got_total, expected_total))
+
+    # ---- 断言 4：抽样实例材质仍有 BaseColor 贴图（Assets/ 开头且文件存在）----
+    samples = vdata.get("sampleMaterials") or []
+    ok4 = True
+    for a in assets:
+        aid = a.get("id")
+        sample = next((s for s in samples
+                       if str(s.get("instance") or "").startswith(str(aid) + "[")), None)
+        base = str((sample or {}).get("baseColor") or "")
+        hit = base.startswith("Assets/") and os.path.isfile(os.path.join(project, base))
+        if not base.startswith("Assets/") or not hit:
+            ok4 = False
+            fails.append("断言4 %s BaseColor=%r（必须 Assets/ 开头且存在）" % (aid, base))
+    if not samples:
+        ok4 = False
+        fails.append("断言4 没有任何 sampleMaterials")
+    print("[4/4] 材质抽样 %d 条 → %s" % (len(samples), "PASS" if ok4 else "FAIL"))
+
+    if fails:
+        print("CHAIN FAIL: " + " | ".join(fails))
+        return 1
+    print("UNITY-PLACEMENTS-CHECK PASS instances=%d colliders=%d bbox_diff=%.5fm"
+          % (got_total, got_colliders, box_diff))
+    return 0
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--ue", default=DEFAULT_UE)
@@ -811,12 +998,18 @@ def main(argv):
                     help="Unity 端吃真模型：batchmode 导入 + 读回 + 4 条断言（独立的第 5 条自验命令）")
     ap.add_argument("--unity-verify-only", action="store_true",
                     help="--unity-check 时跳过导入，只跑读回（反向验证清态用）")
+    ap.add_argument("--unity-placements-check", action="store_true",
+                    help="Unity 端 placements 落位：换算验证 + batchmode 落位/读回 + 4 条断言（独立命令）")
+    ap.add_argument("--unity-placements-verify-only", action="store_true",
+                    help="--unity-placements-check 时跳过落位，只读回（反向验证清态用，绕开场景自愈）")
     ap.add_argument("--unity", default=DEFAULT_UNITY, help="Unity.exe 路径")
     ap.add_argument("--unity-project", default=DEFAULT_UNITY_PROJECT, help="Unity 工程路径")
     ap.add_argument("--manifest", default=REAL_MULTI_MANIFEST_JSON,
                     help="--unity-check 读取的 manifest（默认 schemas/tree_manifest_multi.json）")
     args = ap.parse_args(argv[1:])
 
+    if args.unity_placements_check:
+        return _run_unity_placements_check(args)
     if args.unity_check:
         return _run_unity_check(args)
     if args.multi and args.real_multi:
