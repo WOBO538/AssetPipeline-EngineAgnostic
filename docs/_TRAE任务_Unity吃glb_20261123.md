@@ -158,3 +158,44 @@ python tools/validate_manifest.py schemas\manifest.example.json
 ## 6. 做不完怎么拆
 
 优先保 **A+B+C+`--unity-check` 断言 1/2**（模型和 Prefab 出来就算这一轮的主目标）；断言 3/4（贴图映射读回、bounds 误差）做不完就明确写"未做"，不要写死数字硬凑 PASS。
+
+---
+
+## 7. 追加补丁（2026-11-23 22:05，lead 实测后补，**优先看这一节**）
+
+lead 已用 batchmode 实测过 Unity 通路，**发现任务单原设计有一个必须修的漏洞**：
+
+### 7.1 batchmode 本身可用（好消息）
+
+```
+Unity.exe -batchmode -quit -projectPath D:\unity\EAP_Unity_Consumer ^
+  -executeMethod EAP.ManifestImporter.ImportFromArgs ^
+  -eapManifest D:\Projects\AssetPipeline-EngineAgnostic\schemas\tree_manifest_multi.json -logFile <log>
+→ exit=0，56 秒，日志有 [EAP] pipeline=URP
+```
+所以 `--unity-check` 用 batchmode 自验是成立的；但**跑之前必须确认 Unity GUI 没开**。
+
+### 7.2 必须修的漏洞：Unity 读不到工程外的文件
+
+同一份日志里出现：
+```
+Invalid AssetDatabase path: D:/Projects/AssetPipeline-EngineAgnostic/assets/eap_textures/SM_Tree_conifer_PCG_Multi_0_BaseColor.png. Use path relative to the project folder.
+Invalid AssetDatabase path: D:/Projects/AssetPipeline-EngineAgnostic/assets/raw/trees/conifer.glb. Use path relative to the project folder.
+```
+
+`AssetDatabase.LoadAssetAtPath` **只认 `<UnityProject>/Assets/...` 下的路径**，manifest 里的 `assets/...` 是仓库相对路径，Unity 看不到。
+
+**修法（消费端负责，不改 manifest 语义）**：导入前先把外部文件**复制进工程**再加载：
+- 贴图：`<repo>/assets/eap_textures/*.png` → `<UnityProject>/Assets/EAP/Trees/Textures/<同名>`
+- 模型：`<repo>/assets/raw/trees/fbx/*.fbx` → `<UnityProject>/Assets/EAP/Trees/Models/<同名>`
+- 实现：`Directory.CreateDirectory` + `File.Copy(..., overwrite:true)` + `AssetDatabase.Refresh()`，再 `LoadAssetAtPath`。复制判定用**内容哈希**（文件没变就不覆盖、不弄脏工程）。
+- 读回 JSON 里的贴图路径必须是 `Assets/...` 开头（断言 3 要检查这一点，防止又把绝对路径塞进来）。
+
+### 7.3 断言 4 的单位提醒
+
+manifest `model.boundingBoxM` 单位是**米**，Unity 也是 1 unit = 1 m（不缩放导入即可）；fbx 从 Blender 导出时若带 0.01 缩放，Prebab bounds 会差 100 倍 —— 这条断言会抓住它，别用"换算"绕过，要修导出设置（`apply_scale_options`）。
+
+### 7.4 `--unity-check` 还要做两件事
+
+1. 跑之前检查 `Unity.exe` 进程，存在就 FAIL 并提示"关掉 Unity 再来"；
+2. 把 Unity 日志另存为 `<manifest>.unity_log.txt` 并加进 `.gitignore`，失败时把最后 40 行贴到 CHAIN FAIL 原因里（便于定位）。
