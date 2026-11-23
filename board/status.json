@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T20:25:00+08:00",
+  "updatedAt": "2026-11-23T20:58:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -29,7 +29,7 @@
       "id": "P1",
       "name": "EAP 多引擎资产管线",
       "subtitle": "主线 · 补 PCG 资格缺口 · NO.01 下一代",
-      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化 + 多资产 20 资产（13/13 断言）+ 真实双树种混排（17/17 断言）+ 任务单 3 判据修复（--with-compile 18/18；--tree 源关卡误删待补跑）",
+      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化 + 多资产 20 资产（13/13 断言） + 真实双树种混排（17/17 断言）+ --with-compile 严格模式（18/18 断言）；--tree 单树种链路已降级为历史",
       "progress": 90,
       "status": "进行中",
       "items": [
@@ -155,11 +155,16 @@
           "note": "判据改为 exit==0 + 日志无 Failed to compile Material + 证据 MIC 数==manifest 槽位总数；--multi 13/13、--real-multi 17/17、--with-compile 18/18"
         },
         {
-          "name": "--tree 16 条断言补跑（环境阻塞：源关卡 /Game/Untitled 误删）",
-          "status": "todo",
+          "name": "--tree 降级为历史链路（源关卡 /Game/Untitled 19:43 误删；备份只有 233 点；无头 generate 空操作），现行验收 = --multi 13 + --real-multi 17/18",
+          "status": "done",
           "owner": "user",
           "date": "11-23",
           "note": "2026-11-23 19:43 清理残留时误删源关卡；备份恢复版只读探针 instanceCount=233（11-22 旧状态），不能代表 1892 点，禁止用于 --tree；关卡恢复到 1892 点状态后必须补跑这一条"
+        },
+        {
+          "name": "--real-multi --with-compile 严格判据落地（commit b16ba7d：exit==0 + 无 Failed to compile + MIC 4/4），lead 复验 13/13、17/17、18/18 全 PASS",
+          "status": "done",
+          "date": "11-23"
         }
       ]
     },
@@ -242,7 +247,7 @@
           "date": "12-05"
         },
         {
-          "name": "UE 清理残留（NewMap_HLOD0_Instancing / Untitled_HLOD0_Instancing 已删；磁盘核验 Content 根只剩 PCG_ForestScatter）",
+          "name": "UE 清理残留（NewMap_HLOD0_Instancing / Untitled_HLOD0_Instancing 已删；Content 根只剩 PCG_ForestScatter）",
           "status": "done",
           "owner": "user",
           "date": "11-23"

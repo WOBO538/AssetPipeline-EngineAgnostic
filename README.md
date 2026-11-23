@@ -39,7 +39,7 @@ Engine-Agnostic Pipeline/
 │  ├─ validate_manifest.py        ← 中台侧轻量校验（结构 + 2 的幂 + 通道 + 单位 + v1.1 placements）
 │  ├─ pcg_to_manifest.py          ← 散点 JSON → manifest v1.1（cm→m，1 网格 = 1 asset + N placements）
 │  ├─ tree_to_manifest.py         ← 真实树 glb + 散点 → manifest v1.1（双端；不信任 sidecar，自己解析 GLB 复算）
-│  ├─ run_pcg_chain.py            ← 一条命令跑完整条 Layer1 链（7 步 / 4 次无头 UE）+ 9 条断言（--tree 时 11 条）
+│  ├─ run_pcg_chain.py            ← 一条命令跑完整条 Layer1 链（7 步 / 4 次无头 UE）+ 9 条断言；--multi 13 条 / --real-multi 17 条（--with-compile 18 条）；--tree 16 条为历史链路
 │  ├─ draw_placements.py          ← 从读回 transform 画俯视图（方块 / 树冠圆两种标记）
 │  ├─ test_validator.py           ← 校验器 9 条负例（拦截 9/9）
 │  └─ test_gui_smoke.py           ← GUI 冒烟（12/12）
@@ -179,7 +179,7 @@ schemas/tree_manifest.json   manifest v1.1：model.source=file + 双端 engineTa
 ```
 
 ```bash
-python tools/run_pcg_chain.py --tree --expect-span-m 200    # 四次无头 UE + 两次纯 Python；14 条断言
+python tools/run_pcg_chain.py --tree --expect-span-m 200    # 历史链路（v1.5 起不作验收门槛）：16 条断言，需 /Game/Untitled 的 200 m 散点
 # 期望末行：CHAIN PASS points=1892 assets=1 placements=1892
 ```
 
@@ -318,7 +318,7 @@ UE 落位 `placed=156/156 levelSaved=True`；新进程读回 `assets=20 count=15
   `checks` 里继续记 `instance_count==placements.count`，`validate_manifest.py` 会复核这条声明
   （不新增字段、不改 schema，仍兼容 v1.1 的 9 条负例）。
 - **单网格输入保持字节级等价**：`docs/pcg_forest_pilot.json` 重跑后与 `schemas/pcg_manifest.json`
-  逐字段对比只差 `generatedAt`；老链路 `--tree --expect-span-m 200` 仍 16/16 PASS。
+  逐字段对比只差 `generatedAt`。老链路 `--tree --expect-span-m 200` 曾 16/16 PASS，v1.5 起降级为历史链路（见 §五 最后一条）。
 - **组件名可预测**：每个 asset 一个 ISM，创建后 `rename` 成 `EAP_Asset_<index>` 并写同名
   `component_tags`；读回按 tag 找组件，不依赖创建顺序。重跑复用同 tag 组件、先 `clear_instances()`
   再落，asset 变少时清掉多余组件（幂等）。
@@ -385,7 +385,13 @@ metallic=0、usage 标记齐全、alpha 槽为 MASKED。
 
 > 没截图、没日志、没退出码 = 没过。这条照搬项目验收标准。
 
-### 四之二、Layer 1 链路验收（9 + 7 条，`python tools/run_pcg_chain.py [--tree]` 自动判）
+### 四之二、Layer 1 链路验收（现行口径：`--multi` 13 条 + `--real-multi` 17/18 条）
+
+> **现行判据（v1.5）**：`python tools/run_pcg_chain.py --multi --expect-assets 20` = **13 条**；
+> `python tools/run_pcg_chain.py --real-multi --expect-assets 2 --expect-placements 1892` = **17 条**，
+> 再加 `--with-compile` = **18 条**。
+> 下表 1–9 是 Layer 1 链路的公共判据（双树种链路同样覆盖）；**10–16 属于 `--tree`（单树种全量替换），
+> 已于 2026-11-23 降级为历史链路**（原因见 §五 最后一条），数字保留作历史记录，不再作为验收门槛。
 
 | # | 判据 | 实测（2026-11-22 17:33 / 18:0x / 18:1x） |
 |:--:|---|---|
@@ -398,13 +404,13 @@ metallic=0、usage 标记齐全、alpha 槽为 MASKED。
 | 7 | 落位实例 bbox == manifest items bbox | 误差 0.0000 m（阈值 1 cm） |
 | 8 | 落位实例逐条 transform == manifest items | 0/1892 不匹配（阈值 1 cm / 0.05°） |
 | 9 | 落位地块跨度 == 200 m（±15%） | X=196.6 m / Y=191.6 m |
-| 10 | `--tree`：落位网格是树资产（非引擎 Cube） | `/Game/EAP/Trees/conifer/StaticMeshes/conifer.conifer` |
-| 11 | `--tree`：UE 侧树高 == glTF 树高（<5 cm） | UE=10.236 m / glTF=10.236 m |
-| 12 | `--tree`：材质槽已规范化（metallic=0 且 usage 标记齐全） | 2 槽 `['opaque', 'masked']`，三项 usage 全 True |
-| 13 | `--tree`：alpha 材质已从 BLEND 转 MASKED | `BLEND_OPAQUE` + `BLEND_MASKED` |
-| 14 | `--tree`：落位组件材质覆盖 = EAP 材质资产 | `MI_EAP_conifer_0_opaque_n` / `MI_EAP_conifer_1_masked`（新进程读回仍在） |
-| 15 | `--tree`：材质贴图参数已生效（BaseColor 挂上目标贴图） | `base_color_texture` / `base_color_texture1` |
-| 16 | `--tree`：材质编译通过（带 RHI 复检，无 `Failed to compile`） | failed=0（修好白模事故后） |
+| 10 | `--tree`（历史）：落位网格是树资产（非引擎 Cube） | `/Game/EAP/Trees/conifer/StaticMeshes/conifer.conifer` |
+| 11 | `--tree`（历史）：UE 侧树高 == glTF 树高（<5 cm） | UE=10.236 m / glTF=10.236 m |
+| 12 | `--tree`（历史）：材质槽已规范化（metallic=0 且 usage 标记齐全） | 2 槽 `['opaque', 'masked']`，三项 usage 全 True |
+| 13 | `--tree`（历史）：alpha 材质已从 BLEND 转 MASKED | `BLEND_OPAQUE` + `BLEND_MASKED` |
+| 14 | `--tree`（历史）：落位组件材质覆盖 = EAP 材质资产 | `MI_EAP_conifer_0_opaque_n` / `MI_EAP_conifer_1_masked`（新进程读回仍在） |
+| 15 | `--tree`（历史）：材质贴图参数已生效（BaseColor 挂上目标贴图） | `base_color_texture` / `base_color_texture1` |
+| 16 | `--tree`（历史）：材质编译通过（带 RHI 复检，无 `Failed to compile`） | failed=0（修好白模事故后） |
 
 产物：`docs/pcg_forest_pilot.json`（1189 KB，图参数 + 1892 条散点）、`schemas/pcg_manifest.json`（626 KB）、
 `docs/placed_pilot.json`（436 KB）、`docs/placed_verify.json`（435 KB）；
@@ -438,7 +444,7 @@ metallic=0、usage 标记齐全、alpha 槽为 MASKED。
   1892 棵全量无 LOD 只能靠 Nanite 与实例剔除撑；LOD 链是下一项工作。
 - **真实双树种混排已接通（v1.5）**：`--real-multi` 用 `conifer.glb` + `broadleaf.glb` 同一份 1892 点散点，
   UE 落成 2 个 ISM 并读回（17/17 断言）。但**散点仍是合成的**（固定 seed，只保证可复现，不代表真实 PCG 图输出），
-  且只支持 2 个树种 / 单块 200×200 m 地块；`--tree` 仍是单树种全量替换的回归链路。
+  且只支持 2 个树种 / 单块 200×200 m 地块；`--tree`（单树种全量替换）自 v1.5 起降级为历史链路（见 §五）。
 - **多资产 fixture 是合成的（v1.4）**：`docs/pcg_multi_fixture.json` 由 `tools/make_multi_asset_fixture.py`
   按固定 seed 生成，20 个网格名不对应真实美术资产；UE 侧的 20 个网格是 `--multi` 从
   `/Engine/BasicShapes/*` 复制出来的占位（`EAP_ALLOW_SYNTHETIC_MESH=1`），只用于验证多资产链路本身。
@@ -459,11 +465,15 @@ metallic=0、usage 标记齐全、alpha 槽为 MASKED。
   2026-11-23 本机实测 18/18 PASS（exit=0，6 个材质、MIC 4/4）；同一判据在 lead 机曾遇
   `Out of video memory` / `Ran out of memory`（固定 16 GB 页面文件、编辑器提交约 9 GB、commit limit 47.4 GB），
   属内存环境问题，换环境/扩大页面文件后复验。
-- **`--tree` 本轮回归环境阻塞（v1.5，2026-11-23）**：源关卡 `/Game/Untitled` 在 19:43 清理残留时被误删
-  （非代码回归），导致 export 回退到 `/Temp/Untitled_1`、points=0。磁盘上从
-  `Saved/EAP/backup/level_20261122-163435` 恢复的版本是 11-22 16:34 旧状态（只读导出探针
-  `instanceCount=233`），**不能代表 200 m / 1892 点**，所以本轮不拿它跑 `--tree`，也未对该关卡做任何写入。
-  `--tree` 的 16 条断言一字未改，等关卡恢复到 1892 点状态后**必须补跑这一条**。
+- **`--tree` 已降级为历史链路（v1.5，2026-11-23）**：`--tree`（单树种全量替换）**不再作为验收回归门槛**，
+  代码与 16 条断言原样保留、随时可跑；现行验收口径是 `--multi` 13 条 + `--real-multi` 17 条
+  （加 `--with-compile` 时 18 条）。降级原因是**环境事件而不是代码回归**：它的数据源关卡
+  `/Game/Untitled`（UE PCG 散点，200 m / 1892 点）在 2026-11-23 19:43 清理残留时被误删；从
+  `Saved/EAP/backup/level_20261122-163435` 恢复出来的是 11-22 16:34 的旧状态——只读导出探针实测
+  `instanceCount=233`、跨度约 47×49 m，不是 200 m / 1892 点；并且 `-nullrhi -unattended` 下无头触发
+  `PCGComponent.cleanup + generate` 是**空操作**（实例 233→233 未变），真正重算必须在编辑器里做，
+  而旧备份里没有 200 m 的体积缩放参数，无法复原 1892 点。若要恢复这条回归：先在编辑器里重建
+  200 m 地块并生成散点，再重跑 `--tree --expect-span-m 200`（16 条断言一字未改）。
 
 ## 六、下一步（阶段二/三）
 
