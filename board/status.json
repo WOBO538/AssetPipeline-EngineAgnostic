@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T20:58:00+08:00",
+  "updatedAt": "2026-11-23T21:05:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -95,9 +95,10 @@
           "date": "11-23"
         },
         {
-          "name": "贴图压缩 TC_MASKED + roughness 走贴图（出图质量）",
-          "status": "todo",
-          "date": "11-25"
+          "name": "贴图压缩 TC_MASKED + roughness 走贴图（任务单 4 已下发 docs/_TRAE任务_贴图压缩与粗糙度_20261123.md；目标 --real-multi 17→20、--with-compile 18→21）",
+          "status": "doing",
+          "date": "11-25",
+          "owner": "trae"
         },
         {
           "name": "PlacedTrees 补灯光 + 引擎内实拍（1892 棵，6 Actor，用户手操）",
