@@ -1,10 +1,9 @@
-// EAP · Unity 消费端（阶段一模板）
-// 读同一份 manifest.json → 建 Material → 映射贴图（含 ORM→MetallicGloss 重排）→ 建 Prefab → 挂 Collider。
-//
-// 依赖：Newtonsoft Json（manifest 的 textures 是字典，JsonUtility 不支持字典）
-//   在 Packages/manifest.json 加： "com.unity.nuget.newtonsoft-json": "3.2.1"
-// 用法：菜单 Tools → EAP → Import Manifest…  或
-//   Unity -batchmode -quit -executeMethod EAP.ManifestImporter.ImportFromArgs -eapManifest <path>
+// EAP · Unity 消费端（空工程实跑用·管线自适应版）
+// 与仓库 unity/Editor/ManifestImporter.cs 逻辑一致，唯一区别：
+//   - 自动识别 URP / Built-in：找到 "Universal Render Pipeline/Lit" 就用 URP 属性，否则回退 "Standard"；
+//   - 材质参数按管线映射（RoughnessScale→_Smoothness/_Glossiness，MetallicScale→_Metallic，NormalStrength→_BumpScale）。
+// 依赖：Newtonsoft Json（com.unity.nuget.newtonsoft-json）
+// 用法：菜单 Tools → EAP → Import Manifest…（或 -executeMethod EAP.ManifestImporter.ImportFromArgs -eapManifest <path>）
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -35,13 +34,23 @@ namespace EAP
 
     public static class ManifestImporter
     {
-        const string DefaultShader = "Universal Render Pipeline/Lit";
-        // 语义通道 → URP 默认属性（manifest 的 propertyMap 可覆盖）
-        static readonly Dictionary<string, string> DefaultPropMap = new Dictionary<string, string>
+        const string UrpShader = "Universal Render Pipeline/Lit";
+        const string BuiltInShader = "Standard";
+
+        static readonly Dictionary<string, string> UrpPropMap = new Dictionary<string, string>
         {
             { "BaseColor", "_BaseMap" }, { "Normal", "_BumpMap" }, { "ORM", "_MetallicGlossMap" },
             { "AO", "_OcclusionMap" }, { "Height", "_ParallaxMap" },
         };
+        static readonly Dictionary<string, string> BuiltInPropMap = new Dictionary<string, string>
+        {
+            { "BaseColor", "_MainTex" }, { "Normal", "_BumpMap" }, { "ORM", "_MetallicGlossMap" },
+            { "AO", "_OcclusionMap" }, { "Height", "_ParallaxMap" },
+        };
+
+        static bool _isUrp;
+        static Shader _shader;
+        static Dictionary<string, string> _pipePropMap;
 
         [MenuItem("Tools/EAP/Import Manifest…")]
         public static void ImportDialog()
@@ -59,8 +68,20 @@ namespace EAP
             EditorApplication.Exit(1);
         }
 
+        static void DetectPipeline()
+        {
+            var urp = Shader.Find(UrpShader);
+            _isUrp = urp != null;
+            _shader = _isUrp ? urp : Shader.Find(BuiltInShader);
+            _pipePropMap = _isUrp ? UrpPropMap : BuiltInPropMap;
+            Debug.Log("[EAP] pipeline=" + (_isUrp ? "URP" : "BuiltIn") +
+                      " shader=" + (_shader != null ? _shader.name : "<null>"));
+            if (_shader == null) Debug.LogError("[EAP] 找不到 URP Lit 也找不到 Standard shader");
+        }
+
         public static void Import(string manifestPath)
         {
+            DetectPipeline();
             string repoRoot = Directory.GetParent(Path.GetDirectoryName(Path.GetFullPath(manifestPath))).FullName;
             var manifest = JsonConvert.DeserializeObject<Manifest>(File.ReadAllText(manifestPath));
             if (manifest == null || manifest.assets == null || manifest.assets.Count == 0)
@@ -69,7 +90,12 @@ namespace EAP
             { Debug.LogError("[EAP] 不支持的 manifestVersion: " + manifest.manifestVersion); return; }
 
             int ok = 0, failed = 0;
-            var report = new List<string> { "# EAP Unity report  " + DateTime.Now.ToString("s") };
+            var report = new List<string> {
+                "# EAP Unity report  " + DateTime.Now.ToString("s"),
+                "- pipeline: " + (_isUrp ? "URP" : "BuiltIn") + "  shader: " + (_shader != null ? _shader.name : "<null>"),
+                "- manifest: " + manifestPath,
+                "- manifestVersion: " + manifest.manifestVersion + "  assets: " + manifest.assets.Count,
+            };
             foreach (var a in manifest.assets)
             {
                 try
@@ -78,9 +104,9 @@ namespace EAP
                     if (a.engineTargets == null || !a.engineTargets.TryGetValue("Unity", out tgt))
                     { report.Add("- SKIP " + a.id + " (skipped_no_target)"); continue; }
                     EnsureFolder(tgt.destPath);
-                    Material mat = BuildMaterial(a, tgt, repoRoot);
+                    Material mat = BuildMaterial(a, tgt, repoRoot, report);
                     GameObject prefabRoot = BuildPrefab(a, tgt, mat, repoRoot, report);
-                    report.Add($"- OK {a.id} mat={AssetDatabase.GetAssetPath(mat)} prefab={AssetDatabase.GetAssetPath(prefabRoot)}");
+                    report.Add($"- OK {a.id} mat={AssetDatabase.GetAssetPath(mat)} prefab={(prefabRoot != null ? AssetDatabase.GetAssetPath(prefabRoot) : "<none: 模型未导入>")}");
                     ok++;
                 }
                 catch (Exception e)
@@ -96,7 +122,7 @@ namespace EAP
         static void EnsureFolder(string assetPath)
         {
             string[] parts = assetPath.TrimEnd('/').Split('/');
-            string cur = parts[0]; // "Assets"
+            string cur = parts[0];
             for (int i = 1; i < parts.Length; i++)
             {
                 string next = cur + "/" + parts[i];
@@ -105,39 +131,64 @@ namespace EAP
             }
         }
 
-        static Material BuildMaterial(Asset a, EngineTarget tgt, string repoRoot)
+        static Material BuildMaterial(Asset a, EngineTarget tgt, string repoRoot, List<string> report)
         {
-            string shaderName = tgt.shader ?? a.material?.unityShader ?? DefaultShader;
+            string shaderName = tgt.shader ?? a.material?.unityShader ?? (_isUrp ? UrpShader : BuiltInShader);
             Shader shader = Shader.Find(shaderName);
-            if (shader == null) { Debug.LogWarning("[EAP] 找不到 shader，回退 Lit: " + shaderName); shader = Shader.Find(DefaultShader); }
+            if (shader == null)
+            {
+                report.Add("- WARN " + a.id + " 找不到 shader " + shaderName + "，回退 " + (_isUrp ? UrpShader : BuiltInShader));
+                shader = _shader;
+            }
             var mat = new Material(shader) { name = "M_" + a.id };
-            var map = tgt.propertyMap ?? DefaultPropMap;
+            var map = tgt.propertyMap ?? _pipePropMap;
 
             foreach (var kv in a.textures ?? new Dictionary<string, Tex>())
             {
                 string texAssetPath = Path.Combine(repoRoot, kv.Value.path).Replace('\\', '/');
                 ConfigureImporter(texAssetPath, kv.Key, kv.Value.srgb);
                 var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texAssetPath);
-                if (tex == null) { Debug.LogWarning("[EAP] 贴图未导入: " + texAssetPath); continue; }
-                if (kv.Key == "ORM") { ApplyOrm(mat, map, tex, a.id); continue; }
-                string prop = map.ContainsKey(kv.Key) ? map[kv.Key] : DefaultPropMap[kv.Key];
-                if (mat.HasProperty(prop)) mat.SetTexture(prop, tex);
-                else Debug.LogWarning($"[EAP] {a.id} 材质无属性 {prop}（channel={kv.Key}）");
+                if (tex == null) { report.Add("- WARN " + a.id + " 贴图未导入: " + texAssetPath); continue; }
+                if (kv.Key == "ORM") { ApplyOrm(mat, map, tex, a.id, report); continue; }
+                string prop = map.ContainsKey(kv.Key) ? map[kv.Key] : null;
+                if (prop != null && mat.HasProperty(prop)) mat.SetTexture(prop, tex);
+                else report.Add("- WARN " + a.id + " 材质无属性 " + prop + "（channel=" + kv.Key + "）");
             }
+
             if (a.material?.@params != null)
+            {
                 foreach (var kv in a.material.@params)
-                    if (mat.HasProperty(kv.Key)) mat.SetFloat(kv.Key, kv.Value);
+                {
+                    string p = MapParam(kv.Key);
+                    if (p == null) continue;
+                    if (mat.HasProperty(p)) mat.SetFloat(p, ConvertParam(kv.Key, kv.Value));
+                    else report.Add("- WARN " + a.id + " 无参数属性 " + p + "（" + kv.Key + "）");
+                }
+            }
 
             string matPath = (tgt.destPath ?? "Assets/EAP").TrimEnd('/') + "/" + mat.name + ".mat";
             AssetDatabase.CreateAsset(mat, matPath);
             return mat;
         }
 
-        // ORM(R=AO,G=Roughness,B=Metallic) → URP: R=Metallic, A=Smoothness(1-G)；AO 另存给 _OcclusionMap
-        static void ApplyOrm(Material mat, Dictionary<string, string> map, Texture2D src, string id)
+        static string MapParam(string name)
+        {
+            switch (name)
+            {
+                case "RoughnessScale": return _isUrp ? "_Smoothness" : "_Glossiness";
+                case "MetallicScale": return "_Metallic";
+                case "NormalStrength": return "_BumpScale";
+                default: return name;
+            }
+        }
+
+        static float ConvertParam(string name, float v)
+            => name == "RoughnessScale" ? Mathf.Clamp01(1f - v) : v;
+
+        static void ApplyOrm(Material mat, Dictionary<string, string> map, Texture2D src, string id, List<string> report)
         {
             Texture2D readable = MakeReadable(src);
-            if (readable == null) { Debug.LogWarning("[EAP] " + id + " ORM 不可读，跳过重排（需勾 Read/Write）"); return; }
+            if (readable == null) { report.Add("- WARN " + id + " ORM 不可读，跳过重排（需勾 Read/Write）"); return; }
             int w = readable.width, h = readable.height;
             var mg = new Texture2D(w, h, TextureFormat.RGBA32, false) { name = "T_" + id + "_MG" };
             var ao = new Texture2D(w, h, TextureFormat.RGBA32, false) { name = "T_" + id + "_AO" };
@@ -168,8 +219,7 @@ namespace EAP
         static void SaveTexture(Texture2D tex, Texture2D near)
         {
             string dir = Path.GetDirectoryName(AssetDatabase.GetAssetPath(near))?.Replace('\\', '/');
-            string path = dir + "/" + tex.name + ".asset";
-            AssetDatabase.CreateAsset(tex, path);
+            AssetDatabase.CreateAsset(tex, dir + "/" + tex.name + ".asset");
         }
 
         static void ConfigureImporter(string assetPath, string channel, bool srgb)
@@ -188,7 +238,12 @@ namespace EAP
         {
             string modelPath = Path.Combine(repoRoot, a.model.path).Replace('\\', '/');
             var mesh = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
-            if (mesh == null) { Debug.LogWarning("[EAP] 模型未找到，只输出材质: " + modelPath); return null; }
+            if (mesh == null)
+            {
+                report.Add("- WARN " + a.id + " 模型未找到（Unity 原生不认 .glb）: " + modelPath + " → 只输出材质");
+                Debug.LogWarning("[EAP] 模型未找到，只输出材质: " + modelPath);
+                return null;
+            }
             var go = (GameObject)PrefabUtility.InstantiatePrefab(mesh);
             var renderer = go.GetComponent<Renderer>();
             if (renderer == null) renderer = go.AddComponent<MeshRenderer>();
