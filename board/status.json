@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T21:40:00+08:00",
+  "updatedAt": "2026-11-23T21:55:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -129,8 +129,8 @@
           "date": "11-22"
         },
         {
-          "name": "Unity 空工程实跑",
-          "status": "todo",
+          "name": "Unity 空工程实跑（材质通路：ok=2 failed=0，URP Lit；模型/贴图/placements 未导入，见 docs/unity_consumer_run_20261123.md）",
+          "status": "done",
           "owner": "user",
           "date": "11-25"
         },
@@ -167,6 +167,17 @@
           "name": "--real-multi --with-compile 严格判据落地（commit b16ba7d：exit==0 + 无 Failed to compile + MIC 4/4），lead 复验 13/13、17/17、18/18 全 PASS",
           "status": "done",
           "date": "11-23"
+        },
+        {
+          "name": "Unity 吃真模型（任务单 5 已下发 docs/_TRAE任务_Unity吃glb_20261123.md：glb→fbx + 内嵌贴图导出 + manifest v1.2 modelPath + --unity-check 4/4）",
+          "status": "doing",
+          "owner": "trae",
+          "date": "11-23"
+        },
+        {
+          "name": "Unity placements 落地 + 双端一致性断言（任务单 6，待任务单 5 完成）",
+          "status": "todo",
+          "date": "待定"
         }
       ]
     },
