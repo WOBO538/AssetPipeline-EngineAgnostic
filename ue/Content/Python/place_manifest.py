@@ -774,7 +774,7 @@ def _sync_ground(items):
     ey = (bx["max"][1] - bx["min"][1]) / 2.0 + 25.0
     z = bx["min"][2] - 0.5
     _safe(lambda: ground.set_actor_scale3d(unreal.Vector(ex, ey, 1.0)))
-    _safe(lambda: ground.set_actor_location(unreal.Vector(cx * CM_PER_M, cy * CM_PER_M, z * CM_PER_M), False))
+    _safe(lambda: ground.set_actor_location(unreal.Vector(cx * CM_PER_M, cy * CM_PER_M, z * CM_PER_M), False, False))
     info = {"centerM": [round(cx, 2), round(cy, 2)], "sizeM": [round(ex * 2, 1), round(ey * 2, 1)], "zM": round(z, 2)}
     _log("地面平面已同步: 中心 %s m，尺寸 %s m，z=%.2f m" % (info["centerM"], info["sizeM"], z))
     return info
@@ -1268,7 +1268,7 @@ def stage(level_pkg=None, out_path=None, save=True):
         plane = unreal.EditorAssetLibrary.load_asset("/Engine/BasicShapes/Plane")
         _safe(lambda: ground.static_mesh_component.set_static_mesh(plane))
         ground.set_actor_scale3d(unreal.Vector(ex, ey, 1.0))
-        ground.set_actor_location(unreal.Vector(cx, cy, -50.0), False)
+        ground.set_actor_location(unreal.Vector(cx, cy, -50.0), False, False)
         created.append("EAP_Ground")
 
     saved = None

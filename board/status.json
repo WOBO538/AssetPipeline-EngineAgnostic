@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T22:20:00+08:00",
+  "updatedAt": "2026-11-23T22:52:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -176,9 +176,16 @@
           "note": "Blender 5.2 无头转 fbx（X 预镜像 + FBX_SCALE_ALL，bboxMaxDiff=0、tri 3370/3505 一致）；6 张贴图入 assets/eap_textures（入库）；manifest v1.2（textures 槽 0 + Unity.modelPath/materialPathPrefix）；Unity batchmode 导入 exit=0 ok=2 failed=0（13.4s），2 Prefab + 4/4 贴图（Assets/ 路径）读回；bounds 误差 ≤2e-5 m。反向验证：删 Prefab/贴图后断言 2/3 FAIL，删 modelPath 后断言 2 FAIL。老命令 13/13、20/20、21/21 不变"
         },
         {
-          "name": "Unity placements 落地 + 双端一致性断言（任务单 6，待任务单 5 完成）",
-          "status": "todo",
-          "date": "待定"
+          "name": "Unity placements 落位 + Collider（任务单 6 已下发 docs/_TRAE任务_Unity落位与碰撞_20261123.md，目标 --unity-placements-check 4/4）",
+          "status": "doing",
+          "date": "待定",
+          "owner": "trae"
+        },
+        {
+          "name": "修 stage() 的 set_actor_location 参数 bug（UE 5.7 需 3 参数；2026-11-23 lead 修，py_compile 通过，待编辑器复跑）",
+          "status": "done",
+          "owner": "lead",
+          "date": "11-23"
         }
       ]
     },
