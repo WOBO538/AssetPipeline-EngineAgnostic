@@ -204,6 +204,89 @@ def check_entry(entry, stats):
     return errors, warnings
 
 
+def _asset_payload(entry, species, stats, glb_rel, items, pivot_z_m,
+                   name_suffix, id_suffix, pivot_from, pivot_note):
+    """单条树 asset 的 payload；单树种 / 双树种共用，只有命名与 pivot 说明不同。"""
+    name = str(entry.get("source_model_title") or species)
+    asset_id = "SM_Tree_%s%s" % (species, id_suffix)
+    dest = "/Game/EAP/Trees"
+    mesh_name = entry["file"].rsplit(".", 1)[0]
+    ue_mesh = "%s/%s/StaticMeshes/%s.%s" % (dest, mesh_name, mesh_name, mesh_name)
+    bbox = stats["bbox"]
+    return {
+        "id": asset_id,
+        "name": "%s · %s（PCG %d 实例）" % (name, name_suffix, len(items)),
+        "category": "env/vegetation",
+        "type": "static_mesh",
+        "model": {
+            "path": glb_rel,
+            "source": "file",
+            "format": "gltf2.0",
+            "unit": "m",
+            "upAxis": "Y",
+            "forwardAxis": "X",
+            "boundingBoxM": {"min": bbox["min"], "max": bbox["max"]},
+            "triCount": stats["triCount"],
+            "generator": stats["generator"],
+        },
+        "textures": {},
+        "material": {
+            "template": "embedded",
+            "source": "gltf_pbr",
+            "materials": stats["materials"],
+            # 落位端的规范化目标（由 place_manifest._normalize_materials 执行并回写证据）
+            "normalization": {
+                "alphaModeTarget": "MASKED",
+                "metallicTarget": 0.0,
+                "roughnessTarget": 0.9,
+                "opacityClip": 0.33,
+                "usageFlags": ["MATUSAGE_STATIC_MESH", "MATUSAGE_INSTANCED_STATIC_MESHES", "MATUSAGE_NANITE"],
+                "why": "BLEND 换 MASKED 省排序开销；metallic 0.4 是转换器默认值会发塑料光；缺 usage 标记打包后可能丢材质",
+            },
+        },
+        "collision": {"mode": "none"},
+        "pivot": {"mode": "base_center", "zOffsetM": pivot_z_m, "note": pivot_note},
+        "license": {
+            "id": entry.get("license"),
+            "url": entry.get("license_url"),
+            "author": entry.get("author"),
+            "source": entry.get("source_url"),
+            "evidence": entry.get("license_evidence"),
+        },
+        "engineTargets": {
+            "UE5": {
+                "destPath": dest,
+                "meshPath": ue_mesh,
+                "sourceGlb": glb_rel,
+                "note": "Interchange 导入 .glb 后网格落在 <dest>/<文件名>/StaticMeshes/，材质由 Interchange 自动生成",
+            },
+            "Unity": {
+                "destPath": "Assets/EAP/Trees",
+                "sourceGlb": glb_rel,
+                "note": "Unity 端直接导 .glb；placements 同一份数据",
+            },
+        },
+        "placements": {"space": "world", "unit": "m", "count": len(items), "items": items},
+        "checks": [
+            {"rule": "license_permissive", "pass": True, "value": entry.get("license")},
+            {"rule": "glb_is_gltf2", "pass": True, "value": stats["version"]},
+            {"rule": "unit_metres", "pass": True, "value": entry.get("unit")},
+            {"rule": "up_axis_y", "pass": True, "value": entry.get("up_axis")},
+            {"rule": "pivot_at_trunk_base", "pass": abs(bbox["min"][1]) <= 0.01, "value": bbox["min"][1]},
+            {"rule": "single_tree", "pass": stats["meshes"] == 1, "value": stats["meshes"]},
+            {"rule": "tri_budget_lod0", "pass": stats["triCount"] <= TRI_BUDGET_LOD0, "value": stats["triCount"]},
+            {"rule": "textures_embedded", "pass": not stats["externalURIs"], "value": stats["images"]},
+            {"rule": "sidecar_matches_glb", "pass": True, "value": "height/tri/materials 已复算对账"},
+            {"rule": "material_alpha_needs_masked", "pass": True,
+             "value": [m["name"] for m in stats["materials"] if str(m["alphaMode"]).upper() in ("BLEND", "MASK")]},
+            {"rule": "material_metallic_to_zero", "pass": True,
+             "value": {m["name"]: m.get("metallicFactor") for m in stats["materials"]}},
+            {"rule": "pivot_compensated", "pass": True,
+             "value": {"engineMeshCenterZm": pivot_z_m, "from": pivot_from}},
+        ],
+    }
+
+
 def build(source_path, scatter_path, out_path, species="conifer", pipeline_id=None):
     entries = read_json(source_path)
     if isinstance(entries, dict):
@@ -247,88 +330,11 @@ def build(source_path, scatter_path, out_path, species="conifer", pipeline_id=No
             "s": [round(float(x), 4) for x in (p.get("s") or [1, 1, 1])],
         })
 
-    name = str(entry.get("source_model_title") or species)
-    asset_id = "SM_Tree_%s_PCG_Pilot" % species
-    dest = "/Game/EAP/Trees"
-    mesh_name = entry["file"].rsplit(".", 1)[0]
-    ue_mesh = "%s/%s/StaticMeshes/%s.%s" % (dest, mesh_name, mesh_name, mesh_name)
-    bbox = stats["bbox"]
-    asset = {
-        "id": asset_id,
-        "name": "%s · 真实树试点（PCG %d 实例）" % (name, len(items)),
-        "category": "env/vegetation",
-        "type": "static_mesh",
-        "model": {
-            "path": glb_rel,
-            "source": "file",
-            "format": "gltf2.0",
-            "unit": "m",
-            "upAxis": "Y",
-            "forwardAxis": "X",
-            "boundingBoxM": {"min": bbox["min"], "max": bbox["max"]},
-            "triCount": stats["triCount"],
-            "generator": stats["generator"],
-        },
-        "textures": {},
-        "material": {
-            "template": "embedded",
-            "source": "gltf_pbr",
-            "materials": stats["materials"],
-            # 落位端的规范化目标（由 place_manifest._normalize_materials 执行并回写证据）
-            "normalization": {
-                "alphaModeTarget": "MASKED",
-                "metallicTarget": 0.0,
-                "roughnessTarget": 0.9,
-                "opacityClip": 0.33,
-                "usageFlags": ["MATUSAGE_STATIC_MESH", "MATUSAGE_INSTANCED_STATIC_MESHES", "MATUSAGE_NANITE"],
-                "why": "BLEND 换 MASKED 省排序开销；metallic 0.4 是转换器默认值会发塑料光；缺 usage 标记打包后可能丢材质",
-            },
-        },
-        "collision": {"mode": "none"},
-        "pivot": {
-            "mode": "base_center",
-            "zOffsetM": pivot_z_m,
-            "note": "glTF 根节点已把树根底部中心归零；散点 t 是引擎 Cube 中心（半高 %.3f m），落位前统一扣掉，避免全体悬空" % pivot_z_m,
-        },
-        "license": {
-            "id": entry.get("license"),
-            "url": entry.get("license_url"),
-            "author": entry.get("author"),
-            "source": entry.get("source_url"),
-            "evidence": entry.get("license_evidence"),
-        },
-        "engineTargets": {
-            "UE5": {
-                "destPath": dest,
-                "meshPath": ue_mesh,
-                "sourceGlb": glb_rel,
-                "note": "Interchange 导入 .glb 后网格落在 <dest>/<文件名>/StaticMeshes/，材质由 Interchange 自动生成",
-            },
-            "Unity": {
-                "destPath": "Assets/EAP/Trees",
-                "sourceGlb": glb_rel,
-                "note": "Unity 端直接导 .glb；placements 同一份数据",
-            },
-        },
-        "placements": {"space": "world", "unit": "m", "count": len(items), "items": items},
-        "checks": [
-            {"rule": "license_permissive", "pass": True, "value": entry.get("license")},
-            {"rule": "glb_is_gltf2", "pass": True, "value": stats["version"]},
-            {"rule": "unit_metres", "pass": True, "value": entry.get("unit")},
-            {"rule": "up_axis_y", "pass": True, "value": entry.get("up_axis")},
-            {"rule": "pivot_at_trunk_base", "pass": abs(bbox["min"][1]) <= 0.01, "value": bbox["min"][1]},
-            {"rule": "single_tree", "pass": stats["meshes"] == 1, "value": stats["meshes"]},
-            {"rule": "tri_budget_lod0", "pass": stats["triCount"] <= TRI_BUDGET_LOD0, "value": stats["triCount"]},
-            {"rule": "textures_embedded", "pass": not stats["externalURIs"], "value": stats["images"]},
-            {"rule": "sidecar_matches_glb", "pass": True, "value": "height/tri/materials 已复算对账"},
-            {"rule": "material_alpha_needs_masked", "pass": True,
-             "value": [m["name"] for m in stats["materials"] if str(m["alphaMode"]).upper() in ("BLEND", "MASK")]},
-            {"rule": "material_metallic_to_zero", "pass": True,
-             "value": {m["name"]: m.get("metallicFactor") for m in stats["materials"]}},
-            {"rule": "pivot_compensated", "pass": True,
-             "value": {"engineMeshCenterZm": pivot_z_m, "from": "/Engine/BasicShapes/Cube"}},
-        ],
-    }
+    asset = _asset_payload(
+        entry, species, stats, glb_rel, items, pivot_z_m,
+        name_suffix="真实树试点", id_suffix="_PCG_Pilot", pivot_from="/Engine/BasicShapes/Cube",
+        pivot_note="glTF 根节点已把树根底部中心归零；散点 t 是引擎 Cube 中心（半高 %.3f m），"
+                   "落位前统一扣掉，避免全体悬空" % pivot_z_m)
     manifest = {
         "manifestVersion": MANIFEST_VERSION,
         "pipelineId": pipeline_id or ("eap-tree-%s-%s" % (species, time.strftime("%Y%m%d"))),
@@ -349,11 +355,107 @@ def build(source_path, scatter_path, out_path, species="conifer", pipeline_id=No
         os.makedirs(out_dir)
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(manifest, fh, ensure_ascii=False, indent=2)
-    summary = {"out": out_path, "asset": asset_id, "species": species, "placements": len(items),
-               "glb": glb_rel, "triCount": stats["triCount"], "heightM": bbox["size"][1],
+    summary = {"out": out_path, "asset": asset["id"], "species": species, "placements": len(items),
+               "glb": glb_rel, "triCount": stats["triCount"], "heightM": stats["bbox"]["size"][1],
                "pivotZOffsetM": pivot_z_m, "warnings": warnings,
-               "ueMeshPath": ue_mesh, "unityDest": "Assets/EAP/Trees"}
+               "ueMeshPath": asset["engineTargets"]["UE5"]["meshPath"], "unityDest": "Assets/EAP/Trees"}
     return manifest, summary
+
+
+def build_multi(source_path, scatter_path, out_path, species_pair=("conifer", "broadleaf"), pipeline_id=None):
+    """双树种混排：同一份散点按 point.species 分组，每个树种一条 asset，各自带 placements。"""
+    entries = read_json(source_path)
+    if isinstance(entries, dict):
+        entries = [entries]
+    scatter = read_json(scatter_path)
+    sc = scatter.get("scatter") or {}
+    pts = sc.get("points") or []
+    if not pts:
+        raise SystemExit("散点里没有 points")
+
+    unknown = sorted({str(p.get("species")) for p in pts} - set(species_pair))
+    if unknown:
+        raise SystemExit("散点里出现未登记的 species: %s（期望 %s）" % (unknown, list(species_pair)))
+
+    # fixture 的 t 已是树根底部；老的 UE PCG 散点是 Cube 中心，仍按 Cube 半高补偿
+    tree_base = str(scatter.get("scatterOrigin") or "") == "tree_base"
+    meshes = sc.get("instancedMeshes") or []
+    if not meshes:
+        raise SystemExit("散点文件里没有 instancedMeshes")
+    cube = (meshes[0].get("mesh") or {}).get("boundsCm") or {"min": [-50, -50, -50], "max": [50, 50, 50]}
+    pivot_z_m = 0.0 if tree_base else round(
+        (((cube["max"][2] + cube["min"][2]) / 2.0) - cube["min"][2]) * CM_TO_M, 4)
+
+    assets, species_summary, warnings_all = [], [], []
+    for species in species_pair:
+        entry = next((e for e in entries if str(e.get("file", "")).lower().startswith(species)), None)
+        if entry is None:
+            raise SystemExit("source_assets.json 里没有 file 以 %r 开头的资产：%s" % (species, source_path))
+        glb_rel = os.path.join("assets", "raw", "trees", entry["file"]).replace("\\", "/")
+        glb_abs = os.path.join(REPO, glb_rel)
+        if not os.path.isfile(glb_abs):
+            raise SystemExit("glb 不存在: " + glb_abs)
+        stats = glb_stats(glb_abs)
+        stats["versions_ok"] = str(stats.get("version", "")).startswith("2")
+        errors, warnings = check_entry(entry, stats)
+        warnings_all.extend(warnings)
+        if errors:
+            for e in errors:
+                print("ERROR " + e)
+            raise SystemExit("硬门槛未通过，不生成 manifest（%s, %d 条错误）" % (species, len(errors)))
+
+        mine = [p for p in pts if str(p.get("species")) == species]
+        if not mine:
+            raise SystemExit("species=%s 在散点里没有点" % species)
+        items = []
+        for p in mine:
+            t = p.get("t") or [0, 0, 0]
+            items.append({
+                "t": [_m(t[0]), _m(t[1]), _m(t[2]) - pivot_z_m],
+                "r": [round(float(x), 3) for x in (p.get("r") or [0, 0, 0])],
+                "s": [round(float(x), 4) for x in (p.get("s") or [1, 1, 1])],
+            })
+        pivot_from = "fixture:tree_base" if tree_base else "/Engine/BasicShapes/Cube"
+        pivot_note = ("散点 t 已是树根底部世界坐标（scatterOrigin=tree_base），不再扣 Cube 半高"
+                      if tree_base else
+                      "散点 t 是引擎 Cube 中心（半高 %.3f m），落位前统一扣掉" % pivot_z_m)
+        asset = _asset_payload(entry, species, stats, glb_rel, items, pivot_z_m,
+                               name_suffix="真实树混排", id_suffix="_PCG_Multi",
+                               pivot_from=pivot_from, pivot_note=pivot_note)
+        assets.append(asset)
+        species_summary.append({"species": species, "asset": asset["id"], "glb": glb_rel,
+                                "triCount": stats["triCount"], "heightM": bbox_height(stats),
+                                "placements": len(items),
+                                "ueMeshPath": asset["engineTargets"]["UE5"]["meshPath"]})
+
+    manifest = {
+        "manifestVersion": MANIFEST_VERSION,
+        "pipelineId": pipeline_id or ("eap-tree-pair-%s" % time.strftime("%Y%m%d")),
+        "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%S+08:00"),
+        "units": "m",
+        "source": {
+            "kind": "glb_ingest",
+            "tool": "interchange-gltf",
+            "workflowId": (scatter.get("graph") or {}).get("path") or "/Game/PCG_ForestScatter",
+            "scatter": os.path.relpath(scatter_path, REPO).replace("\\", "/"),
+            "sourceAssets": os.path.relpath(source_path, REPO).replace("\\", "/"),
+            "note": "双树种混排：conifer + broadleaf 共用同一份散点，按 species 分组各自落位",
+        },
+        "assets": assets,
+    }
+    out_dir = os.path.dirname(os.path.abspath(out_path))
+    if not os.path.isdir(out_dir):
+        os.makedirs(out_dir)
+    with open(out_path, "w", encoding="utf-8") as fh:
+        json.dump(manifest, fh, ensure_ascii=False, indent=2)
+    summary = {"out": out_path, "assets": len(assets), "species": species_summary,
+               "placements": sum(a["placements"]["count"] for a in assets),
+               "pivotZOffsetM": pivot_z_m, "warnings": warnings_all}
+    return manifest, summary
+
+
+def bbox_height(stats):
+    return round(float(stats["bbox"]["size"][1]), 3)
 
 
 def main(argv):
@@ -362,8 +464,25 @@ def main(argv):
     ap.add_argument("--scatter", default=os.path.join(REPO, "docs", "pcg_forest_pilot.json"))
     ap.add_argument("--out", default=os.path.join(REPO, "schemas", "tree_manifest.json"))
     ap.add_argument("--species", default="conifer")
+    ap.add_argument("--species-pair", default=None,
+                    help="双树种混排，如 conifer,broadleaf（给这个就忽略 --species）")
     ap.add_argument("--pipeline-id", default=None)
     args = ap.parse_args(argv[1:])
+    if args.species_pair:
+        pair = tuple(s.strip() for s in args.species_pair.split(",") if s.strip())
+        if len(pair) < 2:
+            raise SystemExit("--species-pair 至少要两个树种，例如 conifer,broadleaf")
+        manifest, s = build_multi(args.source, args.scatter, args.out,
+                                  species_pair=pair, pipeline_id=args.pipeline_id)
+        for w in s["warnings"]:
+            print("WARN  " + w)
+        for sp in s["species"]:
+            print("asset=%s glb=%s tris=%d height=%.3fm placements=%d -> %s"
+                  % (sp["asset"], sp["glb"], sp["triCount"], sp["heightM"], sp["placements"],
+                     sp["ueMeshPath"]))
+        print("assets=%d placements=%d pivotZOffset=%.3fm" % (s["assets"], s["placements"], s["pivotZOffsetM"]))
+        print("OK -> %s" % s["out"])
+        return 0
     manifest, s = build(args.source, args.scatter, args.out, species=args.species, pipeline_id=args.pipeline_id)
     for w in s["warnings"]:
         print("WARN  " + w)

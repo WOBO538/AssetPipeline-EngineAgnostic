@@ -326,6 +326,52 @@ UE 落位 `placed=156/156 levelSaved=True`；新进程读回 `assets=20 count=15
   `--multi` 会设 `EAP_ALLOW_SYNTHETIC_MESH=1`，由落位端从 `/Engine/BasicShapes/*` 复制派生；
   真实链路（glb / 引擎自带网格）走不到这条分支。
 
+## 三之七、真实双树种混排：conifer + broadleaf 同一份散点，1892 点（v1.5）
+
+v1.4 的多资产链路已经证明"机制"能跑（20 个 BasicShapes 占位），这一格换成**真实资产**：
+`assets/raw/trees/conifer.glb`（3 370 tris / 10.236 m）+
+`assets/raw/trees/broadleaf.glb`（3 505 tris / 9.425 m）放进同一份散点，
+按 `species` 分组各出一条 asset，UE 里落成 2 个 ISM（`EAP_Asset_0` / `EAP_Asset_1`）。
+
+```
+docs/pcg_multi_species_fixture.json（固定 seed=20261123，1892 点：conifer 1324 / broadleaf 568）
+   ↓ tree_to_manifest.py --species-pair conifer,broadleaf
+schemas/tree_manifest_multi.json（2 assets / 1892 placements / errors=0）
+   ↓ place_manifest.py（真实 glb → Interchange 导入 → 每 asset 一个 ISM）
+   ↓ verify() 新进程读回：数量 + transform + 材质 override
+```
+
+```powershell
+# 1) 合成双树种散点（真实资产元数据从 glb 二进制复算，固定 seed，两次生成 SHA256 一致）
+python tools/make_multi_species_fixture.py --out docs/pcg_multi_species_fixture.json
+
+# 2) 双树种 manifest（每个 species 一条 asset，各自带 placements）
+python tools/tree_to_manifest.py --scatter docs/pcg_multi_species_fixture.json `
+  --out schemas/tree_manifest_multi.json --species-pair conifer,broadleaf
+python tools/validate_manifest.py schemas/tree_manifest_multi.json   # assets=2 errors=0 warnings=0
+
+# 3) 真实双树种 UE 全链路：17 条断言（7 纯 Python + 10 UE）
+python tools/run_pcg_chain.py --real-multi --expect-assets 2 --expect-placements 1892
+# 期望末行：CHAIN PASS assets=2 placements=1892
+```
+
+实测（2026-11-23）：fixture `points=1892`（conifer 1 324 / broadleaf 568，两次生成 SHA256 一致）；
+manifest `assets=2 placements=1892`；UE 落位 `placed=1892/1892`，两个 ISM 分别指向
+`/Game/EAP/Trees/conifer/...` 与 `/Game/EAP/Trees/broadleaf/...`；读回 `ok=True matched=2/2`，
+transform 最大误差 0；两个网格高度 10.236 m / 9.425 m 与 glTF 一致（<5 cm）；两树种材质
+metallic=0、usage 标记齐全、alpha 槽为 MASKED。
+
+设计要点：
+
+- **散点的 t 是树根底部**：fixture 写 `scatterOrigin=tree_base`，双树种 manifest 不再扣 Cube 半高；
+  老 `--tree` 链路（UE PCG 散点，t=Cube 中心）仍按 0.500 m 补偿，`--species conifer` 行为不变
+  （重跑 `tree_manifest.json` 除 `pipelineId` 日期外逐字段一致）。
+- **不碰占位网格**：`--real-multi` 的落位环境不设 `EAP_ALLOW_SYNTHETIC_MESH`，两条 asset 都是
+  `model.source=file`；断言里显式检查网格路径不含 `BasicShapes`。
+- **复用同一套多资产落位**：不新增第二个落位脚本，仍是 `place_manifest.py` 的 `_place_multi`；
+  每个 asset 走一遍 glb 导入 + 材质规范化（MIC 按 asset id 命名，避免两个树种互相覆盖）。
+- **`--multi` 原样保留**：合成 20 资产链路与它的 13 条断言不动，继续当"机制"回归。
+
 ## 四、阶段一验收（6 条，逐条可判）
 
 | # | 判据 | 判法 |
@@ -390,11 +436,13 @@ UE 落位 `placed=156/156 levelSaved=True`；新进程读回 `assets=20 count=15
   （broadleaf 3 505 → 2 354）——返回的是 **Nanite fallback** 简化网格。引用数字时写明是哪一侧。
 - **树资产没有 LOD（v1.2）**：两棵树都只有 1 个 LOD（3 370 / 3 505 面，符合"低模无 LOD"门槛），
   1892 棵全量无 LOD 只能靠 Nanite 与实例剔除撑；LOD 链是下一项工作。
-- **只有单树种全量替换（v1.2）**：`--tree` 一次只落一个网格；多资产 ISM 链路已在 v1.4 打通
-  （20 资产合成 fixture），但**真实双树种资产还没接进落位**，混排要等下一轮。
+- **真实双树种混排已接通（v1.5）**：`--real-multi` 用 `conifer.glb` + `broadleaf.glb` 同一份 1892 点散点，
+  UE 落成 2 个 ISM 并读回（17/17 断言）。但**散点仍是合成的**（固定 seed，只保证可复现，不代表真实 PCG 图输出），
+  且只支持 2 个树种 / 单块 200×200 m 地块；`--tree` 仍是单树种全量替换的回归链路。
 - **多资产 fixture 是合成的（v1.4）**：`docs/pcg_multi_fixture.json` 由 `tools/make_multi_asset_fixture.py`
   按固定 seed 生成，20 个网格名不对应真实美术资产；UE 侧的 20 个网格是 `--multi` 从
   `/Engine/BasicShapes/*` 复制出来的占位（`EAP_ALLOW_SYNTHETIC_MESH=1`），只用于验证多资产链路本身。
+  `--multi` 与它的 13 条断言在 v1.5 原样保留，专门当"机制"回归；真实资产走 `--real-multi`。
 - **多资产链路不跑 UE 消费端 dry-run（v1.4）**：`--multi` 只做 fixture → manifest → validate →
   落位 → 读回；`consume_manifest` 的多资产读回仍由默认/`--tree` 链路覆盖（当前都是单 asset）。
 - **多资产读回按 tag 找组件（v1.4）**：组件名靠 `rename` + `component_tags` 固定为 `EAP_Asset_<i>`；
@@ -404,11 +452,15 @@ UE 落位 `placed=156/156 levelSaved=True`；新进程读回 `assets=20 count=15
   `EXCEPTION_INT_DIVIDE_BY_ZERO` 崩掉（2026-11-22 实测）。
 - **Unity 端还没实跑树资产（v1.2）**：`tree_manifest.json` 已经有 `engineTargets.Unity`（`Assets/EAP/Trees`），
   但 Unity 侧导入尚未执行（计划 2026-11-25 跑空工程验证）。
+- **`--real-multi` 默认跳过 RHI 材质编译复检（v1.5）**：双树种 2 个 ISM 带 RHI 起引擎在本机连续两次
+  `Out of video memory` / `Ran out of memory（页面文件太小）` 崩掉（exit=3），不是代码问题。
+  因此 `--real-multi` 默认不开 compile 步，需要时加 `--with-compile`；材质规范化本身已由断言覆盖
+  （metallic=0 / usage 标记 / alpha 槽 MASKED），缺的只是"编译不失败"这一道 RHI 复查。
 
 ## 六、下一步（阶段二/三）
 
 - 阶段二 · 出图质量：贴图压缩改 `TC_MASKED`、roughness/金属度走贴图、必要时换更写实的树（当前两棵是低模风格化）；
-  再把阔叶树接进落位做双树种混排（需要落位端支持多资产/多 ISM）
+  双树种混排已在 v1.5 接通（`--real-multi`），下一步是把它接到**真实 PCG 图输出**而不是合成散点
 - 阶段二 · Unity 端实跑同一份 `tree_manifest.json`（glb + placements 双端一致性）
 - 阶段二 · 落位扩展到材质/碰撞/LOD：现在只落 transform，manifest 里其它字段还没在 UE 侧生效
 - 阶段二 · GUI 接 ComfyUI 客户端（GUI 阶段二的 QThread 异步 + 进度回填）
