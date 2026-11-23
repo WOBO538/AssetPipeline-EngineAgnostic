@@ -72,7 +72,7 @@ python tools/run_pcg_chain.py --tree --expect-span-m 200
 | `docs/placed_tree.json` | 落位证据：关卡 `/Game/EAP/PCG/PlacedTrees`、ISM 1892 棵 conifer、`meshInfo`（高 10.236 m / 2 材质） |
 | `docs/placed_tree_verify.json` | 新进程重载读回：1892 条，网格路径与 bbox 与落位一致 |
 | `docs/placed_tree_topdown.png` | 俯视图（树冠圆，读回 transform 绘制） |
-| `docs/ue_trees_placed_20261122.png` | 引擎内实拍（2026-11-22 18:07 用户手操）：1892 棵落地、投影方向一致、6 Actor |
+| `docs/ue_trees_placed_20261123.png` | 引擎内实拍（2026-11-23 用户手操）：**规范化后**的 1892 棵绿树、6 Actor（对照图 `ue_trees_placed_20261122.png` 是规范化前版本） |
 | `docs/ue_material_usage_warning_20261122.png` | `地图检测` 截图：材质缺 `bUsedWithNanite` / `bUsedWithInstancedStaticMeshes` 用法标记 |
 | `Content/EAP/PCG/PlacedTrees.umap`（UE 工程内） | 落位关卡：1 Actor + 1 ISM（1892 棵 conifer），无灯光/地面（补灯需真实编辑器） |
 | `Content/EAP/Materials/`（UE 工程内） | 规范化材质：`M_EAP_Foliage_Masked` / `M_EAP_Opaque` 母材质 + `MI_EAP_<资产>_<槽>_<kind>` 实例 |
@@ -150,5 +150,6 @@ Unity 端尚未实跑、`PlacedTrees` 关卡无灯光地面（需真实编辑器
     母材质改名 `_v2`、清理旧材质（含探针残留 `M_EAP_Tree_Bark/Leaf`）。
     **更重要的教训**：`-nullrhi` 不真正编译材质，"材质挂上了"的断言全 PASS 也可能是白模；
     现在链路末尾用带 RHI 的进程复检关卡里实际用到的材质，抓 `Failed to compile Material` → 第 16 条断言。
-25. **美化后的实拍图还没补（待办）**：`docs/ue_trees_placed_20261122.png` 是**规范化之前**（Interchange 材质）的实拍；
-    材质规范化后的绿树实拍要等下次开编辑器补拍（用户 2026-11-22 收工）。
+25. **规范化后的实拍图（已补，v1.3 收尾）**：`docs/ue_trees_placed_20261123.png` 是材质规范化之后的
+    绿树实拍（2026-11-23 用户手操），README 主图已换成它；`docs/ue_trees_placed_20261122.png`
+    保留为规范化之前的对照图。

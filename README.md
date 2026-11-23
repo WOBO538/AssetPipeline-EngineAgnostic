@@ -187,12 +187,13 @@ python tools/run_pcg_chain.py --tree --expect-span-m 200    # 四次无头 UE + 
 
 > 上图仍是读回的**真实 transform**（1892 条），只是标记换成树冠圆（半径按 glb bbox X/2 = 2.90 m × scale）。
 
-![UE 内实拍：PlacedTrees 关卡 1892 棵树](docs/ue_trees_placed_20261122.png)
+![UE 内实拍：PlacedTrees 关卡 1892 棵树（材质规范化后）](docs/ue_trees_placed_20261123.png)
 
-> 上图：`/Game/EAP/PCG/PlacedTrees` 引擎内实拍（2026-11-22 18:07，用户手操补灯光后；**材质规范化之前**的 Interchange 材质版本）。
+> 上图：`/Game/EAP/PCG/PlacedTrees` 引擎内实拍（2026-11-23，用户手操，Windows 桌面版 UE 5.7 编辑器）：
+> **材质规范化之后**的绿树，树皮有层次、叶子边缘干净 —— 白模事故已修（见 §三之五）。
 > 大纲 6 个 Actor：`EAP_Placements`（ISM 1892 棵）、`EAP_Ground`、`EAP_Sun`、`EAP_SkyLight`、
 > `EAP_SkyAtmosphere`、`EAP_Fog`。树根落地、投影方向一致、地块边缘可见。
-> **画面偏荧光绿、树皮没层次**——这正是下节列的材质缺陷（`metallicFactor 0.4` + 叶子 `BLEND`）的直接后果。
+> 对照图 `docs/ue_trees_placed_20261122.png` 是规范化之前的 Interchange 材质版本（偏荧光绿、树皮没层次），留档。
 
 **资产体检（我独立解析 GLB，不采信 `source_assets.json` 的自述）**
 
