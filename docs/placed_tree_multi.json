@@ -1,5 +1,5 @@
 {
-  "when": "2026-11-23T19:11:52",
+  "when": "2026-11-23T21:39:31",
   "schema": "eap.placement.run/1",
   "multi": true,
   "manifest": "D:\\Projects\\AssetPipeline-EngineAgnostic\\schemas\\tree_manifest_multi.json",
@@ -57,6 +57,34 @@
           "normalTex": "/Game/EAP/Trees/conifer/Textures/normalmap_texture.normalmap_texture",
           "appliedBaseColor": "/Game/EAP/Trees/conifer/Textures/base_color_texture.base_color_texture",
           "appliedNormal": "/Game/EAP/Trees/conifer/Textures/normalmap_texture.normalmap_texture",
+          "roughnessTex": "/Game/EAP/Materials/Tex/SM_Tree_conifer_PCG_Multi_0_Roughness.SM_Tree_conifer_PCG_Multi_0_Roughness",
+          "roughnessScale": 0.9,
+          "roughnessMode": "texture",
+          "roughnessSha256": "F4AF3FC22C22467B1FCB01B037D36305D6013A6E28340C24ED9F4E34B99A964C",
+          "roughnessSource": "basecolor:conifer.glb#material0(base=base_color_texture)",
+          "textureSettings": [
+            {
+              "name": "/Game/EAP/Trees/conifer/Textures/base_color_texture.base_color_texture",
+              "compression": "TC_Default",
+              "srgb": true,
+              "kind": "basecolor"
+            },
+            {
+              "name": "/Game/EAP/Trees/conifer/Textures/normalmap_texture.normalmap_texture",
+              "compression": "TC_Normalmap",
+              "srgb": false,
+              "kind": "normal"
+            },
+            {
+              "name": "/Game/EAP/Materials/Tex/SM_Tree_conifer_PCG_Multi_0_Roughness.SM_Tree_conifer_PCG_Multi_0_Roughness",
+              "compression": "TC_Masked",
+              "srgb": false,
+              "kind": "data",
+              "sha256": "F4AF3FC22C22467B1FCB01B037D36305D6013A6E28340C24ED9F4E34B99A964C",
+              "source": "basecolor:conifer.glb#material0(base=base_color_texture)",
+              "pngPath": "D:/UE_Projects/VegetationPCG/Saved/EAP\\tex\\SM_Tree_conifer_PCG_Multi_0_Roughness.png"
+            }
+          ],
           "texturesApplied": true,
           "sourceMetallic": 0.4000000059604645,
           "metallic": 0.0,
@@ -82,6 +110,28 @@
           "normalTex": null,
           "appliedBaseColor": "/Game/EAP/Trees/conifer/Textures/base_color_texture1.base_color_texture1",
           "appliedNormal": null,
+          "roughnessTex": "/Game/EAP/Materials/Tex/SM_Tree_conifer_PCG_Multi_1_Roughness.SM_Tree_conifer_PCG_Multi_1_Roughness",
+          "roughnessScale": 0.9,
+          "roughnessMode": "texture",
+          "roughnessSha256": "752173F0B6A5FD307B5E4187A919509F51B46E2C8ED14095F7FE7C2893813257",
+          "roughnessSource": "basecolor:conifer.glb#material1(base=base_color_texture1)",
+          "textureSettings": [
+            {
+              "name": "/Game/EAP/Trees/conifer/Textures/base_color_texture1.base_color_texture1",
+              "compression": "TC_Default",
+              "srgb": true,
+              "kind": "basecolor"
+            },
+            {
+              "name": "/Game/EAP/Materials/Tex/SM_Tree_conifer_PCG_Multi_1_Roughness.SM_Tree_conifer_PCG_Multi_1_Roughness",
+              "compression": "TC_Masked",
+              "srgb": false,
+              "kind": "data",
+              "sha256": "752173F0B6A5FD307B5E4187A919509F51B46E2C8ED14095F7FE7C2893813257",
+              "source": "basecolor:conifer.glb#material1(base=base_color_texture1)",
+              "pngPath": "D:/UE_Projects/VegetationPCG/Saved/EAP\\tex\\SM_Tree_conifer_PCG_Multi_1_Roughness.png"
+            }
+          ],
           "texturesApplied": true,
           "sourceMetallic": 0.4000000059604645,
           "metallic": 0.0,
@@ -22667,6 +22717,34 @@
           "normalTex": "/Game/EAP/Trees/broadleaf/Textures/normalmap_texture.normalmap_texture",
           "appliedBaseColor": "/Game/EAP/Trees/broadleaf/Textures/base_color_texture.base_color_texture",
           "appliedNormal": "/Game/EAP/Trees/broadleaf/Textures/normalmap_texture.normalmap_texture",
+          "roughnessTex": "/Game/EAP/Materials/Tex/SM_Tree_broadleaf_PCG_Multi_0_Roughness.SM_Tree_broadleaf_PCG_Multi_0_Roughness",
+          "roughnessScale": 0.9,
+          "roughnessMode": "texture",
+          "roughnessSha256": "F4AF3FC22C22467B1FCB01B037D36305D6013A6E28340C24ED9F4E34B99A964C",
+          "roughnessSource": "basecolor:broadleaf.glb#material0(base=base_color_texture)",
+          "textureSettings": [
+            {
+              "name": "/Game/EAP/Trees/broadleaf/Textures/base_color_texture.base_color_texture",
+              "compression": "TC_Default",
+              "srgb": true,
+              "kind": "basecolor"
+            },
+            {
+              "name": "/Game/EAP/Trees/broadleaf/Textures/normalmap_texture.normalmap_texture",
+              "compression": "TC_Normalmap",
+              "srgb": false,
+              "kind": "normal"
+            },
+            {
+              "name": "/Game/EAP/Materials/Tex/SM_Tree_broadleaf_PCG_Multi_0_Roughness.SM_Tree_broadleaf_PCG_Multi_0_Roughness",
+              "compression": "TC_Masked",
+              "srgb": false,
+              "kind": "data",
+              "sha256": "F4AF3FC22C22467B1FCB01B037D36305D6013A6E28340C24ED9F4E34B99A964C",
+              "source": "basecolor:broadleaf.glb#material0(base=base_color_texture)",
+              "pngPath": "D:/UE_Projects/VegetationPCG/Saved/EAP\\tex\\SM_Tree_broadleaf_PCG_Multi_0_Roughness.png"
+            }
+          ],
           "texturesApplied": true,
           "sourceMetallic": 0.4000000059604645,
           "metallic": 0.0,
@@ -22692,6 +22770,28 @@
           "normalTex": null,
           "appliedBaseColor": "/Game/EAP/Trees/broadleaf/Textures/base_color_texture1.base_color_texture1",
           "appliedNormal": null,
+          "roughnessTex": "/Game/EAP/Materials/Tex/SM_Tree_broadleaf_PCG_Multi_1_Roughness.SM_Tree_broadleaf_PCG_Multi_1_Roughness",
+          "roughnessScale": 0.9,
+          "roughnessMode": "texture",
+          "roughnessSha256": "6D6D84CFFC3B25A7316D16BD318233932A84E48DFB36DFFE01E93607BDB913DD",
+          "roughnessSource": "basecolor:broadleaf.glb#material1(base=base_color_texture1)",
+          "textureSettings": [
+            {
+              "name": "/Game/EAP/Trees/broadleaf/Textures/base_color_texture1.base_color_texture1",
+              "compression": "TC_Default",
+              "srgb": true,
+              "kind": "basecolor"
+            },
+            {
+              "name": "/Game/EAP/Materials/Tex/SM_Tree_broadleaf_PCG_Multi_1_Roughness.SM_Tree_broadleaf_PCG_Multi_1_Roughness",
+              "compression": "TC_Masked",
+              "srgb": false,
+              "kind": "data",
+              "sha256": "6D6D84CFFC3B25A7316D16BD318233932A84E48DFB36DFFE01E93607BDB913DD",
+              "source": "basecolor:broadleaf.glb#material1(base=base_color_texture1)",
+              "pngPath": "D:/UE_Projects/VegetationPCG/Saved/EAP\\tex\\SM_Tree_broadleaf_PCG_Multi_1_Roughness.png"
+            }
+          ],
           "texturesApplied": true,
           "sourceMetallic": 0.4000000059604645,
           "metallic": 0.0,

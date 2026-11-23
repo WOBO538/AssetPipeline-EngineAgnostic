@@ -129,6 +129,27 @@ def _run(label, cmd, timeout=900, env=None):
     return p, lines
 
 
+def _clear_evidence(paths):
+    """跑 UE 前删掉上一轮证据，避免 UE 崩溃/脚本报错时旧 JSON 被当成本轮结果（假 PASS）。"""
+    for p in paths:
+        if os.path.isfile(p):
+            try:
+                os.remove(p)
+            except OSError as exc:
+                print("     WARN 删除旧证据失败 %s: %r" % (p, exc))
+
+
+def _ue_python_errors(stdout):
+    """UE 即使 Python 抛异常也返回 exit=0；从 stdout 捞错误行，供调用方判假 PASS。"""
+    bad = []
+    for ln in (stdout or "").splitlines():
+        s = ln.strip()
+        if ("LogPython: Error" in s or "Traceback (most recent call last)" in s
+                or "Python script executed with errors" in s):
+            bad.append(s)
+    return bad
+
+
 def _ue_cmd(ue, project, script, nullrhi=True):
     cmd = [ue, project, "-ExecutePythonScript=%s" % script, "-unattended", "-nosplash", "-stdout"]
     if nullrhi:
@@ -365,6 +386,7 @@ def _run_real_multi(args):
     if ue_reason:
         print("[4/7][5/7][6/7] SKIP UE: %s（只跑 fixture/manifest/validate）" % ue_reason)
     else:
+        _clear_evidence([REAL_MULTI_PLACE_JSON, REAL_MULTI_VERIFY_JSON, REAL_MULTI_COMPILE_JSON])
         env = {
             "EAP_PLACE_MODE": "place",
             "EAP_MANIFEST": REAL_MULTI_MANIFEST_JSON,
@@ -378,6 +400,9 @@ def _run_real_multi(args):
         p, _ = _run("4/7 UE 双树种落位", _ue_cmd(args.ue, args.project, PLACE_SCRIPT), env=env)
         if p.returncode != 0:
             fails.append("UE 双树种落位退出码 %d" % p.returncode)
+        perr = _ue_python_errors(p.stdout)
+        if perr:
+            fails.append("UE 双树种落位 Python 报错: " + perr[0][:240])
         if os.path.isfile(REAL_MULTI_PLACE_JSON):
             with open(REAL_MULTI_PLACE_JSON, "r", encoding="utf-8-sig") as fh:
                 placed = json.load(fh)
@@ -395,6 +420,9 @@ def _run_real_multi(args):
         p, _ = _run("5/7 UE 双树种读回", _ue_cmd(args.ue, args.project, PLACE_SCRIPT), env=env2)
         if p.returncode != 0:
             fails.append("UE 双树种读回退出码 %d" % p.returncode)
+        perr = _ue_python_errors(p.stdout)
+        if perr:
+            fails.append("UE 双树种读回 Python 报错: " + perr[0][:240])
         if os.path.isfile(REAL_MULTI_VERIFY_JSON):
             with open(REAL_MULTI_VERIFY_JSON, "r", encoding="utf-8-sig") as fh:
                 verify = json.load(fh)
@@ -430,6 +458,8 @@ def _run_real_multi(args):
             # 本机 RHI 进程在这台机器上会 OOM（页面文件不足），默认跳过；需要时加 --with-compile
             print("[6/7] 材质编译: SKIP（默认不跑 RHI 复检，加 --with-compile 开启）")
 
+    tex_expect = {"basecolor": ("TC_Default", True), "normal": ("TC_Normalmap", False),
+                  "data": ("TC_Masked", False)}
     if placed is not None:
         pa = placed.get("assets") or []
         checks.append(("UE 落位 2 个 ISM / 总数一致", len(pa) == len(assets_m) and placed.get("placed") == pl_n,
@@ -461,6 +491,21 @@ def _run_real_multi(args):
                     mat_bad.append((x.get("id"), e.get("slot"), after))
         checks.append(("两树种材质都规范化（metallic=0/usage/alpha）", not mat_bad,
                        "bad=%s" % (mat_bad or "none")))
+        # ① 贴图压缩三档（数据来自 place 进程读回的 textureSettings，不是断言侧写死）
+        tex_bad, tex_main, tex_total = [], 0, 0
+        for x in pa:
+            for e in (x.get("materials") or []):
+                for t in (e.get("textureSettings") or []):
+                    tex_total += 1
+                    kind = str(t.get("kind") or "")
+                    want_c, want_s = tex_expect.get(kind, ("?", None))
+                    if kind in ("basecolor", "normal"):
+                        tex_main += 1
+                    if str(t.get("compression") or "") != want_c or t.get("srgb") is not want_s:
+                        tex_bad.append((x.get("id"), e.get("slot"), kind,
+                                        t.get("compression"), t.get("srgb")))
+        checks.append(("贴图压缩三档符合表（≥4 张主贴图）", not tex_bad and tex_main >= 4,
+                       "main=%d total=%d bad=%s" % (tex_main, tex_total, tex_bad or "none")))
         checks.append(("落位未使用 EAP_ALLOW_SYNTHETIC_MESH", "EAP_ALLOW_SYNTHETIC_MESH" not in env,
                        "unset"))
     if verify is not None:
@@ -482,6 +527,33 @@ def _run_real_multi(args):
             if not mats or any("/MI_EAP_" not in str(m) for m in mats):
                 mat_bad.append((v.get("id"), mats))
         checks.append(("读回材质 override 都是 EAP MIC", not mat_bad, "bad=%s" % (mat_bad or "none")))
+        # ② MIC 上的 roughness 贴图 + 标量（新进程读回 get_material_instance_* 的值）
+        want_slots = sum(len(((a.get("material") or {}).get("materials") or [])) for a in assets_m)
+        got_slots, rough_bad = 0, []
+        for v in va:
+            for p in (v.get("materialParams") or []):
+                got_slots += 1
+                rt = str(p.get("roughnessTex") or "")
+                leaf = rt.rsplit(".", 1)[0].rsplit("/", 1)[-1]
+                rs = p.get("roughnessScale")
+                if not rt or not leaf.endswith("_Roughness") or rs is None or abs(float(rs) - 0.9) > 1e-6:
+                    rough_bad.append((v.get("id"), p.get("material"), rt, rs))
+        checks.append(("MIC roughness 贴图非空且 RoughnessScale==0.9",
+                       got_slots == want_slots and not rough_bad,
+                       "slots=%d/%d bad=%s" % (got_slots, want_slots, rough_bad or "none")))
+        # ③ 新进程读回贴图压缩（不是 place 进程的旧证据）
+        persist_bad, persist_n = [], 0
+        for v in va:
+            for p in (v.get("materialParams") or []):
+                for t in (p.get("textureSettings") or []):
+                    persist_n += 1
+                    kind = str(t.get("kind") or "")
+                    want_c, want_s = tex_expect.get(kind, ("?", None))
+                    if str(t.get("compression") or "") != want_c or t.get("srgb") is not want_s:
+                        persist_bad.append((v.get("id"), kind, t.get("compression"), t.get("srgb")))
+        checks.append(("新进程读回贴图压缩仍符合三档",
+                       persist_n >= 8 and not persist_bad,
+                       "n=%d bad=%s" % (persist_n, persist_bad or "none")))
         checks.append(("verify.ok == true", verify.get("ok") is True, "ok=%s" % verify.get("ok")))
     if compile_run is not None:
         # 判据只看进程退出码 + 日志；证据里的 shaderCompiled 是弱信号，不单独作数

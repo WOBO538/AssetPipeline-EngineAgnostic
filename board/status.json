@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T21:05:00+08:00",
+  "updatedAt": "2026-11-23T21:40:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -29,7 +29,7 @@
       "id": "P1",
       "name": "EAP 多引擎资产管线",
       "subtitle": "主线 · 补 PCG 资格缺口 · NO.01 下一代",
-      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化 + 多资产 20 资产（13/13 断言） + 真实双树种混排（17/17 断言）+ --with-compile 严格模式（18/18 断言）；--tree 单树种链路已降级为历史",
+      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化 + 多资产 20 资产（13/13 断言） + 真实双树种混排（20/20 断言）+ --with-compile 严格模式（21/21 断言）+ 贴图三档压缩 & roughness 贴图（v1.6）；--tree 单树种链路已降级为历史",
       "progress": 90,
       "status": "进行中",
       "items": [
@@ -95,10 +95,11 @@
           "date": "11-23"
         },
         {
-          "name": "贴图压缩 TC_MASKED + roughness 走贴图（任务单 4 已下发 docs/_TRAE任务_贴图压缩与粗糙度_20261123.md；目标 --real-multi 17→20、--with-compile 18→21）",
-          "status": "doing",
-          "date": "11-25",
-          "owner": "trae"
+          "name": "贴图压缩 TC_MASKED + roughness 走贴图（v1.6）",
+          "status": "done",
+          "date": "11-23",
+          "owner": "trae",
+          "note": "贴图三档：BaseColor=TC_Default+sRGB / Normal=TC_Normalmap+线性 / 数据=TC_Masks+线性（均读回写证据）；roughness 由 glb 内嵌 BaseColor 合成 1024² 灰度 PNG → MIC 上 Roughness 贴图 × RoughnessScale=0.9。自验 --multi 13/13、--real-multi 20/20、--with-compile 21/21（exit=0、Failed to compile=0、MIC 4/4）；反向验证（去掉 _set_texture_settings 并清 roughness 资产）断言 ①③ 确实 FAIL。SHA256：树皮 F4AF3FC2…A964C（conifer/broadleaf slot0 相同）、针叶 752173F0…13257、阔叶 6D6D84CF…913DD"
         },
         {
           "name": "PlacedTrees 补灯光 + 引擎内实拍（1892 棵，6 Actor，用户手操）",

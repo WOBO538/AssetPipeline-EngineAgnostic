@@ -39,7 +39,7 @@ Engine-Agnostic Pipeline/
 │  ├─ validate_manifest.py        ← 中台侧轻量校验（结构 + 2 的幂 + 通道 + 单位 + v1.1 placements）
 │  ├─ pcg_to_manifest.py          ← 散点 JSON → manifest v1.1（cm→m，1 网格 = 1 asset + N placements）
 │  ├─ tree_to_manifest.py         ← 真实树 glb + 散点 → manifest v1.1（双端；不信任 sidecar，自己解析 GLB 复算）
-│  ├─ run_pcg_chain.py            ← 一条命令跑完整条 Layer1 链（7 步 / 4 次无头 UE）+ 9 条断言；--multi 13 条 / --real-multi 17 条（--with-compile 18 条）；--tree 16 条为历史链路
+│  ├─ run_pcg_chain.py            ← 一条命令跑完整条 Layer1 链（7 步 / 4 次无头 UE）+ 9 条断言；--multi 13 条 / --real-multi 20 条（--with-compile 21 条）；--tree 16 条为历史链路
 │  ├─ draw_placements.py          ← 从读回 transform 画俯视图（方块 / 树冠圆两种标记）
 │  ├─ test_validator.py           ← 校验器 9 条负例（拦截 9/9）
 │  └─ test_gui_smoke.py           ← GUI 冒烟（12/12）
@@ -350,7 +350,7 @@ python tools/tree_to_manifest.py --scatter docs/pcg_multi_species_fixture.json `
   --out schemas/tree_manifest_multi.json --species-pair conifer,broadleaf
 python tools/validate_manifest.py schemas/tree_manifest_multi.json   # assets=2 errors=0 warnings=0
 
-# 3) 真实双树种 UE 全链路：17 条断言（7 纯 Python + 10 UE）
+# 3) 真实双树种 UE 全链路：20 条断言（7 纯 Python + 6 落位/证据 + 7 新进程读回）
 python tools/run_pcg_chain.py --real-multi --expect-assets 2 --expect-placements 1892
 # 期望末行：CHAIN PASS assets=2 placements=1892
 ```
@@ -372,6 +372,82 @@ metallic=0、usage 标记齐全、alpha 槽为 MASKED。
   每个 asset 走一遍 glb 导入 + 材质规范化（MIC 按 asset id 命名，避免两个树种互相覆盖）。
 - **`--multi` 原样保留**：合成 20 资产链路与它的 13 条断言不动，继续当"机制"回归。
 
+## 三之八、贴图压缩与 roughness（v1.6）
+
+v1.3 的材质规范化解决了"白模 / 塑料绿"，但贴图压缩仍是 Interchange 默认值、roughness 是母材质常量 0.9。
+v1.6 把这两件事补齐：**贴图按类型设压缩（三档）**，**roughness 升级成「贴图 × 标量」**。
+
+### 贴图三档（UE 侧，`place_manifest._set_texture_settings`）
+
+| kind | `compression_settings` | `srgb` | 用于 |
+|---|---|---|---|
+| `basecolor` | `TC_Default` | **True** | BaseColor（保留 alpha 给 masked） |
+| `normal` | `TC_Normalmap` | **False** | 法线（BC5） |
+| `data` | **`TC_Masks`**（编辑器里显示 `TC_Masked`） | **False** | Roughness 等线性单通道数据 |
+
+> 实测枚举名是 `unreal.TextureCompressionSettings.TC_MASKS`，**没有** `TC_MASKED`（写错时 UE 不报错、直接不执行 Python，容易假 PASS）。
+
+落点有三处、都走同一个 helper 并**保存后立即读回**：
+
+1. `_import_glb`：glTF 刚导入的贴图按名字（`normal` / `base_color|basecolor|_bc|albedo` / 其余）设一次；
+2. `_normalize_materials`：从源 MIC 读出的 `BaseColor` / `Normal` 各设一次（幂等，覆盖复用资产的旧状态）；
+3. `_make_roughness_texture`：新生成的 roughness 一律按 `data` 设。
+
+证据 JSON（`docs/placed_tree_multi.json`）每槽新增 `textureSettings`，是**读回值**而不是写入意图：
+
+```json
+"textureSettings": [
+  {"name": ".../base_color_texture.base_color_texture", "compression": "TC_Default", "srgb": true, "kind": "basecolor"},
+  {"name": ".../normalmap_texture.normalmap_texture", "compression": "TC_Normalmap", "srgb": false, "kind": "normal"},
+  {"name": ".../SM_Tree_conifer_PCG_Multi_1_Roughness...", "compression": "TC_Masked", "srgb": false, "kind": "data"}
+]
+```
+
+### roughness：贴图 × 标量
+
+两棵树的 glb 里**没有** roughness 贴图（`hasMetallicRoughnessTexture: false`），所以只能在 UE 侧确定性合成：
+
+```
+glb 内嵌 BaseColor PNG（stdlib zlib+struct 解码，不依赖 PIL）
+   ↓ 亮度 0.2126R + 0.7152G + 0.0722B → 线性映射 [0.65, 0.95]
+Saved/EAP/tex/<tag>_<slot>_Roughness.png（1024²，8-bit 灰度，zlib level 9、filter 0，无时间戳）
+   ↓ AssetImportTask → /Game/EAP/Materials/Tex/，再 _set_texture_settings(..., "data")
+MIC: set_material_instance_texture_parameter_value(mi, "Roughness", tex)
+     + set_material_instance_scalar_parameter_value(mi, "RoughnessScale", 0.9)
+```
+
+母材质里 `Roughness`（`TextureSampleParameter2D`，`SAMPLERTYPE_LINEAR_COLOR`，默认白图）× `RoughnessScale`
+（标量，0.9）经 `Multiply` 接 `MP_ROUGHNESS`；变体名规则未变（`M_EAP_Opaque_v2` / `_v2_N` /
+`M_EAP_Foliage_Masked_v2` / `_N`），已有 4 个 MIC 路径不变。
+
+> **编译坑（本轮实测）**：`SAMPLERTYPE_LINEAR_COLOR` 的默认贴图必须是"线性颜色"源。直接拿
+> `/Engine/EngineResources/WhiteSquareTexture`（sRGB=true）当默认图，母材质编译报
+> `Sampler type is 线性颜色, should be 颜色` → 白模。解决办法是复制一份引擎白图到
+> `/Game/EAP/Materials/Tex/T_EAP_White_Linear` 并关 sRGB。
+
+**确定性 SHA256**（同一份 glb/槽位跨两次运行字节一致；conifer 与 broadleaf 的树皮贴图同源，所以 slot 0 相同）：
+
+| 资产 | 槽 | SHA256 |
+|---|:--:|---|
+| conifer / broadleaf | 0（树皮） | `F4AF3FC22C22467B1FCB01B037D36305D6013A6E28340C24ED9F4E34B99A964C` |
+| conifer | 1（针叶） | `752173F0B6A5FD307B5E4187A919509F51B46E2C8ED14095F7FE7C2893813257` |
+| broadleaf | 1（阔叶） | `6D6D84CFFC3B25A7316D16BD318233932A84E48DFB36DFFE01E93607BDB913DD` |
+
+### 新增的三条断言（`--real-multi` 17 → 20，`--with-compile` 18 → 21）
+
+| 新断言 | 判据 | 数据来源 |
+|---|---|---|
+| ① 贴图压缩三档符合表 | BaseColor/Normal/Roughness 三类各自的 compression+srgb 全对，且主贴图 ≥4 张 | 落位进程证据里的 `textureSettings`（读回值） |
+| ② MIC roughness 已生效 | 4/4 槽的 `Roughness` 纹理非空、叶名以 `_Roughness` 结尾、`RoughnessScale`=0.9 | 新进程读回 `get_material_instance_*` |
+| ③ 压缩设置持久化 | 新进程重新加载后 10 张贴图的 compression/srgb 仍合规 | 新进程读回，不是落位进程的缓存 |
+
+**反向验证（防空断言）**：临时把三处 `_set_texture_settings` 调用改成只读、并先删掉已生成的四张 roughness 资产，
+再跑 `--real-multi` —— 断言 ① 与 ③ **确实 FAIL**，报错原文为 4 个 `data` 槽读回 `TC_Default / srgb=True`；
+断言 ② 仍 PASS（贴图路径与 0.9 标量本来就没被破坏）。改回后复跑 20/20 PASS。
+
+实测（2026-11-23）：`--multi` 13/13、`--real-multi` 20/20、`--real-multi --with-compile` 21/21
+（exit=0、`Failed to compile`=0、MIC 4/4），`placements=1892`、`conifer` 10.236 m / `broadleaf` 9.425 m 不变。
+
 ## 四、阶段一验收（6 条，逐条可判）
 
 | # | 判据 | 判法 |
@@ -385,11 +461,11 @@ metallic=0、usage 标记齐全、alpha 槽为 MASKED。
 
 > 没截图、没日志、没退出码 = 没过。这条照搬项目验收标准。
 
-### 四之二、Layer 1 链路验收（现行口径：`--multi` 13 条 + `--real-multi` 17/18 条）
+### 四之二、Layer 1 链路验收（现行口径：`--multi` 13 条 + `--real-multi` 20/21 条）
 
-> **现行判据（v1.5）**：`python tools/run_pcg_chain.py --multi --expect-assets 20` = **13 条**；
-> `python tools/run_pcg_chain.py --real-multi --expect-assets 2 --expect-placements 1892` = **17 条**，
-> 再加 `--with-compile` = **18 条**。
+> **现行判据（v1.6）**：`python tools/run_pcg_chain.py --multi --expect-assets 20` = **13 条**；
+> `python tools/run_pcg_chain.py --real-multi --expect-assets 2 --expect-placements 1892` = **20 条**，
+> 再加 `--with-compile` = **21 条**。
 > 下表 1–9 是 Layer 1 链路的公共判据（双树种链路同样覆盖）；**10–16 属于 `--tree`（单树种全量替换），
 > 已于 2026-11-23 降级为历史链路**（原因见 §五 最后一条），数字保留作历史记录，不再作为验收门槛。
 
@@ -432,9 +508,12 @@ metallic=0、usage 标记齐全、alpha 槽为 MASKED。
 - **无头导出依赖本机路径（v1.1）**：`run_pcg_chain.py --ue/--project` 可覆盖，默认 `C:\Program Files\Epic Games\UE_5.7` + `D:\UE_Projects\VegetationPCG`。
 - **材质编译必须带 RHI 复检（v1.3）**：`-nullrhi` 下 UE 不真正编译材质，材质图写错了也照样 PASS；
   现在链路末尾多跑一次带 RHI 的无头复检，抓 `Failed to compile Material`。**白模事故就是这么漏过去的。**
-- **树资产材质已规范化，但仍有视觉短板（v1.3）**：叶子已 `BLEND → MASKED`（clip 0.33、双面），
-  两个槽的 metallic 都清零、usage 标记齐全；但**贴图仍是 Interchange 的 `TC_DEFAULT` 压缩**（蒙版用
-  `TC_MASKED` 边缘更干净）、roughness 统一 0.9 是拍脑袋值、粗糙度/金属度还没走贴图。要出图得再调一轮。
+- **树资产材质已规范化（v1.3 起，v1.6 补齐贴图）**：叶子 `BLEND → MASKED`（clip 0.33、双面），
+  两槽 metallic=0、usage 标记齐全；v1.6 起 BaseColor/Normal/数据贴图按三档设压缩，roughness 走
+  「贴图 × 0.9」而不是常量。仍属程序化基线：合成 roughness 只做亮度映射，没做美术手绘/材质分区，
+  出图前还要按树皮/针叶/阔叶分别调亮度区间（见 §三之八）。
+- **Unity 端 roughness 仍是常量 0.9（v1.6）**：本轮贴图化只在 UE 侧落地（合成 PNG + MIC 参数）；
+  Unity 消费端仍按 manifest 的 `roughness` 标量建材质，没有对应的 roughness 贴图通路。
 - **跑链前必须关掉 UE 编辑器（v1.3 实测）**：编辑器打开目标关卡时，无头落位写盘会被 Windows 文件锁挡住
   （`LogFileManager: Error Code 32` → `Failed to move ... to temp dir`），`save_current_level()` 返回 False、
   材质覆盖不落盘。**先关编辑器再跑链**，否则会拿到"看着 PASS 但没存住"的假结果。
@@ -456,18 +535,23 @@ metallic=0、usage 标记齐全、alpha 槽为 MASKED。
 - **落位关卡不带灯光与地面（v1.2）**：`PlacedTrees` 由无头新建，只有 `EAP_Placements`。灯光/天空/地面
   （`place_manifest.stage()`）**只能在真实编辑器里跑**——无头加 SkyAtmosphere/SkyLight 会
   `EXCEPTION_INT_DIVIDE_BY_ZERO` 崩掉（2026-11-22 实测）。
-- **Unity 端还没实跑树资产（v1.2）**：`tree_manifest.json` 已经有 `engineTargets.Unity`（`Assets/EAP/Trees`），
-  但 Unity 侧导入尚未执行（计划 2026-11-25 跑空工程验证）。
+- **Unity 端空工程已跑通材质通路（v1.2.1，2026-11-23）**：`tree_manifest_multi.json`（v1.1，2 assets）在 Unity
+  **2022.3.62f3c1 + URP Empty Template** 工程里用 `Tools → EAP → Import Manifest…` 导入，得到
+  `pipeline=URP shader=Universal Render Pipeline/Lit`、`ok=2 failed=0`，两个 `.mat` 落在
+  `Assets/EAP/Trees/`（shader guid 与 URP `Lit.shader.meta` 一致）。**仍未导入**：模型 / Prefab / 内嵌贴图 /
+  placements——因为两棵树的贴图内嵌在 glb 里（`textures = {}`）、且 **Unity 原生不认 .glb**（Console 会报
+  `Invalid AssetDatabase path`，属预期）。记录与证据：`docs/unity_consumer_run_20261123.md`。
+  下一步：Blender 转 fbx + manifest 加 Unity 目标模型路径覆盖字段 + glb 内嵌贴图导出。
 - **`--with-compile` 是严格模式（v1.5）**：`--real-multi` 默认不跑带 RHI 的材质编译复检；加上 `--with-compile`
   后判据是「编译子进程 `exit == 0` **且**日志无 `Failed to compile Material`，**且**证据里的 MIC 数
   == manifest 材质槽位总数」三条件同时满足。**进程崩溃就是 CHAIN FAIL**（不是 SKIP、更不是 PASS），
   没有任何"忽略 exit=3"的开关；证据里的 `shaderCompiled` 只是弱信号，不单独作数。
-  2026-11-23 本机实测 18/18 PASS（exit=0，6 个材质、MIC 4/4）；同一判据在 lead 机曾遇
+  2026-11-23 本机实测 v1.5 为 18/18 PASS、v1.6 为 21/21 PASS（exit=0，6 个材质、MIC 4/4）；同一判据在 lead 机曾遇
   `Out of video memory` / `Ran out of memory`（固定 16 GB 页面文件、编辑器提交约 9 GB、commit limit 47.4 GB），
   属内存环境问题，换环境/扩大页面文件后复验。
 - **`--tree` 已降级为历史链路（v1.5，2026-11-23）**：`--tree`（单树种全量替换）**不再作为验收回归门槛**，
-  代码与 16 条断言原样保留、随时可跑；现行验收口径是 `--multi` 13 条 + `--real-multi` 17 条
-  （加 `--with-compile` 时 18 条）。降级原因是**环境事件而不是代码回归**：它的数据源关卡
+  代码与 16 条断言原样保留、随时可跑；现行验收口径是 `--multi` 13 条 + `--real-multi` 20 条
+  （加 `--with-compile` 时 21 条）。降级原因是**环境事件而不是代码回归**：它的数据源关卡
   `/Game/Untitled`（UE PCG 散点，200 m / 1892 点）在 2026-11-23 19:43 清理残留时被误删；从
   `Saved/EAP/backup/level_20261122-163435` 恢复出来的是 11-22 16:34 的旧状态——只读导出探针实测
   `instanceCount=233`、跨度约 47×49 m，不是 200 m / 1892 点；并且 `-nullrhi -unattended` 下无头触发

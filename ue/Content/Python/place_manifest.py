@@ -22,9 +22,12 @@ manifest 里 1 个资产 + N 条 `placements.items`（世界坐标、米、度�
 **只动一个专用关卡**（默认 PlacedPilot），不碰用户的 `/Game/Untitled` 试点现场。
 幂等：每次先 `clear_instances()` 再重落，跑 10 次仍是 N 条。
 """
+import hashlib
 import json
 import os
+import struct
 import time
+import zlib
 
 import unreal
 
@@ -42,6 +45,15 @@ LEGACY_MATS = (MAT_DIR + "/M_EAP_Opaque", MAT_DIR + "/M_EAP_Foliage_Masked",
                MAT_DIR + "/M_EAP_Tree_Bark", MAT_DIR + "/M_EAP_Tree_Leaf")
 USAGE_FLAGS = ("MATUSAGE_STATIC_MESH", "MATUSAGE_INSTANCED_STATIC_MESHES", "MATUSAGE_NANITE")
 MULTI_TAG_PREFIX = "EAP_Asset_"
+TEX_DIR = MAT_DIR + "/Tex"
+WHITE_TEX = "/Engine/EngineResources/WhiteSquareTexture"
+ROUGHNESS_SCALE = 0.9
+# 贴图三档（照任务单表，不自创第四档）
+TEX_KINDS = {
+    "basecolor": (unreal.TextureCompressionSettings.TC_DEFAULT, True, "TC_Default"),
+    "normal": (unreal.TextureCompressionSettings.TC_NORMALMAP, False, "TC_Normalmap"),
+    "data": (unreal.TextureCompressionSettings.TC_MASKS, False, "TC_Masked"),
+}
 # 合成 fixture 的占位网格来源（只给 --multi 用，需 EAP_ALLOW_SYNTHETIC_MESH=1）
 SYNTHETIC_BASES = ("/Engine/BasicShapes/Cube", "/Engine/BasicShapes/Sphere",
                    "/Engine/BasicShapes/Cylinder", "/Engine/BasicShapes/Cone")
@@ -90,6 +102,223 @@ def _repo_root(manifest_path):
     return os.path.dirname(d) if os.path.basename(d) in ("schemas", "docs") else d
 
 
+def _tc_label(value):
+    s = str(value).upper()
+    if "NORMALMAP" in s:
+        return "TC_Normalmap"
+    if "MASK" in s:
+        return "TC_Masked"
+    if "DEFAULT" in s:
+        return "TC_Default"
+    return str(value)
+
+
+def _read_texture_settings(tex, kind=None):
+    cs = _safe(lambda: tex.get_editor_property("compression_settings"))
+    srgb = _safe(lambda: tex.get_editor_property("srgb"), None)
+    return {
+        "name": _safe(lambda: str(tex.get_path_name())),
+        "compression": _tc_label(cs),
+        "srgb": None if isinstance(srgb, str) else bool(srgb),
+        "kind": kind,
+    }
+
+
+def _set_texture_settings(tex, kind):
+    """按三档设置压缩/sRGB，保存后立即读回（调用方拿读回值当证据，不自己猜）。"""
+    cs, srgb, label = TEX_KINDS[kind]
+    _safe(lambda: tex.set_editor_property("compression_settings", cs))
+    _safe(lambda: tex.set_editor_property("srgb", srgb))
+    _safe(lambda: unreal.EditorAssetLibrary.save_loaded_asset(tex))
+    ev = _read_texture_settings(tex, kind)
+    if ev["compression"] != label or ev["srgb"] != srgb:
+        _warn("贴图设置未生效 %s kind=%s read=%r" % (ev["name"], kind, ev))
+    return ev
+
+
+def _png_unfilter(raw, width, height, bpp):
+    stride = width * bpp
+    out = bytearray(height * stride)
+    prev = bytearray(stride)
+    pos = 0
+    for y in range(height):
+        ft = raw[pos]
+        pos += 1
+        line = bytearray(raw[pos:pos + stride])
+        pos += stride
+        if ft == 1:
+            for i in range(bpp, stride):
+                line[i] = (line[i] + line[i - bpp]) & 0xFF
+        elif ft == 2:
+            for i in range(stride):
+                line[i] = (line[i] + prev[i]) & 0xFF
+        elif ft == 3:
+            for i in range(stride):
+                left = line[i - bpp] if i >= bpp else 0
+                line[i] = (line[i] + ((left + prev[i]) >> 1)) & 0xFF
+        elif ft == 4:
+            for i in range(stride):
+                a = line[i - bpp] if i >= bpp else 0
+                b = prev[i]
+                c = prev[i - bpp] if i >= bpp else 0
+                p = a + b - c
+                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                line[i] = (line[i] + (a if (pa <= pb and pa <= pc) else (b if pb <= pc else c))) & 0xFF
+        elif ft != 0:
+            raise RuntimeError("PNG 行过滤 %d 不支持" % ft)
+        out[y * stride:(y + 1) * stride] = line
+        prev = line
+    return out
+
+
+def _decode_png(data):
+    """只解 glTF 里最常见的 8-bit RGB/RGBA、非隔行 PNG（stdlib 实现，不依赖 PIL）。"""
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise RuntimeError("不是 PNG")
+    pos, w, h, bd, ct, idat = 8, None, None, None, None, []
+    while pos < len(data):
+        ln, ty = struct.unpack_from(">I4s", data, pos)
+        pos += 8
+        seg = data[pos:pos + ln]
+        pos += ln + 4
+        if ty == b"IHDR":
+            w, h, bd, ct, _cm, _fl, il = struct.unpack(">IIBBBBB", seg)
+            if il != 0:
+                raise RuntimeError("PNG 隔行不支持")
+        elif ty == b"IDAT":
+            idat.append(seg)
+        elif ty == b"IEND":
+            break
+    if bd != 8 or ct not in (2, 6):
+        raise RuntimeError("PNG bit=%r color=%r 不支持" % (bd, ct))
+    return w, h, ct, _png_unfilter(zlib.decompress(b"".join(idat)), w, h, 4 if ct == 6 else 3)
+
+
+def _encode_gray_png(width, height, gray):
+    raw = bytearray()
+    for y in range(height):
+        raw.append(0)
+        raw += gray[y * width:(y + 1) * width]
+
+    def chunk(ty, body):
+        return struct.pack(">I", len(body)) + ty + body + struct.pack(">I", zlib.crc32(ty + body) & 0xFFFFFFFF)
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+            + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b""))
+
+
+def _tex_out_dir():
+    root = os.environ.get("EAP_TEX_DIR")
+    if not root:
+        saved = str(_safe(lambda: unreal.Paths.project_saved_dir(), "") or "")
+        root = os.path.join(saved or os.path.expanduser("~"), "EAP", "tex")
+    if not os.path.isdir(root):
+        os.makedirs(root)
+    return root
+
+
+_GLB_PNG_CACHE = {}
+
+
+def _glb_basecolor_pngs(glb_path):
+    """按 glTF material 顺序返回每个 material 的 BaseColor PNG 字节（内嵌、无外部 uri）。"""
+    key = os.path.abspath(glb_path)
+    if key in _GLB_PNG_CACHE:
+        return _GLB_PNG_CACHE[key]
+    with open(key, "rb") as fh:
+        blob = fh.read()
+    magic, _ver, total = struct.unpack_from("<III", blob, 0)
+    if magic != 0x46546C67:
+        raise RuntimeError("不是 GLB: " + key)
+    off, gltf, binary = 12, None, None
+    while off < total:
+        ln, ty = struct.unpack_from("<II", blob, off)
+        off += 8
+        seg = blob[off:off + ln]
+        off += ln
+        if ty == 0x4E4F534A:
+            gltf = json.loads(seg.decode("utf-8"))
+        elif ty == 0x004E4942:
+            binary = seg
+    textures = (gltf or {}).get("textures") or []
+    images = (gltf or {}).get("images") or []
+    views = (gltf or {}).get("bufferViews") or []
+    out = []
+    for mat in (gltf or {}).get("materials") or []:
+        idx = (((mat.get("pbrMetallicRoughness") or {}).get("baseColorTexture") or {}).get("index"))
+        if idx is None:
+            out.append(None)
+            continue
+        src = textures[int(idx)].get("source")
+        view = views[int(images[int(src)]["bufferView"])]
+        start = int(view.get("byteOffset", 0))
+        data = binary[start:start + int(view["byteLength"])]
+        out.append(data if data[:8] == b"\x89PNG\r\n\x1a\n" else None)
+    _GLB_PNG_CACHE[key] = out
+    return out
+
+
+def _make_roughness_texture(base_tex, target_lum_range=(0.65, 0.95), tag=None, slot=0, glb_path=None):
+    """从 BaseColor 像素生成 1024² 灰度 roughness PNG（亮度线性映射到目标区间），导入并设为数据贴图。
+
+    确定性：同一份 glb / 同一槽位 → 字节级相同的 PNG（两次 SHA256 可复算），不掺时间/随机。
+    `base_tex` 只用于命名与证据；像素从 glb 内嵌的原始 BaseColor PNG 解（不受 UE 压缩损失影响）。
+    """
+    lo, hi = target_lum_range
+    name = "%s_%d_Roughness" % (tag or "EAP", slot)
+    base_name = _safe(lambda: str(base_tex.get_name()), "?") if base_tex is not None else "?"
+    src_png = None
+    if glb_path:
+        try:
+            pngs = [p for p in _glb_basecolor_pngs(glb_path) if p]
+            if pngs:
+                src_png = pngs[min(int(slot), len(pngs) - 1)]
+        except Exception as exc:  # noqa: BLE001
+            _warn("读 glb BaseColor 失败，roughness 退回常量: %r" % (exc,))
+    if src_png is not None:
+        sw, sh, ct, px = _decode_png(src_png)
+        ch = 4 if ct == 6 else 3
+        gray = bytearray(1024 * 1024)
+        for y in range(1024):
+            row = min(sh - 1, y * sh // 1024) * sw
+            for x in range(1024):
+                i = (row + min(sw - 1, x * sw // 1024)) * ch
+                lum = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255.0
+                gray[y * 1024 + x] = int(round((lo + lum * (hi - lo)) * 255))
+        source = "basecolor:%s#material%d(base=%s)" % (os.path.basename(glb_path), int(slot), base_name)
+    else:
+        gray = bytearray([int(round((lo + hi) / 2.0 * 255))]) * (1024 * 1024)
+        source = "fallback:constant(base=%s)" % base_name
+    png = _encode_gray_png(1024, 1024, gray)
+    sha = hashlib.sha256(png).hexdigest().upper()
+    png_path = os.path.join(_tex_out_dir(), name + ".png")
+    with open(png_path, "wb") as fh:
+        fh.write(png)
+    alb = unreal.EditorAssetLibrary
+    _safe(lambda: alb.make_directory(TEX_DIR))
+    task = unreal.AssetImportTask()
+    task.set_editor_property("filename", png_path)
+    task.set_editor_property("destination_path", TEX_DIR)
+    task.set_editor_property("automated", True)
+    task.set_editor_property("replace_existing", True)
+    task.set_editor_property("save", True)
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+    want = TEX_DIR + "/" + name + "." + name
+    if not bool(_safe(lambda: alb.does_asset_exist(want), False)):
+        imported = _safe(lambda: [str(p) for p in task.get_editor_property("imported_object_paths")], [])
+        texs = [p for p in imported
+                if str(_safe(lambda p=p: alb.load_asset(p).get_class().get_name(), "")) == "Texture2D"]
+        if not texs:
+            raise RuntimeError("roughness 贴图导入失败（imported=%r）" % imported)
+        want = texs[0]
+    tex = alb.load_asset(want)
+    ev = _set_texture_settings(tex, "data")
+    ev.update({"sha256": sha, "source": source, "pngPath": png_path})
+    _log("roughness 贴图 %s sha=%s（1024²，%s）" % (want, sha[:16], source))
+    return tex, ev
+
+
 def _import_glb(asset, manifest_path):
     """manifest 的 model 是磁盘 .glb 时，先无头导入成 StaticMesh（Interchange），返回资产路径。
 
@@ -118,6 +347,18 @@ def _import_glb(asset, manifest_path):
     unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
     _log("glTF 导入完成 %.2fs ← %s" % (time.time() - t0, glb))
     imported = _safe(lambda: [str(p) for p in task.get_editor_property("imported_object_paths")], [])
+    # 刚导入的贴图先按三档设一遍（MIC 若已存在会走复用路径，这里保证新导入的资产不是默认压缩）
+    tex_ev = []
+    for p in imported:
+        obj = _safe(lambda p=p: unreal.EditorAssetLibrary.load_asset(p))
+        if obj is not None and str(_safe(lambda o=obj: o.get_class().get_name(), "")) == "Texture2D":
+            low = p.rsplit("/", 1)[-1].lower()
+            kind = "normal" if "normal" in low else (
+                "basecolor" if ("basecolor" in low or "base_color" in low or "_bc" in low or "albedo" in low)
+                else "data")
+            tex_ev.append(_set_texture_settings(obj, kind))
+    if tex_ev:
+        _log("glTF 贴图规范化 %d 张: %s" % (len(tex_ev), [(e["kind"], e["compression"]) for e in tex_ev]))
     meshes = [p for p in imported
               if str(_safe(lambda p=p: unreal.EditorAssetLibrary.load_asset(p).get_class().get_name(), "")) == "StaticMesh"]
     if mesh_path and _safe(lambda: unreal.EditorAssetLibrary.does_asset_exist(mesh_path), False):
@@ -258,25 +499,61 @@ def _material_source_map(mi):
     return out
 
 
+_REBUILT_MATS = set()
+LINEAR_WHITE = TEX_DIR + "/T_EAP_White_Linear"
+
+
+def _linear_white_texture():
+    """Roughness 采样器是 SAMPLERTYPE_LINEAR_COLOR，默认贴图必须是"线性颜色"源。
+
+    直接拿 `/Engine/EngineResources/WhiteSquareTexture`（sRGB=true）当默认贴图会让整个母材质编译失败：
+    `Sampler type is 线性颜色, should be 颜色`。复制一份引擎白图并存到 /Game 下关 sRGB 即可。
+    """
+    alb = unreal.EditorAssetLibrary
+    if bool(_safe(lambda: alb.does_asset_exist(LINEAR_WHITE), False)):
+        return alb.load_asset(LINEAR_WHITE)
+    _safe(lambda: alb.make_directory(TEX_DIR))
+    _safe(lambda: alb.duplicate_asset(WHITE_TEX, LINEAR_WHITE))
+    if not bool(_safe(lambda: alb.does_asset_exist(LINEAR_WHITE), False)):
+        return None
+    tex = alb.load_asset(LINEAR_WHITE)
+    _safe(lambda: tex.set_editor_property("srgb", False))
+    _safe(lambda: alb.save_loaded_asset(tex))
+    _log("线性白贴图（Roughness 默认）: " + LINEAR_WHITE)
+    return tex
+
+
 def _ensure_material(pkg, masked, normal_tex=None, base_tex=None):
-    """建/复用 EAP 母材质：BaseColor(+Normal) 参数化、metallic 0、roughness 0.9、用法标记齐全。
+    """建/复用 EAP 母材质：BaseColor(+Normal) 参数化、metallic 0、roughness = 贴图 × RoughnessScale(0.9)。
 
     2026-11-22 实测：`-nullrhi` 下建材质 + `recompile_material` 都能跑（没有渲染管线也能编译节点图），
     所以材质规范化可以完全无头做，不需要用户点编辑器。
 
-    **两个必须遵守的建法（踩过才写下来）**：
+    **三个必须遵守的建法（踩过才写下来）**：
     1. 法线采样节点必须有默认贴图（`texture`），否则编译器报
        `Sampler type is Normal, should be Color for DefaultTexture` → 整个材质编译失败 → 退回**默认白材质**。
        没有法线贴图的资产（树叶）就干脆不建法线节点。
     2. BaseColor 采样节点也给它默认贴图，这样即使 MIC 参数没生效也是"带贴图的"，不会是纯白。
+    3. v1.6 起节点图变了（roughness 贴图 × RoughnessScale）。已存在的资产**原地清空节点再重建**，
+       路径与变体名不变（`M_EAP_Opaque_v2*` / `M_EAP_Foliage_Masked_v2*`），已有 MIC 的 parent 不受影响。
     """
     alb = unreal.EditorAssetLibrary
     mel = unreal.MaterialEditingLibrary
     _safe(lambda: alb.make_directory(MAT_DIR))
-    if bool(_safe(lambda: alb.does_asset_exist(pkg), False)):
+    if pkg in _REBUILT_MATS:
         return alb.load_asset(pkg)
-    mat = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
-        pkg.rsplit("/", 1)[-1], MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
+    mat = alb.load_asset(pkg) if bool(_safe(lambda: alb.does_asset_exist(pkg), False)) else None
+    if mat is not None:
+        try:
+            mel.delete_all_material_expressions(mat)
+            _log("重建 EAP 母材质节点图（路径不变）: " + pkg)
+        except Exception as exc:  # noqa: BLE001
+            _warn("清空旧节点失败，删资产重建 %s: %r" % (pkg, exc))
+            _safe(lambda: alb.delete_asset(pkg))
+            mat = None
+    if mat is None:
+        mat = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+            pkg.rsplit("/", 1)[-1], MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
     _safe(lambda: mat.set_editor_property(
         "blend_mode", unreal.BlendMode.BLEND_MASKED if masked else unreal.BlendMode.BLEND_OPAQUE))
     if masked:
@@ -297,20 +574,35 @@ def _ensure_material(pkg, masked, normal_tex=None, base_tex=None):
         _safe(lambda: nm.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL))
         _safe(lambda: nm.set_editor_property("texture", normal_tex))
         _safe(lambda: mel.connect_material_property(nm, "RGB", unreal.MaterialProperty.MP_NORMAL))
-    for pname, val, y, prop in (("Metallic", 0.0, 420, unreal.MaterialProperty.MP_METALLIC),
-                                ("Roughness", 0.9, 560, unreal.MaterialProperty.MP_ROUGHNESS)):
+    for pname, val, y, prop in (("Metallic", 0.0, 420, unreal.MaterialProperty.MP_METALLIC),):
         sp = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -300, y)
         _safe(lambda sp=sp, pname=pname: sp.set_editor_property("parameter_name", pname))
         _safe(lambda sp=sp, val=val: sp.set_editor_property("default_value", val))
         _safe(lambda sp=sp, prop=prop: mel.connect_material_property(sp, "", prop))
+    # roughness v1.6：贴图 R × RoughnessScale(0.9)。没有 override 时贴图默认白 → 1×0.9，与老行为一致
+    rs = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -300, 560)
+    _safe(lambda: rs.set_editor_property("parameter_name", "RoughnessScale"))
+    _safe(lambda: rs.set_editor_property("default_value", ROUGHNESS_SCALE))
+    rt = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSampleParameter2D, -700, 700)
+    _safe(lambda: rt.set_editor_property("parameter_name", "Roughness"))
+    _safe(lambda: rt.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR))
+    white = _safe(lambda: _linear_white_texture())
+    if white is not None and not isinstance(white, str):
+        _safe(lambda: rt.set_editor_property("texture", white))
+    rmul = mel.create_material_expression(mat, unreal.MaterialExpressionMultiply, -150, 700)
+    _safe(lambda: mel.connect_material_expressions(rt, "R", rmul, "A"))
+    _safe(lambda: mel.connect_material_expressions(rs, "", rmul, "B"))
+    _safe(lambda: mel.connect_material_property(rmul, "", unreal.MaterialProperty.MP_ROUGHNESS))
     for usage_name in USAGE_FLAGS:
         if hasattr(unreal.MaterialUsage, usage_name):
             _safe(lambda u=getattr(unreal.MaterialUsage, usage_name): mel.set_material_usage(mat, u))
     _safe(lambda: mel.recompile_material(mat))
     _safe(lambda: alb.save_loaded_asset(mat))
-    _log("已建 EAP 母材质 %s（%s%s%s）" % (pkg, "MASKED" if masked else "OPAQUE",
-                                         "，带法线" if normal_tex is not None else "",
-                                         "，带默认 BaseColor" if base_tex is not None else ""))
+    _REBUILT_MATS.add(pkg)
+    _log("已建 EAP 母材质 %s（%s%s%s，roughness=贴图×%.2f）" % (pkg, "MASKED" if masked else "OPAQUE",
+                                                          "，带法线" if normal_tex is not None else "",
+                                                          "，带默认 BaseColor" if base_tex is not None else "",
+                                                          ROUGHNESS_SCALE))
     return mat
 
 
@@ -327,10 +619,11 @@ def _is_alpha_material(src, expected_alpha_mode=None):
     return ("MASKED" in bu) or ("BLEND_BLEND" in bu) or ("TRANSLUCENT" in bu)
 
 
-def _normalize_materials(mesh, tag, expected_alpha_modes=None):
+def _normalize_materials(mesh, tag, expected_alpha_modes=None, glb_path=None):
     """把 Interchange 自动生成的树材质换成 EAP 母材质派生的 MIC，返回覆盖材质列表 + 证据。
 
-    三件事一次做完：叶子 BLEND → MASKED（省排序、能正常裁边）、metallic 0.4 → 0（去塑料感）、
+    四件事一次做完：叶子 BLEND → MASKED（省排序、能正常裁边）、metallic 0.4 → 0（去塑料感）、
+    贴图按三档设压缩、每槽生成 roughness 灰度贴图并挂到 MIC（`Roughness`）+ `RoughnessScale`=0.9。
     补 `bUsedWithNanite` / `bUsedWithInstancedStaticMeshes` 用法标记（否则打包后可能丢材质）。
     """
     alb = unreal.EditorAssetLibrary
@@ -361,6 +654,19 @@ def _normalize_materials(mesh, tag, expected_alpha_modes=None):
                                                 "_n" if "Normal" in tex_map else "")
         base_mat = _ensure_material(base_pkg, masked, normal_tex=tex_map.get("Normal"),
                                     base_tex=tex_map.get("BaseColor"))
+        # 贴图三档：BaseColor=TC_Default+sRGB，Normal=TC_Normalmap+线性，数据贴图=TC_Masked+线性
+        tex_settings = []
+        for pname, kind in (("BaseColor", "basecolor"), ("Normal", "normal")):
+            if tex_map.get(pname) is not None:
+                tex_settings.append(_set_texture_settings(tex_map[pname], kind))
+        rough_tex, rough_ev = None, None
+        if tex_map.get("BaseColor") is not None:
+            try:
+                rough_tex, rough_ev = _make_roughness_texture(
+                    tex_map["BaseColor"], tag=tag, slot=slot, glb_path=glb_path)
+                tex_settings.append(rough_ev)
+            except Exception as exc:  # noqa: BLE001
+                _warn("roughness 贴图生成失败 tag=%s slot=%d: %r" % (tag, slot, exc))
         mi = alb.load_asset(pkg) if bool(_safe(lambda: alb.does_asset_exist(pkg), False)) else None
         if mi is None:
             mi = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
@@ -370,11 +676,16 @@ def _normalize_materials(mesh, tag, expected_alpha_modes=None):
         _safe(lambda: mel.update_material_instance(mi))
         for param, tex in tex_map.items():
             _safe(lambda param=param, tex=tex: mel.set_material_instance_texture_parameter_value(mi, param, tex))
+        if rough_tex is not None:
+            _safe(lambda: mel.set_material_instance_texture_parameter_value(mi, "Roughness", rough_tex))
+        _safe(lambda: mel.set_material_instance_scalar_parameter_value(mi, "RoughnessScale", ROUGHNESS_SCALE))
         _safe(lambda: mel.update_material_instance(mi))
         _safe(lambda: alb.save_loaded_asset(mi))
         applied_base = _safe(lambda: str(mel.get_material_instance_texture_parameter_value(mi, "BaseColor").get_path_name()))
         applied_normal = _safe(lambda: str(mel.get_material_instance_texture_parameter_value(mi, "Normal").get_path_name())) \
             if "Normal" in tex_map else None
+        applied_rough = _safe(lambda: str(mel.get_material_instance_texture_parameter_value(mi, "Roughness").get_path_name())) \
+            if rough_tex is not None else None
         overrides.append(mi)
         evidence.append({
             "slot": slot,
@@ -387,11 +698,17 @@ def _normalize_materials(mesh, tag, expected_alpha_modes=None):
             "normalTex": _safe(lambda t=tex_map["Normal"]: str(t.get_path_name())) if "Normal" in tex_map else None,
             "appliedBaseColor": applied_base,
             "appliedNormal": applied_normal,
+            "roughnessTex": applied_rough,
+            "roughnessScale": ROUGHNESS_SCALE,
+            "roughnessMode": "texture" if rough_tex is not None else "scalar",
+            "roughnessSha256": (rough_ev or {}).get("sha256"),
+            "roughnessSource": (rough_ev or {}).get("source"),
+            "textureSettings": tex_settings,
             "texturesApplied": bool(applied_base and applied_base.endswith(
                 str(_safe(lambda t=tex_map["BaseColor"]: t.get_path_name())) if "BaseColor" in tex_map else "?")),
             "sourceMetallic": (src_map.get("scalars") or {}).get("MetallicFactor"),
             "metallic": 0.0,
-            "roughness": 0.9,
+            "roughness": ROUGHNESS_SCALE,
             "opacityClip": 0.33 if masked else None,
             "twoSided": bool(masked),
             "blendModeAfter": _safe(lambda: str(base_mat.get_editor_property("blend_mode"))),
@@ -399,9 +716,9 @@ def _normalize_materials(mesh, tag, expected_alpha_modes=None):
             "usage": {u: bool(_safe(lambda u=u: mel.has_material_usage(base_mat, getattr(unreal.MaterialUsage, u)), False))
                       for u in USAGE_FLAGS},
         })
-        _log("材质规范化 slot %d: %s %s → %s（metallic %.2f→0，贴图 BaseColor=%s）"
+        _log("材质规范化 slot %d: %s %s → %s（metallic %.2f→0，BaseColor=%s，roughness=%s×%.2f）"
              % (slot, evidence[-1]["sourceMaterial"], blend, pkg,
-                float(evidence[-1]["sourceMetallic"] or 0.0), applied_base))
+                float(evidence[-1]["sourceMetallic"] or 0.0), applied_base, applied_rough, ROUGHNESS_SCALE))
     bad = [e for e in evidence if not all(e["usage"].values())]
     if bad:
         _warn("材质用法标记仍然缺失: %s" % [e["material"] for e in bad])
@@ -461,6 +778,15 @@ def _sync_ground(items):
     info = {"centerM": [round(cx, 2), round(cy, 2)], "sizeM": [round(ex * 2, 1), round(ey * 2, 1)], "zM": round(z, 2)}
     _log("地面平面已同步: 中心 %s m，尺寸 %s m，z=%.2f m" % (info["centerM"], info["sizeM"], z))
     return info
+
+
+def _glb_path_of(asset, manifest_path):
+    """asset 的文件型模型绝对路径（roughness 贴图要从 glb 内嵌 BaseColor 取像素）。"""
+    model = asset.get("model") or {}
+    rel = str(model.get("path") or "")
+    if not rel:
+        return None
+    return rel if os.path.isabs(rel) else os.path.join(_repo_root(manifest_path), rel)
 
 
 def _asset_mesh_path(asset, manifest_path):
@@ -617,7 +943,8 @@ def _place_multi(manifest, assets, manifest_path, level_pkg, save, out_path):
         if str(model.get("source", "file")) == "file":
             mat_tag = "".join(ch for ch in str(aid or "asset") if ch.isalnum() or ch == "_")
             mat_info = _normalize_materials(
-                mesh, mat_tag, expected_alpha_modes=(asset.get("material") or {}).get("materials"))
+                mesh, mat_tag, expected_alpha_modes=(asset.get("material") or {}).get("materials"),
+                glb_path=_glb_path_of(asset, manifest_path))
             for slot, mi in enumerate(mat_info["overrideMaterials"]):
                 if mi is not None:
                     _safe(lambda slot=slot, mi=mi: comp.set_material(slot, mi))
@@ -680,6 +1007,7 @@ def _verify_multi(manifest, assets, level_pkg, out_path):
     """新进程读回多资产关卡：逐 asset 找 `EAP_Asset_<i>` 组件，记数量/transform/材质。"""
     loaded = _safe(lambda: unreal.EditorLoadingAndSavingUtils.load_map(level_pkg))
     _log("加载多资产落位关卡: %r" % (loaded,))
+    mel = unreal.MaterialEditingLibrary
     actor = _find_actor(ACTOR_LABEL)
     existing = _multi_components(actor)
     states, all_items = [], []
@@ -689,10 +1017,25 @@ def _verify_multi(manifest, assets, level_pkg, out_path):
         items = _instance_items(comp) if comp is not None else []
         mesh = _safe(lambda: comp.get_editor_property("static_mesh")) if comp is not None else None
         mats = []
+        mat_params = []
         if comp is not None:
             for j in range(int(_safe(lambda: comp.get_num_materials(), 0) or 0)):
                 mi = _safe(lambda j=j: comp.get_material(j))
                 mats.append(_safe(lambda mi=mi: str(mi.get_path_name()), None))
+                texs = []
+                for pname, kind in (("BaseColor", "basecolor"), ("Normal", "normal"), ("Roughness", "data")):
+                    tex = _safe(lambda mi=mi, pname=pname:
+                                mel.get_material_instance_texture_parameter_value(mi, pname))
+                    if tex is not None and not isinstance(tex, str):
+                        texs.append(_read_texture_settings(tex, kind))
+                mat_params.append({
+                    "material": _safe(lambda mi=mi: str(mi.get_path_name()), None),
+                    "roughnessTex": _safe(lambda mi=mi: str(
+                        mel.get_material_instance_texture_parameter_value(mi, "Roughness").get_path_name()), None),
+                    "roughnessScale": _safe(lambda mi=mi: float(
+                        mel.get_material_instance_scalar_parameter_value(mi, "RoughnessScale")), None),
+                    "textureSettings": texs,
+                })
         all_items.extend(items)
         cmp = _compare_items(((asset.get("placements") or {}).get("items")) or [], items)
         states.append({
@@ -702,6 +1045,7 @@ def _verify_multi(manifest, assets, level_pkg, out_path):
             "component": _safe(lambda: str(comp.get_name())) if comp is not None else None,
             "mesh": str(mesh.get_path_name()) if mesh else None,
             "materials": mats,
+            "materialParams": mat_params,
             "bboxPlacedM": _bbox([it["t"] for it in items]) if items else None,
             "items": items,
             **cmp,
@@ -765,7 +1109,8 @@ def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
         tag = os.path.splitext(os.path.basename(str(model.get("path") or "asset")))[0]
         tag = "".join(ch for ch in tag if ch.isalnum() or ch == "_")
         mat_info = _normalize_materials(
-            mesh, tag, expected_alpha_modes=(asset.get("material") or {}).get("materials"))
+            mesh, tag, expected_alpha_modes=(asset.get("material") or {}).get("materials"),
+            glb_path=_glb_path_of(asset, manifest_path))
         for slot, mi in enumerate(mat_info["overrideMaterials"]):
             if mi is not None:
                 _safe(lambda slot=slot, mi=mi: comp.set_material(slot, mi))
