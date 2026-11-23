@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T19:05:00+08:00",
+  "updatedAt": "2026-11-23T20:00:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -29,7 +29,7 @@
       "id": "P1",
       "name": "EAP 多引擎资产管线",
       "subtitle": "主线 · 补 PCG 资格缺口 · NO.01 下一代",
-      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化 + 多资产 20 资产（13/13 断言）+ 真实双树种混排（17/17 断言）",
+      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化 + 多资产 20 资产（13/13 断言）+ 真实双树种混排（17/17 断言）；TRAE 任务单 3（编译判据修复）已下发",
       "progress": 90,
       "status": "进行中",
       "items": [
@@ -145,6 +145,12 @@
           "name": "性能表：导入/材质/碰撞 三段各 20 资产",
           "status": "todo",
           "date": "01-10"
+        },
+        {
+          "name": "TRAE 任务单 3：修材质编译假 PASS 通道（空断言 + 子进程 returncode 未判）",
+          "status": "todo",
+          "owner": "trae",
+          "date": "11-23"
         }
       ]
     },
@@ -187,35 +193,50 @@
       "id": "P3",
       "name": "宝箱 / NO.07 模块四",
       "subtitle": "用户搭 ComfyUI 工作流，lead 验证",
-      "phase": "策划案已出",
-      "progress": 10,
-      "status": "等待用户",
+      "phase": "P0–P6 全流程跑通（概念图 → TRELLIS2 高模 → 重拓扑 → UV/烘焙 → UE 接入）",
+      "progress": 85,
+      "status": "收尾（P6 六条：5 过 / 1 图待确认）",
       "items": [
         {
-          "name": "策划案（P0–P6 + 六条验收）",
+          "name": "策划案（P0–P6 + 验收六条）",
           "status": "done",
           "date": "11-21"
         },
         {
-          "name": "概念图 + 高模第一版",
-          "status": "doing",
-          "owner": "user",
-          "date": "11-27"
+          "name": "概念图 + 高模第一版（002 白膜 / 003 贴图）",
+          "status": "done",
+          "date": "11-23"
         },
         {
-          "name": "UV / 贴图段验收",
+          "name": "UV / 贴图段（重展 12 岛，BaseColor+Normal+AO 三张 1024²）",
+          "status": "done",
+          "date": "11-23"
+        },
+        {
+          "name": "重拓扑 QuadriFlow（1,372 面 / 2,730 三角 / 四边 99.0%）",
+          "status": "done",
+          "date": "11-23"
+        },
+        {
+          "name": "UE 接入 + P5/P6 验收（包围盒逐位一致、材质按 PBR 接线）",
+          "status": "done",
+          "date": "11-23"
+        },
+        {
+          "name": "黑斑根因定位（高模铰链烘入 BaseColor + 面板 UV 仅约 150×100 texel），决定接受记录",
+          "status": "done",
+          "date": "11-23"
+        },
+        {
+          "name": "P6+ 彻底修黑斑：重展面板 UV → 重烘 → 手绘 → 重导",
           "status": "todo",
           "date": "12-05"
         },
         {
-          "name": "重拓扑 QuadriFlow ≤3000 三角面",
+          "name": "UE 清理残留：删 NewMap_HLOD0_Instancing / Untitled_HLOD0_Instancing",
           "status": "todo",
-          "date": "12-14"
-        },
-        {
-          "name": "UE 带材质 + 六条全过",
-          "status": "todo",
-          "date": "12-20"
+          "owner": "user",
+          "date": "11-23"
         }
       ]
     }
