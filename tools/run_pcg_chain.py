@@ -361,7 +361,7 @@ def _run_real_multi(args):
         ue_reason = "找不到 " + args.ue
     elif not os.path.isfile(args.project):
         ue_reason = "找不到 " + args.project
-    placed = verify = compile_info = None
+    placed = verify = compile_info = compile_run = None
     if ue_reason:
         print("[4/7][5/7][6/7] SKIP UE: %s（只跑 fixture/manifest/validate）" % ue_reason)
     else:
@@ -415,12 +415,15 @@ def _run_real_multi(args):
             bad_lines = [ln.strip() for ln in out.splitlines() if "Failed to compile Material" in ln]
             for ln in bad_lines[:4]:
                 print("     " + ln[:200])
+            compile_run = {"exit": p.returncode, "failedLines": len(bad_lines)}
+            if p.returncode != 0:
+                fails.append("RHI 材质编译进程退出码 %d" % p.returncode)
             if os.path.isfile(REAL_MULTI_COMPILE_JSON):
                 with open(REAL_MULTI_COMPILE_JSON, "r", encoding="utf-8-sig") as fh:
                     compile_info = json.load(fh)
                 mats = compile_info.get("materials") or {}
-                print("[6/7] 材质编译: %d 个，failed=%d（期望 0）: %s"
-                      % (len(mats), len(bad_lines), sorted(mats.keys())))
+                print("[6/7] 材质编译: %d 个，日志 Failed to compile=%d，exit=%d: %s"
+                      % (len(mats), len(bad_lines), p.returncode, sorted(mats.keys())))
             else:
                 fails.append("材质编译复检证据未生成: " + REAL_MULTI_COMPILE_JSON)
         else:
@@ -480,10 +483,16 @@ def _run_real_multi(args):
                 mat_bad.append((v.get("id"), mats))
         checks.append(("读回材质 override 都是 EAP MIC", not mat_bad, "bad=%s" % (mat_bad or "none")))
         checks.append(("verify.ok == true", verify.get("ok") is True, "ok=%s" % verify.get("ok")))
-    if compile_info is not None:
-        mats = compile_info.get("materials") or {}
-        failed = [k for k, v in mats.items() if isinstance(v, dict) and v.get("ok") is False]
-        checks.append(("材质编译 failed == 0", not failed, "failed=%s" % (failed or "none")))
+    if compile_run is not None:
+        # 判据只看进程退出码 + 日志；证据里的 shaderCompiled 是弱信号，不单独作数
+        mats = (compile_info or {}).get("materials") or {}
+        mic_n = sum(1 for k in mats if "/MI_EAP_" in k)
+        want_n = sum(len(((a.get("material") or {}).get("materials") or [])) for a in assets_m)
+        checks.append(("材质编译 exit==0 / 无 Failed to compile / 材质数一致",
+                       compile_run["exit"] == 0 and compile_run["failedLines"] == 0
+                       and mic_n > 0 and mic_n == want_n,
+                       "exit=%d failed=%d mic=%d/%d"
+                       % (compile_run["exit"], compile_run["failedLines"], mic_n, want_n)))
 
     print("[7/7] 断言")
     for name, ok, detail in checks:

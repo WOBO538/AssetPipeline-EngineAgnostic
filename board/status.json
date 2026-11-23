@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T20:00:00+08:00",
+  "updatedAt": "2026-11-23T20:25:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -29,7 +29,7 @@
       "id": "P1",
       "name": "EAP 多引擎资产管线",
       "subtitle": "主线 · 补 PCG 资格缺口 · NO.01 下一代",
-      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化 + 多资产 20 资产（13/13 断言）+ 真实双树种混排（17/17 断言）；TRAE 任务单 3（编译判据修复）已下发",
+      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化 + 多资产 20 资产（13/13 断言）+ 真实双树种混排（17/17 断言）+ 任务单 3 判据修复（--with-compile 18/18；--tree 源关卡误删待补跑）",
       "progress": 90,
       "status": "进行中",
       "items": [
@@ -112,7 +112,8 @@
         {
           "name": "真实双树种混排：conifer + broadleaf 同一份 1892 点散点，2 个 ISM 落位/读回（17/17 断言，真实 glb）",
           "status": "done",
-          "date": "11-23"
+          "date": "11-23",
+          "note": "2026-11-23 本机复跑 --with-compile 18/18（exit=0，MIC 4/4）；lead 机 OOM（exit=3）属内存环境，换环境后复验"
         },
         {
           "name": "地块扩到 200×200 m（1892 实例，9/9 断言）",
@@ -148,9 +149,17 @@
         },
         {
           "name": "TRAE 任务单 3：修材质编译假 PASS 通道（空断言 + 子进程 returncode 未判）",
-          "status": "todo",
+          "status": "done",
           "owner": "trae",
-          "date": "11-23"
+          "date": "11-23",
+          "note": "判据改为 exit==0 + 日志无 Failed to compile Material + 证据 MIC 数==manifest 槽位总数；--multi 13/13、--real-multi 17/17、--with-compile 18/18"
+        },
+        {
+          "name": "--tree 16 条断言补跑（环境阻塞：源关卡 /Game/Untitled 误删）",
+          "status": "todo",
+          "owner": "user",
+          "date": "11-23",
+          "note": "2026-11-23 19:43 清理残留时误删源关卡；备份恢复版只读探针 instanceCount=233（11-22 旧状态），不能代表 1892 点，禁止用于 --tree；关卡恢复到 1892 点状态后必须补跑这一条"
         }
       ]
     },
@@ -194,8 +203,8 @@
       "name": "宝箱 / NO.07 模块四",
       "subtitle": "用户搭 ComfyUI 工作流，lead 验证",
       "phase": "P0–P6 全流程跑通（概念图 → TRELLIS2 高模 → 重拓扑 → UV/烘焙 → UE 接入）",
-      "progress": 85,
-      "status": "收尾（P6 六条：5 过 / 1 图待确认）",
+      "progress": 88,
+      "status": "收尾完成（P6 六条 5 过 / 1 待确认：3 张人物失败图未定位）",
       "items": [
         {
           "name": "策划案（P0–P6 + 验收六条）",
@@ -233,9 +242,14 @@
           "date": "12-05"
         },
         {
-          "name": "UE 清理残留：删 NewMap_HLOD0_Instancing / Untitled_HLOD0_Instancing",
-          "status": "todo",
+          "name": "UE 清理残留（NewMap_HLOD0_Instancing / Untitled_HLOD0_Instancing 已删；磁盘核验 Content 根只剩 PCG_ForestScatter）",
+          "status": "done",
           "owner": "user",
+          "date": "11-23"
+        },
+        {
+          "name": "关卡真实路径更正：/Game/NO07_Chest/L_Chest_P5/NewMap（另存为时名称未改）",
+          "status": "done",
           "date": "11-23"
         }
       ]

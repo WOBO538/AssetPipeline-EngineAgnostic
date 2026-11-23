@@ -452,10 +452,18 @@ metallic=0、usage 标记齐全、alpha 槽为 MASKED。
   `EXCEPTION_INT_DIVIDE_BY_ZERO` 崩掉（2026-11-22 实测）。
 - **Unity 端还没实跑树资产（v1.2）**：`tree_manifest.json` 已经有 `engineTargets.Unity`（`Assets/EAP/Trees`），
   但 Unity 侧导入尚未执行（计划 2026-11-25 跑空工程验证）。
-- **`--real-multi` 默认跳过 RHI 材质编译复检（v1.5）**：双树种 2 个 ISM 带 RHI 起引擎在本机连续两次
-  `Out of video memory` / `Ran out of memory（页面文件太小）` 崩掉（exit=3），不是代码问题。
-  因此 `--real-multi` 默认不开 compile 步，需要时加 `--with-compile`；材质规范化本身已由断言覆盖
-  （metallic=0 / usage 标记 / alpha 槽 MASKED），缺的只是"编译不失败"这一道 RHI 复查。
+- **`--with-compile` 是严格模式（v1.5）**：`--real-multi` 默认不跑带 RHI 的材质编译复检；加上 `--with-compile`
+  后判据是「编译子进程 `exit == 0` **且**日志无 `Failed to compile Material`，**且**证据里的 MIC 数
+  == manifest 材质槽位总数」三条件同时满足。**进程崩溃就是 CHAIN FAIL**（不是 SKIP、更不是 PASS），
+  没有任何"忽略 exit=3"的开关；证据里的 `shaderCompiled` 只是弱信号，不单独作数。
+  2026-11-23 本机实测 18/18 PASS（exit=0，6 个材质、MIC 4/4）；同一判据在 lead 机曾遇
+  `Out of video memory` / `Ran out of memory`（固定 16 GB 页面文件、编辑器提交约 9 GB、commit limit 47.4 GB），
+  属内存环境问题，换环境/扩大页面文件后复验。
+- **`--tree` 本轮回归环境阻塞（v1.5，2026-11-23）**：源关卡 `/Game/Untitled` 在 19:43 清理残留时被误删
+  （非代码回归），导致 export 回退到 `/Temp/Untitled_1`、points=0。磁盘上从
+  `Saved/EAP/backup/level_20261122-163435` 恢复的版本是 11-22 16:34 旧状态（只读导出探针
+  `instanceCount=233`），**不能代表 200 m / 1892 点**，所以本轮不拿它跑 `--tree`，也未对该关卡做任何写入。
+  `--tree` 的 16 条断言一字未改，等关卡恢复到 1892 点状态后**必须补跑这一条**。
 
 ## 六、下一步（阶段二/三）
 
