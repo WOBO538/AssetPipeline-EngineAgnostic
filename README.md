@@ -281,6 +281,51 @@ M_EAP_Opaque / M_EAP_Foliage_Masked:
    新增 `ue/Content/Python/check_material_compile.py`：链路末尾用**带 RHI** 的无头进程加载关卡里
    实际用到的材质并重编译，抓日志里的 `Failed to compile Material` → 进第 16 条断言。自那以后白模会直接 FAIL。
 
+## 三之六、多资产 manifest：一份散点文件 → 20 个 asset + 各自 placements（v1.4）
+
+W2 的验收缺口是「一份 **20 个资产** 的 manifest 要通过校验」。v1.1 的链路是「1 个网格 = 1 个 asset」，
+这一格把分组打开：散点文件里出现多个不同网格时，**每个网格一条 asset**，`placements` 只装属于它的点。
+
+```
+docs/pcg_multi_fixture.json（合成 fixture，seed=20261123，20 网格 / 156 实例 / cm）
+   ↓ pcg_to_manifest.py --scatter ... --out ...
+schemas/pcg_manifest_multi.json（20 assets / 156 placements / m，errors=0）
+   ↓ place_manifest.place()   /Game/EAP/PCG/PlacedMulti：1 个 Actor + 20 个 ISM（EAP_Asset_0..19）
+   ↓ place_manifest.verify()  新进程重载关卡，逐 asset 读回数量与 transform
+```
+
+```powershell
+# 2) 合成 fixture（固定 seed，重复跑逐字节一致）→ 多资产 manifest → 校验
+python tools/make_multi_asset_fixture.py --out docs/pcg_multi_fixture.json
+python tools/pcg_to_manifest.py --scatter docs/pcg_multi_fixture.json --out schemas/pcg_manifest_multi.json
+python tools/validate_manifest.py schemas/pcg_manifest_multi.json      # assets=20 errors=0 warnings=0 / OK
+
+# 3) 多资产全链路（含 UE 无头落位 + 新进程读回）：13 条断言
+python tools/run_pcg_chain.py --multi --expect-assets 20
+# 期望末行：CHAIN PASS assets=20 placements=156
+
+# UE 不可用时只跑前段（fixture / manifest / validate，7 条纯 Python 断言）
+python tools/run_pcg_chain.py --multi --expect-assets 20 --skip-ue
+```
+
+实测（2026-11-23）：fixture 20 资产 / 156 实例；manifest `assets=20 placements=156`；
+UE 落位 `placed=156/156 levelSaved=True`；新进程读回 `assets=20 count=156 ok=True matched=20/20`；
+最大误差 `t=0.000000 m / r=0.0000° / s=0.000000`（阈值 1e-3 m / 0.1° / 1e-3）。重跑一次结果相同（幂等）。
+
+设计要点：
+
+- **分组键是 `mesh.packagePath`**：`pcg_to_manifest.py` 按网格分组，每条 asset 只带属于自己的 points；
+  `checks` 里继续记 `instance_count==placements.count`，`validate_manifest.py` 会复核这条声明
+  （不新增字段、不改 schema，仍兼容 v1.1 的 9 条负例）。
+- **单网格输入保持字节级等价**：`docs/pcg_forest_pilot.json` 重跑后与 `schemas/pcg_manifest.json`
+  逐字段对比只差 `generatedAt`；老链路 `--tree --expect-span-m 200` 仍 16/16 PASS。
+- **组件名可预测**：每个 asset 一个 ISM，创建后 `rename` 成 `EAP_Asset_<index>` 并写同名
+  `component_tags`；读回按 tag 找组件，不依赖创建顺序。重跑复用同 tag 组件、先 `clear_instances()`
+  再落，asset 变少时清掉多余组件（幂等）。
+- **合成 fixture 的网格是占位**：`/Game/EAP/PCG/Multi/Meshes/SM_Prop_A01..A20` 在 UE 里不存在，
+  `--multi` 会设 `EAP_ALLOW_SYNTHETIC_MESH=1`，由落位端从 `/Engine/BasicShapes/*` 复制派生；
+  真实链路（glb / 引擎自带网格）走不到这条分支。
+
 ## 四、阶段一验收（6 条，逐条可判）
 
 | # | 判据 | 判法 |
@@ -326,7 +371,8 @@ M_EAP_Opaque / M_EAP_Foliage_Masked:
 - **贴图压缩格式**：UE 的 `TC_Normalmap` / Unity 的 crunch 等属于平台设置，本阶段只写进 manifest 的期望值，不保证跨机器一致。
 - **LOD/HLOD**：manifest 里记录 `lods[]`，本阶段只校验不生成。
 - **placements 落位只落 transform（v1.1）**：`place_manifest.py` 把 1892 条落成 ISM 实例并验证坐标/旋转/缩放，
-  但 manifest 里的材质、碰撞、LOD 字段本阶段不落；落位只支持"单资产 manifest"（当前就是 1 个 Cube 网格）。
+  但 manifest 里的材质、碰撞、LOD 字段本阶段不落；v1.4 起落位支持多资产（每 asset 一个 ISM），
+  但材质规范化只对文件型 glb（`model.source=file`）生效。
 - **给关卡 Actor 加组件的坑（v1.1）**：`unreal.new_object(InstancedStaticMeshComponent, outer=actor)` 建出来的组件
   不在 `OwnedComponents`，存关卡后会被丢弃；必须用 `SubobjectDataSubsystem.add_new_subobject`（Details→Add Component 的 API）。
 - **PCG 点级 metadata 读不到（v1.1）**：`get_generated_graph_output()` 能拿到 `PCGDataCollection`（tagged=1），但点级 attribute（密度/seed）没有暴露的 Python 访问器。所以出口以**实例 transform** 为准——实例是最终结果，反而更可信。
@@ -344,8 +390,15 @@ M_EAP_Opaque / M_EAP_Foliage_Masked:
   （broadleaf 3 505 → 2 354）——返回的是 **Nanite fallback** 简化网格。引用数字时写明是哪一侧。
 - **树资产没有 LOD（v1.2）**：两棵树都只有 1 个 LOD（3 370 / 3 505 面，符合"低模无 LOD"门槛），
   1892 棵全量无 LOD 只能靠 Nanite 与实例剔除撑；LOD 链是下一项工作。
-- **只有单树种全量替换（v1.2）**：本链路一次只落一个网格（`place_manifest` 单资产），阔叶树还没接进落位；
-  双树种混排需要把落位端扩成多资产 / 多 ISM。
+- **只有单树种全量替换（v1.2）**：`--tree` 一次只落一个网格；多资产 ISM 链路已在 v1.4 打通
+  （20 资产合成 fixture），但**真实双树种资产还没接进落位**，混排要等下一轮。
+- **多资产 fixture 是合成的（v1.4）**：`docs/pcg_multi_fixture.json` 由 `tools/make_multi_asset_fixture.py`
+  按固定 seed 生成，20 个网格名不对应真实美术资产；UE 侧的 20 个网格是 `--multi` 从
+  `/Engine/BasicShapes/*` 复制出来的占位（`EAP_ALLOW_SYNTHETIC_MESH=1`），只用于验证多资产链路本身。
+- **多资产链路不跑 UE 消费端 dry-run（v1.4）**：`--multi` 只做 fixture → manifest → validate →
+  落位 → 读回；`consume_manifest` 的多资产读回仍由默认/`--tree` 链路覆盖（当前都是单 asset）。
+- **多资产读回按 tag 找组件（v1.4）**：组件名靠 `rename` + `component_tags` 固定为 `EAP_Asset_<i>`；
+  如果手工在编辑器里改了 tag/名字，`verify()` 会找不到该 asset（表现为 count=0，链路 FAIL 而不是静默通过）。
 - **落位关卡不带灯光与地面（v1.2）**：`PlacedTrees` 由无头新建，只有 `EAP_Placements`。灯光/天空/地面
   （`place_manifest.stage()`）**只能在真实编辑器里跑**——无头加 SkyAtmosphere/SkyLight 会
   `EXCEPTION_INT_DIVIDE_BY_ZERO` 崩掉（2026-11-22 实测）。

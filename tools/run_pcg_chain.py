@@ -39,8 +39,13 @@ TREE_MANIFEST_JSON = os.path.join(REPO, "schemas", "tree_manifest.json")
 TREE_PLACE_JSON = os.path.join(REPO, "docs", "placed_tree.json")
 TREE_VERIFY_JSON = os.path.join(REPO, "docs", "placed_tree_verify.json")
 COMPILE_JSON = os.path.join(REPO, "docs", "material_compile_check.json")
+MULTI_FIXTURE_JSON = os.path.join(REPO, "docs", "pcg_multi_fixture.json")
+MULTI_MANIFEST_JSON = os.path.join(REPO, "schemas", "pcg_manifest_multi.json")
+MULTI_PLACE_JSON = os.path.join(REPO, "docs", "placed_multi.json")
+MULTI_VERIFY_JSON = os.path.join(REPO, "docs", "placed_multi_verify.json")
 DEFAULT_LEVEL_PKG = "/Game/EAP/PCG/PlacedPilot"
 DEFAULT_TREE_LEVEL_PKG = "/Game/EAP/PCG/PlacedTrees"
+DEFAULT_MULTI_LEVEL_PKG = "/Game/EAP/PCG/PlacedMulti"
 DEFAULT_UE = r"C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
 DEFAULT_PROJECT = r"D:\UE_Projects\VegetationPCG\VegetationPCG.uproject"
 
@@ -125,6 +130,156 @@ def _ue_cmd(ue, project, script, nullrhi=True):
     return cmd
 
 
+def _run_multi(args):
+    """多资产链路：合成 fixture → 多 asset manifest → validate → UE 落位 → 新进程读回。"""
+    import make_multi_asset_fixture
+    import pcg_to_manifest
+    import validate_manifest
+
+    expect_assets = args.expect_assets or 20
+    fails = []
+    print("[0/6] 多资产链路（fixture → manifest → validate → UE 落位 → 读回）")
+
+    fx = make_multi_asset_fixture.build(MULTI_FIXTURE_JSON, seed=args.multi_seed,
+                                        asset_count=expect_assets)
+    with open(MULTI_FIXTURE_JSON, "r", encoding="utf-8-sig") as fh:
+        scatter = json.load(fh)
+    sc = scatter.get("scatter") or {}
+    points_n = len(sc.get("points") or [])
+    instance_n = sc.get("instanceCount")
+    ism_n = sum((m.get("instanceCount") or 0) for m in (sc.get("instancedMeshes") or []))
+    print("[1/6] fixture: assets=%d points=%d instanceCount=%s ism_sum=%d seed=%d -> %s"
+          % (fx["assets"], points_n, instance_n, ism_n, fx["seed"], MULTI_FIXTURE_JSON))
+
+    manifest, summ = pcg_to_manifest.build(MULTI_FIXTURE_JSON, MULTI_MANIFEST_JSON)
+    pl_n = summ["placements"]
+    print("[2/6] manifest: assets=%d placements=%d pipelineId=%s -> %s"
+          % (summ["assets"], pl_n, manifest.get("pipelineId"), MULTI_MANIFEST_JSON))
+
+    res = validate_manifest.validate(MULTI_MANIFEST_JSON)
+    for w in res["warnings"]:
+        print("     WARN " + w)
+    for e in res["errors"]:
+        print("     ERROR " + e)
+    print("[3/6] validate: assets=%d errors=%d warnings=%d"
+          % (res["assets"], len(res["errors"]), len(res["warnings"])))
+    if res["errors"]:
+        fails.append("manifest 校验有 %d 个 error" % len(res["errors"]))
+
+    # ---- 纯 Python 断言：fixture / manifest 自洽 ----
+    checks = [
+        ("fixture.assets == %d" % expect_assets, fx["assets"] == expect_assets, "assets=%d" % fx["assets"]),
+        ("points == instanceCount", points_n == instance_n, "%d vs %s" % (points_n, instance_n)),
+        ("points == ism_sum", points_n == ism_n, "%d vs %d" % (points_n, ism_n)),
+        ("fixture.instances == manifest.placements", points_n == pl_n, "%d vs %d" % (points_n, pl_n)),
+        ("manifest.assets == %d" % expect_assets, summ["assets"] == expect_assets, "assets=%d" % summ["assets"]),
+        ("validate errors == 0", not res["errors"], "errors=%d" % len(res["errors"])),
+    ]
+    bad_assets = []
+    for a in manifest.get("assets") or []:
+        pl = a.get("placements") or {}
+        claimed = None
+        for c in a.get("checks") or []:
+            if c.get("rule") == "instance_count==placements.count":
+                val = c.get("value") or []
+                if isinstance(val, list) and len(val) == 2:
+                    claimed = int(val[0])
+        if claimed is None or claimed != pl.get("count") or len(pl.get("items") or []) != pl.get("count"):
+            bad_assets.append(a.get("id"))
+    checks.append(("每个 asset instance_count == placements.count", not bad_assets,
+                   "bad=%s" % (bad_assets or "none")))
+
+    # ---- UE 落位 / 读回 ----
+    ue_reason = None
+    if args.skip_ue:
+        ue_reason = "显式 --skip-ue"
+    elif not os.path.isfile(args.ue):
+        ue_reason = "找不到 " + args.ue
+    elif not os.path.isfile(args.project):
+        ue_reason = "找不到 " + args.project
+
+    placed = verify = None
+    if ue_reason:
+        print("[4/6][5/6] SKIP UE: %s（只跑 fixture/manifest/validate）" % ue_reason)
+    else:
+        env = {
+            "EAP_PLACE_MODE": "place",
+            "EAP_MANIFEST": MULTI_MANIFEST_JSON,
+            "EAP_LEVEL_PKG": DEFAULT_MULTI_LEVEL_PKG,
+            "EAP_PLACE_SAVE": "1",
+            "EAP_PLACE_OUT": MULTI_PLACE_JSON,
+            "EAP_VERIFY_OUT": MULTI_VERIFY_JSON,
+            "EAP_ALLOW_SYNTHETIC_MESH": "1",   # 合成 fixture 的网格在 UE 侧从 BasicShapes 派生
+        }
+        p, _ = _run("4/6 UE 多资产落位", _ue_cmd(args.ue, args.project, PLACE_SCRIPT), env=env)
+        if p.returncode != 0:
+            fails.append("UE 多资产落位退出码 %d" % p.returncode)
+        if os.path.isfile(MULTI_PLACE_JSON):
+            with open(MULTI_PLACE_JSON, "r", encoding="utf-8-sig") as fh:
+                placed = json.load(fh)
+            pa = placed.get("assets") or []
+            print("[4/6] 落位: assets=%d placed=%s/%s levelSaved=%s"
+                  % (len(pa), placed.get("placed"), placed.get("expected"), placed.get("levelSaved")))
+            print("     bbox=%s 组件=%s" % (placed.get("bboxPlacedM"),
+                                           [x.get("component") for x in pa[:4]]))
+        else:
+            fails.append("多资产落位证据未生成: " + MULTI_PLACE_JSON)
+
+        env2 = dict(env)
+        env2["EAP_PLACE_MODE"] = "verify"
+        p, _ = _run("5/6 UE 多资产读回", _ue_cmd(args.ue, args.project, PLACE_SCRIPT), env=env2)
+        if p.returncode != 0:
+            fails.append("UE 多资产读回退出码 %d" % p.returncode)
+        if os.path.isfile(MULTI_VERIFY_JSON):
+            with open(MULTI_VERIFY_JSON, "r", encoding="utf-8-sig") as fh:
+                verify = json.load(fh)
+            va = verify.get("assets") or []
+            print("[5/6] 读回: assets=%d count=%s ok=%s matched=%s/%s"
+                  % (len(va), verify.get("count"), verify.get("ok"),
+                     verify.get("assetsMatched"), len(va)))
+        else:
+            fails.append("多资产读回证据未生成: " + MULTI_VERIFY_JSON)
+
+    if placed is not None:
+        pa = placed.get("assets") or []
+        checks.append(("UE 落位 asset 数 == manifest", len(pa) == summ["assets"],
+                       "%d vs %d" % (len(pa), summ["assets"])))
+        checks.append(("UE 落位总数 == manifest.placements", placed.get("placed") == pl_n,
+                       "%s vs %d" % (placed.get("placed"), pl_n)))
+    if verify is not None:
+        va = verify.get("assets") or []
+        checks.append(("verify asset 数 == manifest", len(va) == summ["assets"],
+                       "%d vs %d" % (len(va), summ["assets"])))
+        bad = [(v.get("index"), v.get("count"), v.get("expected")) for v in va
+               if v.get("count") != v.get("expected") or v.get("matched") != v.get("expected")]
+        checks.append(("每个 asset 读回数量 == manifest", not bad, "bad=%s" % (bad or "none")))
+        mt = max([float(v.get("maxLocErrM") or 0.0) for v in va] or [0.0])
+        mr = max([float(v.get("maxRotErrDeg") or 0.0) for v in va] or [0.0])
+        ms = max([float(v.get("maxScaleErr") or 0.0) for v in va] or [0.0])
+        checks.append(("读回 transform 误差 (<1e-3m/<0.1deg/<1e-3)", mt < 1e-3 and mr < 0.1 and ms < 1e-3,
+                       "t=%.6f m r=%.4f deg s=%.6f" % (mt, mr, ms)))
+        checks.append(("verify.ok == true", verify.get("ok") is True, "ok=%s" % verify.get("ok")))
+
+    print("[6/6] 断言")
+    for name, ok, detail in checks:
+        print("     %-42s %s  (%s)" % (name, "PASS" if ok else "FAIL", detail))
+        if not ok:
+            fails.append("%s: %s" % (name, detail))
+
+    if fails:
+        print("\nCHAIN FAIL: " + " | ".join(fails))
+        return 1
+    if ue_reason:
+        print("注意: UE 未参与本次多资产链路（%s）。" % ue_reason)
+    print("\nCHAIN PASS assets=%d placements=%d" % (summ["assets"], pl_n))
+    print("产物: %s" % MULTI_FIXTURE_JSON)
+    print("      %s" % MULTI_MANIFEST_JSON)
+    if verify is not None:
+        print("      %s" % MULTI_PLACE_JSON)
+        print("      %s" % MULTI_VERIFY_JSON)
+    return 0
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--ue", default=DEFAULT_UE)
@@ -144,7 +299,17 @@ def main(argv):
                     help="树资产清单（默认 assets/raw/trees/source_assets.json）")
     ap.add_argument("--skip-compile-check", action="store_true",
                     help="跳过带 RHI 的材质编译复检（--tree 时默认会跑，约多 30~60s）")
+    ap.add_argument("--multi", action="store_true",
+                    help="多资产链路：合成 fixture（20 网格）→ 多 asset manifest → 20 组件落位/读回")
+    ap.add_argument("--expect-assets", type=int, default=None,
+                    help="--multi 期望的 asset 数（默认 20）")
+    ap.add_argument("--multi-seed", type=int, default=20261123, help="--multi fixture 的固定随机 seed")
+    ap.add_argument("--skip-ue", action="store_true",
+                    help="--multi 跳过 UE 落位/读回，只跑 fixture/manifest/validate + 纯 Python 断言")
     args = ap.parse_args(argv[1:])
+
+    if args.multi:
+        return _run_multi(args)
 
     fails = []
     if not os.path.isfile(args.ue):

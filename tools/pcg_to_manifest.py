@@ -61,10 +61,14 @@ def build(scatter_path, out_path, pipeline_id=None):
         slot["points"].extend(m.get("points") or [])
         slot["instanceCount"] += m.get("instanceCount") or 0
 
+    # 多资产：散点文件里出现多个不同网格 → 每个网格一条 asset，各自带自己的 placements。
+    # 单网格输入走原来那条分支（输出必须与 v1.1 试点 manifest 字节级等价）。
+    multi = len(by_mesh) > 1
     assets = []
     for pkg, slot in sorted(by_mesh.items()):
-        name = _short(pkg)
-        aid = "SM_%s_PCG_Pilot" % name
+        short = _short(pkg)
+        name = short[3:] if multi and short.upper().startswith("SM_") else short
+        aid = "SM_%s_PCG_%s" % (name, "Multi" if multi else "Pilot")
         bounds = slot["mesh"].get("boundsCm") or {}
         bmin = _m(bounds.get("min") or [-50, -50, -50])
         bmax = _m(bounds.get("max") or [50, 50, 50])
@@ -73,9 +77,19 @@ def build(scatter_path, out_path, pipeline_id=None):
             bmax = [round(x + 0.5, 4) for x in bmax]
         items = [{"t": _m(p["t"]), "r": p["r"], "s": [round(float(x), 4) for x in p["s"]]}
                  for p in slot["points"]]
+        checks = [
+            {"rule": "mesh_is_engine_native", "pass": True, "value": pkg},
+            {"rule": "instance_count==placements.count", "pass": len(items) == slot["instanceCount"],
+             "value": [slot["instanceCount"], len(items)]},
+        ]
+        if not multi:   # 试点规模说明只属于 2026-10 的单网格试点，多资产批次里不写这句
+            checks.append({"rule": "pilot_scale_note", "pass": True,
+                           "value": "19 个实例是 2026-10 的试点规模（方盒子替树），不是成品密度"})
+        checks.append({"rule": "unity_target_skipped", "pass": True,
+                       "value": "引擎自带网格无 glb，Unity 端不适用"})
         assets.append({
             "id": aid,
-            "name": "%s · PCG 散点试点" % name,
+            "name": ("%s · PCG 多资产散点" if multi else "%s · PCG 散点试点") % name,
             "category": "env/vegetation",
             "type": "static_mesh",
             "model": {
@@ -101,21 +115,14 @@ def build(scatter_path, out_path, pipeline_id=None):
                 "count": len(items),
                 "items": items,
             },
-            "checks": [
-                {"rule": "mesh_is_engine_native", "pass": True, "value": pkg},
-                {"rule": "instance_count==placements.count", "pass": len(items) == slot["instanceCount"],
-                 "value": [slot["instanceCount"], len(items)]},
-                {"rule": "pilot_scale_note", "pass": True,
-                 "value": "19 个实例是 2026-10 的试点规模（方盒子替树），不是成品密度"},
-                {"rule": "unity_target_skipped", "pass": True,
-                 "value": "引擎自带网格无 glb，Unity 端不适用"},
-            ],
+            "checks": checks,
         })
 
     total = sum(a["placements"]["count"] for a in assets)
     manifest = {
         "manifestVersion": MANIFEST_VERSION,
-        "pipelineId": pipeline_id or ("eap-%s-pcg-pilot" % time.strftime("%Y%m%d")),
+        "pipelineId": pipeline_id or ("eap-%s-pcg-%s" % (time.strftime("%Y%m%d"),
+                                                         "multi" if multi else "pilot")),
         "generatedAt": _now(),
         "units": "m",
         "source": {
@@ -123,7 +130,9 @@ def build(scatter_path, out_path, pipeline_id=None):
             "tool": "ue-pcg-framework",
             "workflowId": graph.get("path") or "/Game/PCG_ForestScatter",
             "seed": seed if isinstance(seed, int) else 0,
-            "note": "Layer 1 数据出口试点：UE PCG 生成实例 → 散点 JSON → manifest v1.1 placements",
+            "note": ("Layer 1 多资产出口：一份散点文件里的多种网格各成一条 asset，各自带 placements"
+                     if multi else
+                     "Layer 1 数据出口试点：UE PCG 生成实例 → 散点 JSON → manifest v1.1 placements"),
         },
         "assets": assets,
     }
@@ -146,13 +155,33 @@ def build(scatter_path, out_path, pipeline_id=None):
 
 
 def main(argv):
-    if len(argv) < 3:
+    # 同时支持 `pcg_to_manifest.py <scatter> <out>` 和 `--scatter <scatter> --out <out>`
+    args, scatter, out_path, pipeline_id = argv[1:], None, None, None
+    rest, i = [], 0
+    while i < len(args):
+        a = args[i]
+        if a in ("--scatter", "--out", "--pipeline-id"):
+            if i + 1 >= len(args):
+                print(__doc__)
+                return 2
+            if a == "--scatter":
+                scatter = args[i + 1]
+            elif a == "--out":
+                out_path = args[i + 1]
+            else:
+                pipeline_id = args[i + 1]
+            i += 2
+            continue
+        rest.append(a)
+        i += 1
+    if scatter is None and len(rest) >= 1:
+        scatter = rest[0]
+    if out_path is None and len(rest) >= 2:
+        out_path = rest[1]
+    if not scatter or not out_path:
         print(__doc__)
         return 2
-    pipeline_id = None
-    if "--pipeline-id" in argv:
-        pipeline_id = argv[argv.index("--pipeline-id") + 1]
-    manifest, s = build(argv[1], argv[2], pipeline_id=pipeline_id)
+    manifest, s = build(scatter, out_path, pipeline_id=pipeline_id)
     print("assets=%d placements=%d meshes=%s" % (s["assets"], s["placements"], ",".join(s["meshes"])))
     print("scatter points=%d instanceCount=%s" % (s["scatterPoints"], s["scatterInstanceCount"]))
     print("OK -> %s" % s["out"])

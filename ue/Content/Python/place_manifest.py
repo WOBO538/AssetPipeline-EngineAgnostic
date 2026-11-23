@@ -41,6 +41,10 @@ OPAQUE_MAT = MAT_DIR + "/M_EAP_Opaque_v2"
 LEGACY_MATS = (MAT_DIR + "/M_EAP_Opaque", MAT_DIR + "/M_EAP_Foliage_Masked",
                MAT_DIR + "/M_EAP_Tree_Bark", MAT_DIR + "/M_EAP_Tree_Leaf")
 USAGE_FLAGS = ("MATUSAGE_STATIC_MESH", "MATUSAGE_INSTANCED_STATIC_MESHES", "MATUSAGE_NANITE")
+MULTI_TAG_PREFIX = "EAP_Asset_"
+# 合成 fixture 的占位网格来源（只给 --multi 用，需 EAP_ALLOW_SYNTHETIC_MESH=1）
+SYNTHETIC_BASES = ("/Engine/BasicShapes/Cube", "/Engine/BasicShapes/Sphere",
+                   "/Engine/BasicShapes/Cylinder", "/Engine/BasicShapes/Cone")
 
 
 def _log(msg):
@@ -459,6 +463,266 @@ def _sync_ground(items):
     return info
 
 
+def _asset_mesh_path(asset, manifest_path):
+    """manifest 的一条 asset → UE 里可加载的网格资产路径（glb 先导入，引擎网格直接用）。"""
+    model = asset.get("model") or {}
+    rel = str(model.get("path") or "")
+    if str(model.get("source", "file")) == "file" and rel.lower().endswith((".glb", ".gltf")):
+        return _import_glb(asset, manifest_path)
+    pkg = _mesh_asset_path(model.get("path"))
+    if not bool(_safe(lambda: unreal.EditorAssetLibrary.does_asset_exist(pkg), False)):
+        return _ensure_synthetic_mesh(pkg)
+    return pkg
+
+
+_SYNTHETIC_SEQ = [0]
+
+
+def _ensure_synthetic_mesh(pkg):
+    """合成 fixture 的网格在 UE 里不存在时，从 BasicShapes 复制一个占位网格。
+
+    只有 `tools/run_pcg_chain.py --multi` 会设 `EAP_ALLOW_SYNTHETIC_MESH=1`；
+    真实资产链路（文件型 glb / 引擎自带网格）走不到这里，避免"静默造资产"。
+    """
+    if os.environ.get("EAP_ALLOW_SYNTHETIC_MESH") != "1":
+        raise RuntimeError("网格不存在（未开启 EAP_ALLOW_SYNTHETIC_MESH）: " + pkg)
+    d = pkg.rsplit("/", 1)[0]
+    _safe(lambda: unreal.EditorAssetLibrary.make_directory(d))
+    base = SYNTHETIC_BASES[_SYNTHETIC_SEQ[0] % len(SYNTHETIC_BASES)]
+    _SYNTHETIC_SEQ[0] += 1
+    _safe(lambda: unreal.EditorAssetLibrary.duplicate_asset(base, pkg))
+    if not bool(_safe(lambda: unreal.EditorAssetLibrary.does_asset_exist(pkg), False)):
+        raise RuntimeError("合成网格复制失败: %s ← %s" % (pkg, base))
+    _safe(lambda: unreal.EditorAssetLibrary.save_asset(pkg))
+    _log("合成网格占位（测试用）: %s ← %s" % (pkg, base))
+    return pkg
+
+
+def _tag_of(comp):
+    tags = _safe(lambda: list(comp.get_editor_property("component_tags") or []), [])
+    return str(tags[0]) if tags else ""
+
+
+def _multi_components(actor):
+    """Actor 下带 `EAP_Asset_<i>` 标签的 ISM 组件（tag → comp）。"""
+    out = {}
+    if actor is None:
+        return out
+    for comp in _safe(lambda: list(actor.get_components_by_class(unreal.InstancedStaticMeshComponent)), []):
+        tag = _tag_of(comp)
+        if tag.startswith(MULTI_TAG_PREFIX):
+            out[tag] = comp
+    return out
+
+
+def _component_for(actor, index, existing):
+    """取（或新建）第 index 条 asset 的 ISM 组件，名字与标签都固定为 `EAP_Asset_<index>`。
+
+    `comp.rename()` 在 5.7 的 Python 里可用（2026-11-23 实测，返回 True 且名字立刻生效）；
+    component_tags 一起写，读回时不依赖组件创建顺序。
+    """
+    tag = "%s%d" % (MULTI_TAG_PREFIX, index)
+    comp = existing.get(tag)
+    if comp is not None:
+        return comp
+    comp = _add_ism(actor)
+    _safe(lambda: comp.rename(tag))
+    _safe(lambda: comp.set_editor_property("component_tags", [tag]))
+    _log("多资产组件: %s（实际名 %s）" % (tag, _safe(lambda: comp.get_name())))
+    return comp
+
+
+def _add_transforms(comp, items):
+    transforms = [_transform_of(it) for it in items]
+    try:
+        comp.add_instances(transforms, True)
+    except Exception as exc:  # noqa: BLE001
+        _warn("批量 add_instances 失败，逐条 add_instance: %r" % (exc,))
+        for xf in transforms:
+            comp.add_instance(xf, True)
+    return int(_safe(lambda: comp.get_instance_count(), -1))
+
+
+TOL_LOC_M = 1e-3
+TOL_ROT_DEG = 0.1
+TOL_SCALE = 1e-3
+
+
+def _ang_diff(a, b):
+    return abs(((float(a) - float(b) + 180.0) % 360.0) - 180.0)
+
+
+def _compare_items(manifest_items, placed_items):
+    """逐 asset 把读回实例和 manifest items 对上（最近匹配），给出计数与最大 transform 误差。"""
+    used = [False] * len(placed_items)
+    worst = {"t": 0.0, "r": 0.0, "s": 0.0}
+    unmatched = abs(len(manifest_items) - len(placed_items))
+    matched = 0
+    for m in manifest_items:
+        mt = m.get("t") or [0, 0, 0]
+        ms = m.get("s") or [1, 1, 1]
+        mr = m.get("r") or [0, 0, 0]
+        best = None
+        for vi, v in enumerate(placed_items):
+            if used[vi]:
+                continue
+            vt = v.get("t") or []
+            if len(vt) != 3:
+                continue
+            dt = max(abs(float(mt[i]) - float(vt[i])) for i in range(3))
+            if best is None or dt < best[0]:
+                best = (dt, vi)
+        if best is None:
+            continue
+        used[best[1]] = True
+        matched += 1
+        v = placed_items[best[1]]
+        vt, vs, vr = v.get("t") or [0, 0, 0], v.get("s") or [1, 1, 1], v.get("r") or [0, 0, 0]
+        worst["t"] = max(worst["t"], max(abs(float(mt[i]) - float(vt[i])) for i in range(3)))
+        worst["r"] = max(worst["r"], max(_ang_diff(mr[i], vr[i]) for i in range(3)))
+        worst["s"] = max(worst["s"], max(abs(float(ms[i]) - float(vs[i])) for i in range(3)))
+    ok = (matched == len(manifest_items) and unmatched == 0
+          and worst["t"] < TOL_LOC_M and worst["r"] < TOL_ROT_DEG and worst["s"] < TOL_SCALE)
+    return {
+        "expected": len(manifest_items), "count": len(placed_items), "matched": matched,
+        "maxLocErrM": round(worst["t"], 6), "maxRotErrDeg": round(worst["r"], 4),
+        "maxScaleErr": round(worst["s"], 6), "ok": ok,
+    }
+
+
+def _place_multi(manifest, assets, manifest_path, level_pkg, save, out_path):
+    """多资产落位：一个 Actor + 每 asset 一个 ISM 组件（EAP_Asset_<i>），幂等清空重落。"""
+    _log("多资产落位: assets=%d -> %s" % (len(assets), level_pkg))
+    created, level = _ensure_level(level_pkg)
+    actor = _find_actor(ACTOR_LABEL)
+    if actor is None:
+        actor = _spawn_actor()
+    existing = _multi_components(actor)
+    used, states, all_readback = set(), [], []
+    for i, asset in enumerate(assets):
+        aid = asset.get("id")
+        items = (asset.get("placements") or {}).get("items") or []
+        if not items:
+            raise RuntimeError("asset %s 没有 placements.items" % aid)
+        mesh_path = _asset_mesh_path(asset, manifest_path)
+        mesh = unreal.EditorAssetLibrary.load_asset(mesh_path)
+        if mesh is None:
+            raise RuntimeError("加载不到网格: " + mesh_path)
+        tag = "%s%d" % (MULTI_TAG_PREFIX, i)
+        used.add(tag)
+        comp = _component_for(actor, i, existing)
+        comp.set_static_mesh(mesh)
+        mat_info = None
+        model = asset.get("model") or {}
+        if str(model.get("source", "file")) == "file":
+            mat_tag = "".join(ch for ch in str(aid or "asset") if ch.isalnum() or ch == "_")
+            mat_info = _normalize_materials(
+                mesh, mat_tag, expected_alpha_modes=(asset.get("material") or {}).get("materials"))
+            for slot, mi in enumerate(mat_info["overrideMaterials"]):
+                if mi is not None:
+                    _safe(lambda slot=slot, mi=mi: comp.set_material(slot, mi))
+        _safe(lambda: comp.clear_instances())
+        placed = _add_transforms(comp, items)
+        readback = _instance_items(comp)
+        all_readback.extend(readback)
+        manifest_bbox = _bbox([it.get("t") or [0, 0, 0] for it in items])
+        states.append({
+            "index": i,
+            "id": aid,
+            "tag": tag,
+            "component": _safe(lambda: str(comp.get_name())),
+            "mesh": mesh_path,
+            "meshInfo": _mesh_info(mesh),
+            "materials": (mat_info or {}).get("evidence"),
+            "expected": len(items),
+            "placed": placed,
+            "bboxManifestM": manifest_bbox,
+            "bboxPlacedM": _bbox([it["t"] for it in readback]) if readback else None,
+            "items": readback,
+        })
+        _log("多资产落位 %d/%d: %s %d/%d" % (i + 1, len(assets), aid, placed, len(items)))
+
+    # 幂等：上一轮多出来的组件清空并移除（asset 数量变少时）
+    for tag, comp in existing.items():
+        if tag in used:
+            continue
+        _safe(lambda comp=comp: comp.clear_instances())
+        _safe(lambda comp=comp: comp.destroy_component())
+        _log("清理多余组件 %s" % tag)
+
+    ground_info = _sync_ground(all_readback)
+    saved = None
+    if save:
+        saved = _safe(lambda: unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).save_current_level())
+        _log("关卡已保存: %r" % (saved,))
+
+    state = {
+        "when": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "schema": "eap.placement.run/1",
+        "multi": True,
+        "manifest": manifest_path,
+        "levelPackage": level_pkg,
+        "level": level,
+        "levelCreated": created,
+        "actor": _safe(lambda: str(actor.get_actor_label())),
+        "levelSaved": saved,
+        "ground": ground_info,
+        "expected": sum(s["expected"] for s in states),
+        "placed": sum(s["placed"] for s in states),
+        "bboxPlacedM": _bbox([it["t"] for it in all_readback]) if all_readback else None,
+        "assets": states,
+    }
+    _dump(out_path, state)
+    return state
+
+
+def _verify_multi(manifest, assets, level_pkg, out_path):
+    """新进程读回多资产关卡：逐 asset 找 `EAP_Asset_<i>` 组件，记数量/transform/材质。"""
+    loaded = _safe(lambda: unreal.EditorLoadingAndSavingUtils.load_map(level_pkg))
+    _log("加载多资产落位关卡: %r" % (loaded,))
+    actor = _find_actor(ACTOR_LABEL)
+    existing = _multi_components(actor)
+    states, all_items = [], []
+    for i, asset in enumerate(assets):
+        tag = "%s%d" % (MULTI_TAG_PREFIX, i)
+        comp = existing.get(tag)
+        items = _instance_items(comp) if comp is not None else []
+        mesh = _safe(lambda: comp.get_editor_property("static_mesh")) if comp is not None else None
+        mats = []
+        if comp is not None:
+            for j in range(int(_safe(lambda: comp.get_num_materials(), 0) or 0)):
+                mi = _safe(lambda j=j: comp.get_material(j))
+                mats.append(_safe(lambda mi=mi: str(mi.get_path_name()), None))
+        all_items.extend(items)
+        cmp = _compare_items(((asset.get("placements") or {}).get("items")) or [], items)
+        states.append({
+            "index": i,
+            "id": asset.get("id"),
+            "tag": tag,
+            "component": _safe(lambda: str(comp.get_name())) if comp is not None else None,
+            "mesh": str(mesh.get_path_name()) if mesh else None,
+            "materials": mats,
+            "bboxPlacedM": _bbox([it["t"] for it in items]) if items else None,
+            "items": items,
+            **cmp,
+        })
+    state = {
+        "when": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "schema": "eap.placement.verify/1",
+        "multi": True,
+        "levelPackage": level_pkg,
+        "actor": _safe(lambda: str(actor.get_actor_label())) if actor is not None else None,
+        "count": sum(s["count"] for s in states),
+        "bboxPlacedM": _bbox([it["t"] for it in all_items]) if all_items else None,
+        "ok": all(s["ok"] for s in states),
+        "assetsMatched": sum(1 for s in states if s["ok"]),
+        "assets": states,
+    }
+    _log("多资产验证读回: assets=%d count=%d ok=%s" % (len(states), state["count"], state["ok"]))
+    _dump(out_path, state)
+    return state
+
+
 def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
     manifest_path = manifest_path or os.environ.get("EAP_MANIFEST") or DEFAULT_MANIFEST
     level_pkg = level_pkg or os.environ.get("EAP_LEVEL_PKG") or DEFAULT_LEVEL
@@ -468,6 +732,8 @@ def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
 
     manifest = _read(manifest_path)
     assets = manifest.get("assets") or []
+    if len(assets) > 1:
+        return _place_multi(manifest, assets, manifest_path, level_pkg, save, out_path)
     if len(assets) != 1:
         _warn("本试点只处理单资产 manifest，实际 assets=%d（只用第一个）" % len(assets))
     asset = assets[0]
@@ -554,6 +820,11 @@ def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
 def verify(level_pkg=None, out_path=None):
     level_pkg = level_pkg or os.environ.get("EAP_LEVEL_PKG") or DEFAULT_LEVEL
     out_path = out_path or os.environ.get("EAP_VERIFY_OUT") or DEFAULT_VERIFY_OUT
+    manifest_path = os.environ.get("EAP_MANIFEST") or DEFAULT_MANIFEST
+    manifest = _read(manifest_path) if os.path.isfile(manifest_path) else {}
+    assets = manifest.get("assets") or []
+    if len(assets) > 1:
+        return _verify_multi(manifest, assets, level_pkg, out_path)
     loaded = _safe(lambda: unreal.EditorLoadingAndSavingUtils.load_map(level_pkg))
     _log("加载落位关卡: %r" % (loaded,))
     actor = _find_actor(ACTOR_LABEL)

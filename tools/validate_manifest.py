@@ -173,6 +173,22 @@ def validate(path, check_files=False, allow_npot=False):
                 if count and len(items) and not (a.get("engineTargets") or {}).get("UE5"):
                     warnings.append("%s 有 placements 但缺 UE5 目标端，实例无处落位" % tag)
 
+        # 多资产（v1.2 链路）：每个 asset 自报的 instance_count 必须等于 placements.count。
+        # 生成端把「散点里的 instanceCount」和「写出去的 items 条数」都记进 checks，这里复核，
+        # 防止上游改散点后 placements 被截断、而 asset 还声称自己有多少实例。
+        if isinstance(placements, dict):
+            for c in (a.get("checks") or []):
+                if not isinstance(c, dict) or str(c.get("rule", "")) != "instance_count==placements.count":
+                    continue
+                if c.get("pass") is False:
+                    errors.append("%s checks 判 instance_count != placements.count（生成端已判不过）" % tag)
+                val = c.get("value")
+                if (isinstance(val, list) and len(val) == 2
+                        and isinstance(val[0], (int, float)) and not isinstance(val[0], bool)):
+                    if int(val[0]) != placements.get("count"):
+                        errors.append("%s instance_count=%s 与 placements.count=%s 不一致"
+                                      % (tag, int(val[0]), placements.get("count")))
+
     return {"errors": errors, "warnings": warnings, "assets": len(assets)}
 
 
