@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T13:41:00+08:00",
+  "updatedAt": "2026-11-24T14:46:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -145,8 +145,8 @@
           "date": "12-14"
         },
         {
-          "name": "性能表：导入/材质/碰撞 三段各 20 资产",
-          "status": "doing",
+          "name": "性能表：导入/材质/碰撞三段 × 20 资产（G5，commit 5559de9；lead 本机实跑 15 条采样：A p50 3.19s/3.06s、B p50 31.60s/31.53s、C 0.137s；查出冷 DDC 未隔离已如实写进报告）",
+          "status": "done",
           "date": "01-10",
           "owner": "trae"
         },
@@ -204,7 +204,13 @@
           "note": "place 后 set_collision_enabled(QUERY_AND_PHYSICS)+profile BlockAll，verify 读回 enabled=true/profile=BlockAll/instanceCount=1892（实例总数，不是组件数）/meshHasCollision=true（两棵树 body setup convex_elems=1）；EAP_COLLISION=0 反验时组件 enabled=false/profile=Custom，--parity-check 前置 FAIL 而对账 4 条仍 PASS，恢复后全 PASS；老计数 13/20/21/4/4 不变"
         },
         {
-          "name": "性能表：导入/材质/碰撞三段 × 20 资产（G5，任务单 8：docs/_TRAE任务_性能表_20261124.md，目标 --perf 4 条断言 + 冷热各 3 次采样）",
+          "name": "性能表：导入/材质/碰撞三段 × 20 资产（G5，commit 5559de9；lead 本机实跑 15 条采样：A p50 3.19s/3.06s、B p50 31.60s/31.53s、C 0.137s；查出冷 DDC 未隔离已如实写进报告）",
+          "status": "done",
+          "owner": "trae",
+          "date": "11-24"
+        },
+        {
+          "name": "性能报告生成器诚实化（任务单 8b：docs/_TRAE任务_性能报告生成器诚实化_20261124.md；_write_perf_report 双分支 + 断言 5，防止 --perf-from 重生成把假冷热措辞长回来）",
           "status": "doing",
           "owner": "trae",
           "date": "11-24"
