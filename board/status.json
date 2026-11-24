@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T13:35:00+08:00",
+  "updatedAt": "2026-11-24T13:41:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -146,8 +146,9 @@
         },
         {
           "name": "性能表：导入/材质/碰撞 三段各 20 资产",
-          "status": "todo",
-          "date": "01-10"
+          "status": "doing",
+          "date": "01-10",
+          "owner": "trae"
         },
         {
           "name": "TRAE 任务单 3：修材质编译假 PASS 通道（空断言 + 子进程 returncode 未判）",
@@ -201,6 +202,12 @@
           "owner": "lead",
           "date": "11-24",
           "note": "place 后 set_collision_enabled(QUERY_AND_PHYSICS)+profile BlockAll，verify 读回 enabled=true/profile=BlockAll/instanceCount=1892（实例总数，不是组件数）/meshHasCollision=true（两棵树 body setup convex_elems=1）；EAP_COLLISION=0 反验时组件 enabled=false/profile=Custom，--parity-check 前置 FAIL 而对账 4 条仍 PASS，恢复后全 PASS；老计数 13/20/21/4/4 不变"
+        },
+        {
+          "name": "性能表：导入/材质/碰撞三段 × 20 资产（G5，任务单 8：docs/_TRAE任务_性能表_20261124.md，目标 --perf 4 条断言 + 冷热各 3 次采样）",
+          "status": "doing",
+          "owner": "trae",
+          "date": "11-24"
         }
       ]
     },
