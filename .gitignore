@@ -23,6 +23,8 @@ docs/material_compile_check*.json
 *.unity_placements_verify.json
 *.unity_placements_log.txt
 *.unity_placements_verify.unity_log.txt
+# v1.9 双端对账反向验证的注入产物
+*.parity_inject.json
 
 # fbx 转换产物与报告要入库（两棵树的 fbx + 贴图）
 !docs/fbx_convert_report.json

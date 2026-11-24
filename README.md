@@ -573,6 +573,54 @@ Collider 选型：**MeshCollider（convex）**，不选 BoxCollider。理由：
 删掉 `Assets/Scenes/EAP_PlacedTrees.unity` 后，断言 1/2/3（以及 4）**确实 FAIL**
 （`total=0`、bbox 缺失、`colliders=0`）；恢复场景后复跑回到 **4/4 PASS**。
 
+## 三之十一、双端对账（v1.9）
+
+v1.9 补上验收表 G1/G2/G3：UE 侧 ISM 实例**启用碰撞**、Unity 侧读回**逐实例 transform**、
+新增独立命令 `--parity-check` 做 1892 条逐实例对账并导出双端三列对照表。
+
+```
+docs/placed_tree_multi_verify.json          （UE 读回：items + collision）
+schemas/tree_manifest_multi.unity_placements_verify.json（Unity 读回：instancesDetail）
+   ↓ run_pcg_chain.py --parity-check
+docs/dual_engine_parity.json（全量 1892 条） + docs/dual_engine_parity.md（前 20 条 + 汇总）
+```
+
+**G1 · UE 碰撞**：落位后对 ISM 组件 `set_collision_enabled(QUERY_AND_PHYSICS)`、
+`set_collision_profile_name("BlockAll")`，再**读回**组件状态写进证据：
+`collision{enabled, profile, instanceCount, meshHasCollision, collisionGeometry{collision elems}}`。
+`instanceCount` 是**实例总数 1892**（不是 ISM 组件数 2）；`meshHasCollision` 读的是网格
+body setup 里真实存在的凸包元素（两棵树 `convex_elems=1`），不是 setter 返回值。
+网格没有碰撞几何时写 `collisionGeometryMissing=true`，前置直接 FAIL，不静默跳过。
+
+**G2 · Unity 逐实例**：`VerifyPlacements` 新增 `instancesDetail`（1892 条，Unity 世界坐标
+`t/yawDeg/s`）。**顺序保证**：按 manifest 的 asset 顺序 → `placements.items` 顺序逐条产出，
+条目里的 `index` 就是 manifest 下标；每条都用 manifest 的期望 transform 与场景实例逐项比对，
+结果写 `matched`（顺序错位会以 `matched=false` / 米级误差暴露，而不是被"场景遍历顺序"蒙混）。
+`instancesDetail` 只写文件，不参与 Unity 侧 4 条断言。
+
+**G3 · 对账判据**（`--parity-check`，独立命令，不并入现有 5 条命令的计数）：
+
+| # | 判据 | 门槛 |
+|:--:|---|---|
+| 前置 | UE 证据碰撞可用 | `enabled=true`、`meshHasCollision=true`、`instanceCount=1892`、profile ∈ {BlockAll, BlockAllDynamic} |
+| 1 | 数量与分项一致 | manifest == UE == Unity == 1892（1324 + 568），明细 1892 条无重复 |
+| 2 | 逐实例位移（1892 条全查） | `max|Δpos| < 0.01 m` |
+| 3 | 逐实例 yaw（1892 条全查） | `max|Δyaw| < 0.05°`（最短弧） |
+| 4 | 逐实例缩放（1892 条全查） | `max|Δscale| < 1e-3` |
+
+换算直接复用 v1.8 的唯一权威实现（`unityPos=(x,z,y)`、`unityYaw=-ueYaw`）。
+实测（2026-11-24）：`maxΔpos=0.000000000 m`、`maxΔyaw=0.000000°`、
+`maxΔscale=0.000001000`（来自 UE 读回 4 位小数舍入），远小于门槛。
+
+**反向验证（真跑）**：
+① `--parity-inject-yaw-deg 0.1` → 只有断言 3 FAIL（`maxΔyaw=0.1°`），断言 1/2/4 仍 PASS；
+② 手改 UE 证据某条 `t` +1 cm → 只有断言 2 FAIL（`maxΔpos=0.01 m`）、其余 PASS；
+③ 用 `EAP_COLLISION=0` 重新落位读回（组件 `enabled=false/profile=Custom`）→
+前置 FAIL、4 条对账仍 PASS，证明碰撞门禁与对账判据是分开的；恢复后回到全 PASS。
+
+老门槛不变：`--multi` 13/13、`--real-multi` 20/20、`--with-compile` 21/21、
+`--unity-check` 4/4、`--unity-placements-check` 4/4、`test_validator.py` 9/9。
+
 ## 四、阶段一验收（6 条，逐条可判）
 
 | # | 判据 | 判法 |
@@ -665,10 +713,11 @@ Collider 选型：**MeshCollider（convex）**，不选 BoxCollider。理由：
   `pipeline=URP shader=Universal Render Pipeline/Lit`、`ok=2 failed=0`：2 个 Prefab、2 个 `.mat`、
   4 张导入贴图落在 `Assets/EAP/Trees/`，`--unity-check` 4/4 PASS（`meshTriCount` 3 370 / 3 505 与
   bounds 均读回一致）。历史记录：`docs/unity_consumer_run_20261123.md`。
-- **Unity placements 落位已完成，但仍是"只落 transform"（v1.8）**：1892 个实例 + 凸包 Collider 落在
-  `Assets/Scenes/EAP_PlacedTrees.unity`，`--unity-placements-check` 4/4；**未做**：地形吸附/烘焙、
-  LOD 与实例剔除、Unity 端 roughness 贴图通路（仍常量 0.9）、运行时性能测试。落位场景与证据都在
-  仓库外（Unity 工程），不入库；仓库只保留换算函数、落位/读回代码与断言。
+- **Unity placements 落位 + 双端对账已完成（v1.9）**：1892 个实例 + 凸包 Collider 落在
+  `Assets/Scenes/EAP_PlacedTrees.unity`，UE 侧 ISM 同步启用 `BlockAll` 碰撞；`--unity-placements-check`
+  4/4、`--parity-check` 4/4。**仍未做**：UE 侧仍无 LOD（ISM 全量实例同一 Mesh，无分层/剔除）、
+  地形吸附/烘焙、Unity 端 roughness 贴图通路（仍常量 0.9）、运行时性能测试。
+  落位场景与 Unity 证据都在仓库外（Unity 工程），不入库；仓库只保留换算函数、落位/读回代码与断言。
 - **Unity 落位只吃 yaw（v1.8）**：manifest 的 `r=[roll,pitch,yaw]` 目前只有 yaw 非零，换算按
   `unityYaw=-ue_yaw` 实现，roll/pitch 被忽略；将来若出现非零 roll/pitch，需要补三轴旋转并扩展断言。
 - **fbx 是派生产物（v1.7）**：`assets/raw/trees/fbx/*.fbx` 由 `tools/glb_to_fbx.py` 从 glb 转出并入库

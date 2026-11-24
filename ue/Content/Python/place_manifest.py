@@ -869,6 +869,99 @@ def _add_transforms(comp, items):
     return int(_safe(lambda: comp.get_instance_count(), -1))
 
 
+COLLISION_PROFILE = "BlockAll"
+COLLISION_PROFILE_FALLBACK = "BlockAllDynamic"
+
+
+def _mesh_collision_geometry(mesh):
+    """读网格体**实际**的碰撞几何：body setup 是否存在、简单碰撞元素各多少个。
+
+    `body_setup` 为 transient，编辑器里加载资产后才会被建出来；这里读的是实体数据，
+    不是某个 setter 的返回值。树是凸包导入（convex_elems=1），见 v1.9 探针。
+    """
+    info = {
+        "bodySetup": None,
+        "boxElems": 0, "sphereElems": 0, "sphylElems": 0,
+        "convexElems": 0, "taperedCapsuleElems": 0,
+    }
+    body = _safe(lambda: mesh.get_editor_property("body_setup"), None) if mesh is not None else None
+    if body is None or isinstance(body, str):
+        info["simpleCollisionCount"] = 0
+        info["hasCollision"] = False
+        return info
+    info["bodySetup"] = _safe(lambda: str(body.get_name()))
+    agg = _safe(lambda: body.get_editor_property("agg_geom"), None)
+    if agg is not None and not isinstance(agg, str):
+        info["boxElems"] = len(_safe(lambda: list(agg.get_editor_property("box_elems") or []), []))
+        info["sphereElems"] = len(_safe(lambda: list(agg.get_editor_property("sphere_elems") or []), []))
+        info["sphylElems"] = len(_safe(lambda: list(agg.get_editor_property("sphyl_elems") or []), []))
+        info["convexElems"] = len(_safe(lambda: list(agg.get_editor_property("convex_elems") or []), []))
+        info["taperedCapsuleElems"] = len(
+            _safe(lambda: list(agg.get_editor_property("tapered_capsule_elems") or []), []))
+    info["simpleCollisionCount"] = (info["boxElems"] + info["sphereElems"] + info["sphylElems"]
+                                    + info["convexElems"] + info["taperedCapsuleElems"])
+    info["hasCollision"] = info["simpleCollisionCount"] > 0
+    return info
+
+
+def _collision_evidence(comp, mesh):
+    """ISM 组件当前碰撞状态 + 网格碰撞几何（新进程读回也用这个，避免"相信返回值"）。"""
+    geo = _mesh_collision_geometry(mesh)
+    enabled = False
+    if comp is not None:
+        enabled = bool(_safe(
+            lambda: comp.get_collision_enabled() != unreal.CollisionEnabled.NO_COLLISION, False))
+    return {
+        "enabled": enabled,
+        "profile": _safe(lambda: str(comp.get_collision_profile_name()), None) if comp is not None else None,
+        "instanceCount": int(_safe(lambda: comp.get_instance_count(), 0)) if comp is not None else 0,
+        "meshHasCollision": bool(geo["hasCollision"]),
+        "collisionGeometryMissing": not bool(geo["hasCollision"]),
+        "collisionGeometry": geo,
+    }
+
+
+def _enable_instance_collision(comp, mesh):
+    """给 ISM 组件开碰撞（BlockAll），再**读回**实际状态当证据。
+
+    `EAP_COLLISION=0` 只用于反向验证（证明碰撞没开时 --parity-check 前置会 FAIL），
+    正常链路不设这个环境变量。
+    """
+    if comp is None:
+        return _collision_evidence(None, mesh)
+    geo = _mesh_collision_geometry(mesh)
+    if os.environ.get("EAP_COLLISION") == "0":
+        _safe(lambda: comp.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION))
+        _warn("EAP_COLLISION=0：已关闭碰撞（仅反向验证用）")
+    elif not geo["hasCollision"]:
+        _warn("网格没有简单碰撞几何，无法给 ISM 开碰撞: %s" % _safe(lambda: str(mesh.get_path_name())))
+    else:
+        _safe(lambda: comp.set_collision_enabled(unreal.CollisionEnabled.QUERY_AND_PHYSICS))
+        _safe(lambda: comp.set_collision_profile_name(COLLISION_PROFILE))
+        prof = _safe(lambda: str(comp.get_collision_profile_name()), "")
+        if prof != COLLISION_PROFILE:
+            _warn("profile %s 未生效（读到 %r），回退 %s" % (COLLISION_PROFILE, prof, COLLISION_PROFILE_FALLBACK))
+            _safe(lambda: comp.set_collision_profile_name(COLLISION_PROFILE_FALLBACK))
+    ev = _collision_evidence(comp, mesh)
+    _log("ISM 碰撞: enabled=%s profile=%s instances=%d meshHasCollision=%s"
+         % (ev["enabled"], ev["profile"], ev["instanceCount"], ev["meshHasCollision"]))
+    return ev
+
+
+def _collision_summary(states):
+    """多资产：把每个 ISM 的碰撞证据聚合成一条（instanceCount 是实例总数，不是组件数）。"""
+    blocks = [s.get("collision") or {} for s in states]
+    return {
+        "enabled": bool(blocks) and all(bool(b.get("enabled")) for b in blocks),
+        "profile": next((b.get("profile") for b in blocks if b.get("profile")), None),
+        "profiles": [b.get("profile") for b in blocks],
+        "instanceCount": sum(int(b.get("instanceCount") or 0) for b in blocks),
+        "meshHasCollision": bool(blocks) and all(bool(b.get("meshHasCollision")) for b in blocks),
+        "collisionGeometryMissing": any(bool(b.get("collisionGeometryMissing")) for b in blocks),
+        "assets": [{"id": s.get("id"), **(s.get("collision") or {})} for s in states],
+    }
+
+
 TOL_LOC_M = 1e-3
 TOL_ROT_DEG = 0.1
 TOL_SCALE = 1e-3
@@ -951,6 +1044,7 @@ def _place_multi(manifest, assets, manifest_path, level_pkg, save, out_path):
         _safe(lambda: comp.clear_instances())
         placed = _add_transforms(comp, items)
         readback = _instance_items(comp)
+        collision = _enable_instance_collision(comp, mesh)
         all_readback.extend(readback)
         manifest_bbox = _bbox([it.get("t") or [0, 0, 0] for it in items])
         states.append({
@@ -961,6 +1055,7 @@ def _place_multi(manifest, assets, manifest_path, level_pkg, save, out_path):
             "mesh": mesh_path,
             "meshInfo": _mesh_info(mesh),
             "materials": (mat_info or {}).get("evidence"),
+            "collision": collision,
             "expected": len(items),
             "placed": placed,
             "bboxManifestM": manifest_bbox,
@@ -996,6 +1091,7 @@ def _place_multi(manifest, assets, manifest_path, level_pkg, save, out_path):
         "ground": ground_info,
         "expected": sum(s["expected"] for s in states),
         "placed": sum(s["placed"] for s in states),
+        "collision": _collision_summary(states),
         "bboxPlacedM": _bbox([it["t"] for it in all_readback]) if all_readback else None,
         "assets": states,
     }
@@ -1046,6 +1142,7 @@ def _verify_multi(manifest, assets, level_pkg, out_path):
             "mesh": str(mesh.get_path_name()) if mesh else None,
             "materials": mats,
             "materialParams": mat_params,
+            "collision": _collision_evidence(comp, mesh),
             "bboxPlacedM": _bbox([it["t"] for it in items]) if items else None,
             "items": items,
             **cmp,
@@ -1057,12 +1154,14 @@ def _verify_multi(manifest, assets, level_pkg, out_path):
         "levelPackage": level_pkg,
         "actor": _safe(lambda: str(actor.get_actor_label())) if actor is not None else None,
         "count": sum(s["count"] for s in states),
+        "collision": _collision_summary(states),
         "bboxPlacedM": _bbox([it["t"] for it in all_items]) if all_items else None,
         "ok": all(s["ok"] for s in states),
         "assetsMatched": sum(1 for s in states if s["ok"]),
         "assets": states,
     }
-    _log("多资产验证读回: assets=%d count=%d ok=%s" % (len(states), state["count"], state["ok"]))
+    _log("多资产验证读回: assets=%d count=%d collision=%s ok=%s"
+         % (len(states), state["count"], state["collision"], state["ok"]))
     _dump(out_path, state)
     return state
 
@@ -1127,6 +1226,7 @@ def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
     _log("落位完成: %d / %d" % (placed, len(items)))
 
     readback = _instance_items(comp)
+    collision = _enable_instance_collision(comp, mesh)
     manifest_bbox = _bbox([it.get("t") or [0, 0, 0] for it in items])
     placed_bbox = _bbox([it["t"] for it in readback]) if readback else None
     mesh_info = _mesh_info(mesh)
@@ -1152,6 +1252,7 @@ def place(manifest_path=None, level_pkg=None, save=True, out_path=None):
                               for mi in ((mat_info or {}).get("overrideMaterials") or [])],
         "expected": len(items),
         "placed": placed,
+        "collision": collision,
         "levelSaved": saved,
         "ground": ground_info,
         "bboxManifestM": manifest_bbox,
@@ -1190,6 +1291,7 @@ def verify(level_pkg=None, out_path=None):
         "mesh": str(mesh.get_path_name()) if mesh else None,
         "materials": mats,
         "count": len(items),
+        "collision": _collision_evidence(comp, mesh),
         "bboxPlacedM": _bbox([it["t"] for it in items]) if items else None,
         "items": items,
     }

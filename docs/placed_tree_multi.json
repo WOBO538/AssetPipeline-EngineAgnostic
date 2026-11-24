@@ -1,5 +1,5 @@
 {
-  "when": "2026-11-23T21:39:31",
+  "when": "2026-11-24T13:05:50",
   "schema": "eap.placement.run/1",
   "multi": true,
   "manifest": "D:\\Projects\\AssetPipeline-EngineAgnostic\\schemas\\tree_manifest_multi.json",
@@ -8,9 +8,68 @@
   "levelCreated": false,
   "actor": "EAP_Placements",
   "levelSaved": true,
-  "ground": null,
+  "ground": {
+    "centerM": [
+      -0.03,
+      -0.32
+    ],
+    "sizeM": [
+      249.9,
+      249.3
+    ],
+    "zM": -0.8
+  },
   "expected": 1892,
   "placed": 1892,
+  "collision": {
+    "enabled": true,
+    "profile": "BlockAll",
+    "profiles": [
+      "BlockAll",
+      "BlockAll"
+    ],
+    "instanceCount": 1892,
+    "meshHasCollision": true,
+    "collisionGeometryMissing": false,
+    "assets": [
+      {
+        "id": "SM_Tree_conifer_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 1324,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Tree_broadleaf_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 568,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      }
+    ]
+  },
   "bboxPlacedM": {
     "min": [
       -99.9945,
@@ -147,6 +206,23 @@
           }
         }
       ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 1324,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "expected": 1324,
       "placed": 1324,
       "bboxManifestM": {
@@ -22807,6 +22883,23 @@
           }
         }
       ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 568,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "expected": 568,
       "placed": 568,
       "bboxManifestM": {

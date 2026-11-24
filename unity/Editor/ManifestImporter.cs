@@ -60,8 +60,17 @@ namespace EAP
         public int colliders;
         public int unknownInstances;
         public List<SampleMaterial> sampleMaterials = new List<SampleMaterial>();
+        public List<InstanceDetail> instancesDetail = new List<InstanceDetail>();
     }
     [Serializable] public class SampleMaterial { public string instance, baseColor; }
+    [Serializable] public class InstanceDetail
+    {
+        public string assetId;
+        public int index;
+        public float[] t, s;
+        public float yawDeg;
+        public bool matched;
+    }
 
     public static class ManifestImporter
     {
@@ -512,6 +521,7 @@ namespace EAP
             string projectRoot = Path.GetDirectoryName(Application.dataPath);
             var doc = new PlacementsVerifyDoc { manifest = Path.GetFileName(manifestPath) };
             var prefabToId = new Dictionary<string, string>();
+            var byId = new Dictionary<string, List<Transform>>();
             foreach (var a in manifest.assets)
             {
                 doc.instances[a.id] = 0;
@@ -542,6 +552,13 @@ namespace EAP
                         if (string.IsNullOrEmpty(prefabPath) || !prefabToId.TryGetValue(prefabPath, out id))
                         { doc.unknownInstances++; continue; }
                         doc.instances[id] = doc.instances[id] + 1;
+                        List<Transform> list;
+                        if (!byId.TryGetValue(id, out list))
+                        {
+                            list = new List<Transform>();
+                            byId[id] = list;
+                        }
+                        list.Add(child);
 
                         Vector3 p = child.position;
                         if (!has) { min = p; max = p; has = true; }
@@ -576,11 +593,64 @@ namespace EAP
             foreach (var v in doc.instances.Values) total += v;
             doc.total = total;
 
+            // v1.9 逐实例读回：严格按 manifest 顺序（asset 顺序 → placements.items 顺序）生成，
+            // 每条都拿 manifest 的期望 transform 与实际实例逐项比对（matched=false 即顺序/落位可疑）。
+            // 场景里按资产收集到的出现顺序只作为候选列表——它等于 Place() 的实例化顺序，
+            // 且此处逐条校验，不会把"扫到就算"的错位静默当成 manifest 顺序。
+            foreach (var a in manifest.assets)
+            {
+                var items = a.placements != null ? a.placements.items : null;
+                if (items == null) continue;
+                List<Transform> list;
+                byId.TryGetValue(a.id, out list);
+                for (int i = 0; i < items.Count; i++)
+                {
+                    var it = items[i];
+                    var d = new InstanceDetail
+                    {
+                        assetId = a.id,
+                        index = i,
+                        matched = false,
+                    };
+                    Vector3 ep = UeToUnityPos(it.t ?? new[] { 0f, 0f, 0f });
+                    float ey = UeToUnityYaw(it.r);
+                    Vector3 es = (it.s != null && it.s.Length >= 3)
+                        ? new Vector3(it.s[0], it.s[1], it.s[2]) : Vector3.one;
+                    if (list != null && i < list.Count)
+                    {
+                        var tr = list[i];
+                        Vector3 p = tr.position;
+                        float yaw = NormalizeYaw(tr.eulerAngles.y);
+                        Vector3 s = tr.lossyScale;
+                        d.t = new[] { Round5(p.x), Round5(p.y), Round5(p.z) };
+                        d.yawDeg = (float)Math.Round(yaw, 4);
+                        d.s = new[] { Round6(s.x), Round6(s.y), Round6(s.z) };
+                        d.matched = Math.Abs(p.x - ep.x) < 1e-3f && Math.Abs(p.y - ep.y) < 1e-3f
+                                    && Math.Abs(p.z - ep.z) < 1e-3f
+                                    && Math.Abs(Mathf.DeltaAngle(yaw, ey)) < 0.01f
+                                    && Math.Abs(s.x - es.x) < 1e-4f
+                                    && Math.Abs(s.y - es.y) < 1e-4f
+                                    && Math.Abs(s.z - es.z) < 1e-4f;
+                    }
+                    doc.instancesDetail.Add(d);
+                }
+            }
+
             string outPath = Path.ChangeExtension(manifestPath, ".unity_placements_verify.json");
             File.WriteAllText(outPath, JsonConvert.SerializeObject(doc, Formatting.Indented));
-            Debug.Log(string.Format("[EAP] placements verify → {0} total={1} colliders={2} sceneExists={3}",
-                                    outPath, doc.total, doc.colliders, doc.sceneExists));
+            Debug.Log(string.Format("[EAP] placements verify → {0} total={1} colliders={2} sceneExists={3} detail={4}",
+                                    outPath, doc.total, doc.colliders, doc.sceneExists, doc.instancesDetail.Count));
         }
+
+        static float NormalizeYaw(float y)
+        {
+            y = Mathf.Repeat(y, 360f);
+            if (y > 180f) y -= 360f;
+            return y;
+        }
+
+        static float Round5(float v) { return (float)Math.Round(v, 5); }
+        static float Round6(float v) { return (float)Math.Round(v, 6); }
 
         static void AddCollider(GameObject go, Asset a)
         {

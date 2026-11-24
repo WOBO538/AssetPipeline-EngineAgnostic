@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T13:06:00+08:00",
+  "updatedAt": "2026-11-24T13:12:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -29,8 +29,8 @@
       "id": "P1",
       "name": "EAP 多引擎资产管线",
       "subtitle": "主线 · 补 PCG 资格缺口 · NO.01 下一代",
-      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化 + 多资产 20 资产（13/13 断言） + 真实双树种混排（20/20 断言）+ --with-compile 严格模式（21/21 断言）+ 贴图三档压缩 & roughness 贴图（v1.6）+ Unity 吃真模型（v1.7：fbx + 内嵌贴图 + Prefab，--unity-check 4/4）+ Unity placements 落位 1892 实例 + 凸包 Collider（v1.8，--unity-placements-check 4/4）；--tree 单树种链路已降级为历史",
-      "progress": 94,
+      "phase": "阶段一 + Layer1 + 地块 200x200 m + 真实树 1892 棵 + 材质规范化 + 多资产 20 资产（13/13 断言） + 真实双树种混排（20/20 断言）+ --with-compile 严格模式（21/21 断言）+ 贴图三档压缩 & roughness 贴图（v1.6）+ Unity 吃真模型（v1.7：fbx + 内嵌贴图 + Prefab，--unity-check 4/4）+ Unity placements 落位 1892 实例 + 凸包 Collider（v1.8，--unity-placements-check 4/4）+ UE ISM 碰撞 BlockAll & 双端逐实例对账（v1.9，--parity-check 4/4）；--tree 单树种链路已降级为历史",
+      "progress": 96,
       "status": "进行中",
       "items": [
         {
@@ -135,7 +135,7 @@
           "date": "11-25"
         },
         {
-          "name": "落位扩展：UE 侧 ISM 补碰撞/LOD（Unity 侧碰撞已由 v1.8 完成；UE ISM 目前无碰撞、无 LOD）",
+          "name": "落位扩展：UE 侧 ISM 补 LOD（碰撞已于 v1.9 完成：BlockAll + 1892 实例 + 凸包；仍无 LOD）",
           "status": "todo",
           "date": "12-05"
         },
@@ -190,15 +190,17 @@
         },
         {
           "name": "双端逐实例对账 + 三列对照表（G2/G3，任务单 7：docs/_TRAE任务_碰撞与双端对账_20261124.md，目标 --parity-check 4/4）",
-          "status": "doing",
+          "status": "done",
           "owner": "trae",
-          "date": "11-24"
+          "date": "11-24",
+          "note": "VerifyPlacements 按 manifest 顺序输出 instancesDetail（1892 条，asset 顺序→items 顺序，逐条 matched 自校验）；--parity-check 前置碰撞 + 4 断言（数量/位移<0.01m/yaw<0.05°/缩放<1e-3）全查 1892 条，实测 maxΔpos=0、maxΔyaw=0、maxΔscale=1e-6；产物 docs/dual_engine_parity.json（全量）+ .md（前 20 条+汇总）。反验：--parity-inject-yaw-deg 0.1 只挂断言 3；UE 证据 t+1cm 只挂断言 2；恢复后 4/4"
         },
         {
           "name": "UE 侧 ISM 碰撞启用（G1，任务单 7 同批；读回 collision{enabled/profile/instanceCount/meshHasCollision}）",
-          "status": "doing",
+          "status": "done",
           "owner": "trae",
-          "date": "11-24"
+          "date": "11-24",
+          "note": "place 后 set_collision_enabled(QUERY_AND_PHYSICS)+profile BlockAll，verify 读回 enabled=true/profile=BlockAll/instanceCount=1892（实例总数，不是组件数）/meshHasCollision=true（两棵树 body setup convex_elems=1）；EAP_COLLISION=0 反验时组件 enabled=false/profile=Custom，--parity-check 前置 FAIL 而对账 4 条仍 PASS，恢复后全 PASS；老计数 13/20/21/4/4 不变"
         }
       ]
     },

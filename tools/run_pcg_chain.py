@@ -960,6 +960,279 @@ def _run_unity_placements_check(args):
     return 0
 
 
+DUAL_PARITY_JSON = os.path.join(REPO, "docs", "dual_engine_parity.json")
+DUAL_PARITY_MD = os.path.join(REPO, "docs", "dual_engine_parity.md")
+PARITY_TOL_POS_M = 0.01
+PARITY_TOL_YAW_DEG = 0.05
+PARITY_TOL_SCALE = 1e-3
+
+
+def _fmt3(v):
+    return "%.3f" % float(v)
+
+
+def _fmt_vec(v, n=3):
+    return "(" + ", ".join(("%." + str(n) + "f") % float(x) for x in (v or [])) + ")"
+
+
+def _run_parity_check(args):
+    """双端逐实例对账：UE 读回 vs Unity 读回（1892 条全查）+ 产物对照表。
+
+    前置：UE 证据里 `collision{enabled/meshHasCollision/instanceCount}` 必须成立。
+    断言 1 数量/分项、2 位移 <0.01m、3 yaw <0.05°、4 缩放 <1e-3。
+    `--parity-inject-yaw-deg` 只在对账时给 Unity 读回 yaw 加偏移（反向验证用，默认 0）。
+    """
+    manifest = os.path.abspath(args.manifest)
+    ue_path = REAL_MULTI_VERIFY_JSON
+    unity_path = os.path.splitext(manifest)[0] + ".unity_placements_verify.json"
+    inject = float(args.parity_inject_yaw_deg or 0.0)
+    fails = []
+    print("[0/5] 双端逐实例对账（UE 读回 vs Unity 读回）")
+
+    missing = [p for p in (manifest, ue_path, unity_path) if not os.path.isfile(p)]
+    if missing:
+        print("CHAIN FAIL: 缺少证据 " + " | ".join(missing)
+              + "。先跑 --real-multi（生成 UE 读回）和 --unity-placements-check（生成 Unity 读回）")
+        return 1
+    stale = [p for p in (ue_path, unity_path) if os.path.getmtime(p) < os.path.getmtime(manifest)]
+    if stale:
+        print("CHAIN FAIL: 证据早于 manifest（不新鲜）：" + " | ".join(stale)
+              + "。重跑 --real-multi / --unity-placements-check")
+        return 1
+
+    with open(manifest, "r", encoding="utf-8-sig") as fh:
+        man = json.load(fh)
+    with open(ue_path, "r", encoding="utf-8-sig") as fh:
+        ue = json.load(fh)
+    with open(unity_path, "r", encoding="utf-8-sig") as fh:
+        un = json.load(fh)
+
+    assets = man.get("assets") or []
+    want_counts = {a.get("id"): len(((a.get("placements") or {}).get("items")) or []) for a in assets}
+    expected_total = sum(want_counts.values())
+
+    ue_assets = {a.get("id"): a for a in (ue.get("assets") or [])}
+    ue_counts = {aid: len((ue_assets.get(aid) or {}).get("items") or []) for aid in want_counts}
+    un_counts = {aid: int((un.get("instances") or {}).get(aid, 0)) for aid in want_counts}
+    ue_total = sum(ue_counts.values())
+    un_total = int(un.get("total") or 0)
+
+    detail = {}
+    dup_detail = 0
+    for d in (un.get("instancesDetail") or []):
+        key = (d.get("assetId"), int(d.get("index", -1)))
+        if key in detail:
+            dup_detail += 1
+        detail[key] = d
+
+    # ---- 前置：UE 侧 ISM 碰撞（不是相信 place 的返回值，是 verify 进程读回）----
+    col = ue.get("collision") or {}
+    prof = str(col.get("profile") or "")
+    front_ok = (col.get("enabled") is True and col.get("meshHasCollision") is True
+                and int(col.get("instanceCount") or -1) == expected_total
+                and not col.get("collisionGeometryMissing")
+                and prof in ("BlockAll", "BlockAllDynamic"))
+    print("[1/5] 前置 UE 碰撞 enabled=%s profile=%s instances=%s(期望 %d) meshHasCollision=%s → %s"
+          % (col.get("enabled"), prof or "<缺失>", col.get("instanceCount"), expected_total,
+             col.get("meshHasCollision"), "PASS" if front_ok else "FAIL"))
+    if not front_ok:
+        fails.append("前置 UE 碰撞未达标（重跑 --real-multi 让证据带 collision）：enabled=%s profile=%r "
+                     "instanceCount=%s meshHasCollision=%s missing=%s"
+                     % (col.get("enabled"), prof, col.get("instanceCount"),
+                        col.get("meshHasCollision"), col.get("collisionGeometryMissing")))
+
+    # ---- 断言 1：数量与分项一致（manifest / UE / Unity 三方 + 明细条数）----
+    count_bad = [(aid, want_counts[aid], ue_counts.get(aid), un_counts.get(aid))
+                 for aid in want_counts
+                 if not (ue_counts.get(aid) == un_counts.get(aid) == want_counts[aid])]
+    ok1 = (not count_bad and ue_total == un_total == expected_total
+           and len(detail) == expected_total and dup_detail == 0)
+    print("[2/5] 断言1 数量 manifest=%d UE=%d Unity=%d detail=%d dup=%d %s → %s"
+          % (expected_total, ue_total, un_total, len(detail), dup_detail,
+             " ".join("%s=%d/%d/%d" % (b[0], b[1], b[2] or 0, b[3] or 0) for b in count_bad)
+             if count_bad else "", "PASS" if ok1 else "FAIL"))
+    if not ok1:
+        fails.append("断言1 数量不一致 manifest=%d UE=%d Unity=%d detail=%d dup=%d bad=%s"
+                     % (expected_total, ue_total, un_total, len(detail), dup_detail, count_bad or "none"))
+
+    # ---- 逐实例 1892 条：UE 读回 → Unity 期望，和 Unity 读回逐条比 ----
+    rows = []
+    missing_detail = []
+    max_pos = max_yaw = max_scale = 0.0
+    pos_bad, yaw_bad, scale_bad = [], [], []
+    matched_n = 0
+    for a in assets:
+        aid = a.get("id")
+        mitems = ((a.get("placements") or {}).get("items")) or []
+        uitems = (ue_assets.get(aid) or {}).get("items") or []
+        for i, m in enumerate(mitems):
+            u = uitems[i] if i < len(uitems) else None
+            d = detail.get((aid, i))
+            row = {
+                "assetId": aid,
+                "index": i,
+                "manifest": {"t": (m.get("t") or [0, 0, 0]), "r": (m.get("r") or [0, 0, 0]),
+                             "s": (m.get("s") or [1, 1, 1])},
+                "ue": u,
+                "unity": None,
+                "delta": None,
+            }
+            if u is None or d is None or not d.get("t") or len(d.get("t")) < 3 \
+                    or not d.get("s") or len(d.get("s")) < 3:
+                missing_detail.append([aid, i, u is None, d is None])
+                rows.append(row)
+                continue
+            ep = ue_to_unity_point(u.get("t") or [0, 0, 0])
+            dpos = max(abs(ep[k] - float(d["t"][k])) for k in range(3))
+            eyaw = -float((u.get("r") or [0, 0, 0])[2])
+            d_yaw = _ang_diff(float(d.get("yawDeg") or 0.0) + inject, eyaw)
+            dscale = max(abs(float((u.get("s") or [1, 1, 1])[k]) - float(d["s"][k])) for k in range(3))
+            max_pos = max(max_pos, dpos)
+            max_yaw = max(max_yaw, d_yaw)
+            max_scale = max(max_scale, dscale)
+            if dpos >= PARITY_TOL_POS_M:
+                pos_bad.append([aid, i, round(dpos, 6)])
+            if d_yaw >= PARITY_TOL_YAW_DEG:
+                yaw_bad.append([aid, i, round(d_yaw, 6)])
+            if dscale >= PARITY_TOL_SCALE:
+                scale_bad.append([aid, i, round(dscale, 9)])
+            if d.get("matched"):
+                matched_n += 1
+            row["unity"] = {"t": d["t"], "yawDeg": d.get("yawDeg"), "s": d["s"],
+                            "matched": bool(d.get("matched"))}
+            row["delta"] = {"posM": round(dpos, 9), "yawDeg": round(d_yaw, 6),
+                            "scale": round(dscale, 9)}
+            rows.append(row)
+
+    ok2 = not missing_detail and not pos_bad and max_pos < PARITY_TOL_POS_M
+    ok3 = not missing_detail and not yaw_bad and max_yaw < PARITY_TOL_YAW_DEG
+    ok4 = not missing_detail and not scale_bad and max_scale < PARITY_TOL_SCALE
+    print("[3/5] 断言2 位移 max=%.9f m（gate < %.2f）bad=%d → %s"
+          % (max_pos, PARITY_TOL_POS_M, len(pos_bad) + len(missing_detail), "PASS" if ok2 else "FAIL"))
+    print("[4/5] 断言3 yaw  max=%.6f°（gate < %.2f，注入 %.3f°）bad=%d → %s"
+          % (max_yaw, PARITY_TOL_YAW_DEG, inject, len(yaw_bad) + len(missing_detail),
+             "PASS" if ok3 else "FAIL"))
+    print("[5/5] 断言4 缩放 max=%.9f（gate < %.0e）bad=%d → %s"
+          % (max_scale, PARITY_TOL_SCALE, len(scale_bad) + len(missing_detail), "PASS" if ok4 else "FAIL"))
+    if not ok2:
+        fails.append("断言2 位移 max=%.9f m bad=%s missing=%d"
+                     % (max_pos, pos_bad[:5] or "none", len(missing_detail)))
+    if not ok3:
+        fails.append("断言3 yaw max=%.6f° bad=%s missing=%d"
+                     % (max_yaw, yaw_bad[:5] or "none", len(missing_detail)))
+    if not ok4:
+        fails.append("断言4 缩放 max=%.9f bad=%s missing=%d"
+                     % (max_scale, scale_bad[:5] or "none", len(missing_detail)))
+
+    assertions = [
+        {"id": 1, "name": "数量与分项一致", "ok": ok1,
+         "detail": "manifest=%d UE=%d Unity=%d detail=%d dup=%d bad=%s"
+                   % (expected_total, ue_total, un_total, len(detail), dup_detail, count_bad or "none")},
+        {"id": 2, "name": "逐实例位移", "ok": ok2,
+         "detail": "max=%.9f m gate<%.2f bad=%d" % (max_pos, PARITY_TOL_POS_M, len(pos_bad))},
+        {"id": 3, "name": "逐实例 yaw", "ok": ok3,
+         "detail": "max=%.6f deg gate<%.2f bad=%d inject=%.3f"
+                   % (max_yaw, PARITY_TOL_YAW_DEG, len(yaw_bad), inject)},
+        {"id": 4, "name": "逐实例缩放", "ok": ok4,
+         "detail": "max=%.9f gate<%.0e bad=%d" % (max_scale, PARITY_TOL_SCALE, len(scale_bad))},
+    ]
+    summary = {
+        "expected": expected_total,
+        "ueCount": ue_total,
+        "unityCount": un_total,
+        "checked": len(rows),
+        "detailMatched": matched_n,
+        "missingDetail": len(missing_detail),
+        "maxPosErrM": round(max_pos, 9),
+        "maxYawErrDeg": round(max_yaw, 6),
+        "maxScaleErr": round(max_scale, 9),
+        "tolerance": {"posM": PARITY_TOL_POS_M, "yawDeg": PARITY_TOL_YAW_DEG, "scale": PARITY_TOL_SCALE},
+        "bad": {"pos": len(pos_bad), "yaw": len(yaw_bad), "scale": len(scale_bad)},
+    }
+    doc = {
+        "when": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "schema": "eap.dual_engine_parity/1",
+        "manifest": os.path.basename(manifest),
+        "sources": {"ue": ue_path, "unity": unity_path},
+        "injectYawDeg": inject,
+        "front": {"ok": front_ok, "collision": col},
+        "assertions": assertions,
+        "summary": summary,
+        "instances": rows,
+    }
+    with open(DUAL_PARITY_JSON, "w", encoding="utf-8") as fh:
+        head = {k: v for k, v in doc.items() if k != "instances"}
+        text = json.dumps(head, ensure_ascii=False, indent=1)
+        text = (text[:-2].rstrip() + ',\n "instances": [\n'
+                + ",\n".join("  " + json.dumps(r, ensure_ascii=False, separators=(",", ":"))
+                             for r in rows) + "\n ]\n}\n")
+        fh.write(text)
+    print("[out] 全量对账 → " + DUAL_PARITY_JSON)
+
+    lines = [
+        "# 双端逐实例对账（v1.9）",
+        "",
+        "- 生成：%s" % doc["when"],
+        "- manifest：%s" % doc["manifest"],
+        "- 来源：UE `%s` / Unity `%s`"
+        % (os.path.relpath(ue_path, REPO), os.path.relpath(unity_path, REPO)),
+        "- 注入 yaw 偏移：%.3f°（0 = 正常对账）" % inject,
+        "",
+        "## 前置：UE 侧 ISM 碰撞",
+        "",
+        "- enabled=%s / profile=%s / instanceCount=%s（期望 %d）/ meshHasCollision=%s → **%s**"
+        % (col.get("enabled"), prof or "<缺失>", col.get("instanceCount"), expected_total,
+           col.get("meshHasCollision"), "PASS" if front_ok else "FAIL"),
+        "",
+        "## 断言汇总",
+        "",
+        "| # | 断言 | 结果 | 依据 |",
+        "|:--:|---|---|---|",
+    ]
+    for it in assertions:
+        lines.append("| %d | %s | %s | %s |" % (it["id"], it["name"], "PASS" if it["ok"] else "FAIL", it["detail"]))
+    lines += [
+        "",
+        "- 对账条数：%d / %d（UE %d，Unity %d）；Unity 明细自校验 matched=%d，缺失=%d"
+        % (len(rows), expected_total, ue_total, un_total, matched_n, len(missing_detail)),
+        "- 最大误差：位移 %.9f m / yaw %.6f° / 缩放 %.9f（门槛 0.01 m / 0.05° / 1e-3）"
+        % (max_pos, max_yaw, max_scale),
+        "",
+        "## 前 20 条三列对照",
+        "",
+        "| # | 资产 | Manifest t / yaw / s | UE 读回 t / yaw / s | Unity 读回 t / yaw / s | 最大误差 |",
+        "|--:|---|---|---|---|---|",
+    ]
+    for n, row in enumerate(rows[:20]):
+        m, u, un_r = row["manifest"], row["ue"] or {}, row["unity"] or {}
+        m_yaw = (m.get("r") or [0, 0, 0])[2]
+        u_yaw = (u.get("r") or [0, 0, 0])[2] if u else "?"
+        delta = row.get("delta") or {}
+        lines.append("| %d | %s[%d] | %s / %s / %s | %s / %s / %s | %s / %s / %s | Δpos %s m, Δyaw %s°, Δs %s |"
+                     % (n, row["assetId"], row["index"],
+                        _fmt_vec(m.get("t")), _fmt3(m_yaw), _fmt_vec(m.get("s"), 4),
+                        _fmt_vec(u.get("t")) if u else "—", _fmt3(u_yaw) if u else "—",
+                        _fmt_vec(u.get("s"), 4) if u else "—",
+                        _fmt_vec(un_r.get("t")) if un_r else "—",
+                        _fmt3(un_r.get("yawDeg")) if un_r else "—",
+                        _fmt_vec(un_r.get("s"), 4) if un_r else "—",
+                        "%.6f" % delta.get("posM", 0) if delta else "—",
+                        "%.6f" % delta.get("yawDeg", 0) if delta else "—",
+                        "%.8f" % delta.get("scale", 0) if delta else "—"))
+    lines += ["", "> 只列前 20 条；全量 1892 条见 `docs/dual_engine_parity.json`。"]
+    with open(DUAL_PARITY_MD, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
+    print("[out] 前 20 条 + 汇总 → " + DUAL_PARITY_MD)
+
+    if fails:
+        print("\nCHAIN FAIL: " + " | ".join(fails))
+        return 1
+    print("\nPARITY-CHECK PASS instances=%d maxPos=%.9fm maxYaw=%.6fdeg maxScale=%.9f collision=%s/%s/%d"
+          % (expected_total, max_pos, max_yaw, max_scale, col.get("enabled"), col.get("meshHasCollision"),
+             int(col.get("instanceCount") or 0)))
+    return 0
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--ue", default=DEFAULT_UE)
@@ -1002,12 +1275,18 @@ def main(argv):
                     help="Unity 端 placements 落位：换算验证 + batchmode 落位/读回 + 4 条断言（独立命令）")
     ap.add_argument("--unity-placements-verify-only", action="store_true",
                     help="--unity-placements-check 时跳过落位，只读回（反向验证清态用，绕开场景自愈）")
+    ap.add_argument("--parity-check", action="store_true",
+                    help="双端逐实例对账：UE 读回 vs Unity 读回 + 4 条断言 + 三列对照表（独立命令）")
+    ap.add_argument("--parity-inject-yaw-deg", type=float, default=0.0,
+                    help="反向验证：读 Unity 证据时给 yaw 加偏移（默认 0；0.1 应当只挂断言 3）")
     ap.add_argument("--unity", default=DEFAULT_UNITY, help="Unity.exe 路径")
     ap.add_argument("--unity-project", default=DEFAULT_UNITY_PROJECT, help="Unity 工程路径")
     ap.add_argument("--manifest", default=REAL_MULTI_MANIFEST_JSON,
                     help="--unity-check 读取的 manifest（默认 schemas/tree_manifest_multi.json）")
     args = ap.parse_args(argv[1:])
 
+    if args.parity_check:
+        return _run_parity_check(args)
     if args.unity_placements_check:
         return _run_unity_placements_check(args)
     if args.unity_check:

@@ -1,10 +1,401 @@
 {
-  "when": "2026-11-23T18:50:08",
+  "when": "2026-11-24T13:10:29",
   "schema": "eap.placement.verify/1",
   "multi": true,
   "levelPackage": "/Game/EAP/PCG/PlacedMulti",
   "actor": "EAP_Placements",
   "count": 156,
+  "collision": {
+    "enabled": true,
+    "profile": "BlockAll",
+    "profiles": [
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll",
+      "BlockAll"
+    ],
+    "instanceCount": 156,
+    "meshHasCollision": true,
+    "collisionGeometryMissing": false,
+    "assets": [
+      {
+        "id": "SM_Prop_A01_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_1",
+          "boxElems": 1,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A02_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 7,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_8",
+          "boxElems": 0,
+          "sphereElems": 1,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A03_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 8,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A04_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 7,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_2",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 4,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 4,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A05_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 6,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_1",
+          "boxElems": 1,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A06_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_8",
+          "boxElems": 0,
+          "sphereElems": 1,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A07_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A08_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 8,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_2",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 4,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 4,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A09_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_1",
+          "boxElems": 1,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A10_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 6,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_8",
+          "boxElems": 0,
+          "sphereElems": 1,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A11_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 8,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A12_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 7,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_2",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 4,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 4,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A13_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 7,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_1",
+          "boxElems": 1,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A14_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_8",
+          "boxElems": 0,
+          "sphereElems": 1,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A15_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 6,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A16_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_2",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 4,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 4,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A17_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 8,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_1",
+          "boxElems": 1,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A18_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 8,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_8",
+          "boxElems": 0,
+          "sphereElems": 1,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A19_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 7,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
+      {
+        "id": "SM_Prop_A20_PCG_Multi",
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_2",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 4,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 4,
+          "hasCollision": true
+        }
+      }
+    ]
+  },
   "bboxPlacedM": {
     "min": [
       0.2215,
@@ -29,6 +420,31 @@
       "materials": [
         "/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_1",
+          "boxElems": 1,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           22.1483,
@@ -213,6 +629,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 7,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_8",
+          "boxElems": 0,
+          "sphereElems": 1,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           5.8616,
@@ -363,6 +804,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 8,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           4.5192,
@@ -530,6 +996,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 7,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_2",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 4,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 4,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           20.1867,
@@ -680,6 +1171,31 @@
       "materials": [
         "/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 6,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_1",
+          "boxElems": 1,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           16.2087,
@@ -813,6 +1329,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_8",
+          "boxElems": 0,
+          "sphereElems": 1,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           77.3856,
@@ -997,6 +1538,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           5.8797,
@@ -1181,6 +1747,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 8,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_2",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 4,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 4,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           19.4833,
@@ -1348,6 +1939,31 @@
       "materials": [
         "/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_1",
+          "boxElems": 1,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           4.8455,
@@ -1532,6 +2148,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 6,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_8",
+          "boxElems": 0,
+          "sphereElems": 1,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           15.3627,
@@ -1665,6 +2306,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 8,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           33.2703,
@@ -1832,6 +2498,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 7,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_2",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 4,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 4,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           16.112,
@@ -1982,6 +2673,31 @@
       "materials": [
         "/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 7,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_1",
+          "boxElems": 1,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           17.7414,
@@ -2132,6 +2848,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_8",
+          "boxElems": 0,
+          "sphereElems": 1,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           32.8667,
@@ -2316,6 +3057,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 6,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           90.5238,
@@ -2449,6 +3215,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_2",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 4,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 4,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           3.312,
@@ -2633,6 +3424,31 @@
       "materials": [
         "/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 8,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_1",
+          "boxElems": 1,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           7.9649,
@@ -2800,6 +3616,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 8,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_8",
+          "boxElems": 0,
+          "sphereElems": 1,
+          "sphylElems": 0,
+          "convexElems": 0,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           17.6995,
@@ -2967,6 +3808,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 7,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_0",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 1,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 1,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           53.2636,
@@ -3117,6 +3983,31 @@
       "materials": [
         "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial"
       ],
+      "materialParams": [
+        {
+          "material": "/Engine/EngineMaterials/DefaultMaterial.DefaultMaterial",
+          "roughnessTex": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceTextureParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "roughnessScale": "ERR: TypeError(\"MaterialEditingLibrary: Failed to convert parameter 'instance' when calling function 'MaterialEditingLibrary.GetMaterialInstanceScalarParameterValue' on 'Default__MaterialEditingLibrary'\\n  TypeError: NativizeProperty: Cannot nativize 'Material' as 'Instance' (ObjectProperty)\\n    TypeError: NativizeObject: Cannot nativize 'Material' as 'Object' (allowed Class type: 'MaterialInstanceConstant')\")",
+          "textureSettings": []
+        }
+      ],
+      "collision": {
+        "enabled": true,
+        "profile": "BlockAll",
+        "instanceCount": 9,
+        "meshHasCollision": true,
+        "collisionGeometryMissing": false,
+        "collisionGeometry": {
+          "bodySetup": "BodySetup_2",
+          "boxElems": 0,
+          "sphereElems": 0,
+          "sphylElems": 0,
+          "convexElems": 4,
+          "taperedCapsuleElems": 0,
+          "simpleCollisionCount": 4,
+          "hasCollision": true
+        }
+      },
       "bboxPlacedM": {
         "min": [
           0.2215,
