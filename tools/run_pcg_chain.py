@@ -20,6 +20,7 @@
 退出码：0 全绿；1 任一断言失败（失败信息打在最后）。
 """
 import argparse
+import datetime
 import json
 import os
 import shutil
@@ -977,12 +978,37 @@ def _fmt_vec(v, n=3):
     return "(" + ", ".join(("%." + str(n) + "f") % float(x) for x in (v or [])) + ")"
 
 
+def _parse_iso_ts(raw):
+    """ISO8601 → 带时区的 datetime（绝对时刻）；无偏移按本机时区解释；解析不了返回 None。
+
+    `Z` / `+08:00` / `-05:00` 都先归一化到 tz-aware，再参与比较——绝不按字符串比。
+    裸时间（UE 的 `when` 就是这种）按系统本地时区解释，并在输出里打印折算后的绝对时刻。
+    """
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    s = raw.strip()
+    if s[-1:].upper() == "Z":
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.astimezone()
+    return dt
+
+
 def _run_parity_check(args):
     """双端逐实例对账：UE 读回 vs Unity 读回（1892 条全查）+ 产物对照表。
 
     前置：UE 证据里 `collision{enabled/meshHasCollision/instanceCount}` 必须成立。
     断言 1 数量/分项、2 位移 <0.01m、3 yaw <0.05°、4 缩放 <1e-3。
     `--parity-inject-yaw-deg` 只在对账时给 Unity 读回 yaw 加偏移（反向验证用，默认 0）。
+
+    新鲜度（v1.11）：比**证据内部的 ISO8601 时间戳**，不比文件 mtime——
+    manifest.`generatedAt`、UE 读回.`when`、Unity 读回.`generatedAt`。
+    关系是「两份证据都不得早于 manifest」；UE 与 Unity 是两次独立运行，**互不约束**。
+    任一方缺失/无法解析一律 FAIL，不回退 mtime。仅反验可用 `EAP_PARITY_IGNORE_FRESHNESS=1` 跳过。
     """
     manifest = os.path.abspath(args.manifest)
     ue_path = REAL_MULTI_VERIFY_JSON
@@ -996,18 +1022,33 @@ def _run_parity_check(args):
         print("CHAIN FAIL: 缺少证据 " + " | ".join(missing)
               + "。先跑 --real-multi（生成 UE 读回）和 --unity-placements-check（生成 Unity 读回）")
         return 1
-    stale = [p for p in (ue_path, unity_path) if os.path.getmtime(p) < os.path.getmtime(manifest)]
-    if stale:
-        print("CHAIN FAIL: 证据早于 manifest（不新鲜）：" + " | ".join(stale)
-              + "。重跑 --real-multi / --unity-placements-check")
-        return 1
-
     with open(manifest, "r", encoding="utf-8-sig") as fh:
         man = json.load(fh)
     with open(ue_path, "r", encoding="utf-8-sig") as fh:
         ue = json.load(fh)
     with open(unity_path, "r", encoding="utf-8-sig") as fh:
         un = json.load(fh)
+
+    # 新鲜度只看内部时间戳（clone/checkout 不改它），不看 mtime
+    m_raw, ue_raw, un_raw = man.get("generatedAt"), ue.get("when") or ue.get("generatedAt"), un.get("generatedAt")
+    trio = "manifest.generatedAt=%s | ue.when=%s | unity.generatedAt=%s" % (
+        m_raw if m_raw else "<缺失>", ue_raw if ue_raw else "<缺失>", un_raw if un_raw else "<缺失>")
+    if os.environ.get("EAP_PARITY_IGNORE_FRESHNESS") == "1":
+        print("      新鲜度门禁：已由 EAP_PARITY_IGNORE_FRESHNESS=1 跳过（仅反验用）")
+    else:
+        m_dt, ue_dt, un_dt = _parse_iso_ts(m_raw), _parse_iso_ts(ue_raw), _parse_iso_ts(un_raw)
+        bad = [n for n, d in (("manifest.generatedAt", m_dt), ("ue.when", ue_dt),
+                              ("unity.generatedAt", un_dt)) if d is None]
+        if bad:
+            print("CHAIN FAIL: 缺内部时间戳，无法判定新鲜度（%s）：%s" % ("/".join(bad), trio))
+            print("       不回退文件 mtime；请重跑对应步骤，让证据自己写出时间戳。")
+            return 1
+        print("      新鲜度（内部时间戳，已折算到绝对时刻）：manifest=%s | ue=%s | unity=%s"
+              % (m_dt.isoformat(), ue_dt.isoformat(), un_dt.isoformat()))
+        stale = [n for n, d in (("ue", ue_dt), ("unity", un_dt)) if d < m_dt]
+        if stale:
+            print("CHAIN FAIL: 证据早于 manifest（不新鲜，%s）：%s" % ("/".join(stale), trio))
+            return 1
 
     assets = man.get("assets") or []
     want_counts = {a.get("id"): len(((a.get("placements") or {}).get("items")) or []) for a in assets}

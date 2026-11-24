@@ -38,7 +38,14 @@ namespace EAP
     [Serializable] public class PlacementItem { public float[] t, r, s; }
     [Serializable] public class EngineTarget { public string destPath, shader, materialInstance, modelPath, materialPathPrefix; public Dictionary<string, string> propertyMap; }
     [Serializable] public class Check { public string rule; public bool pass; }
-    [Serializable] public class VerifyDoc { public string schema = "eap.unity_verify/1"; public string pipeline, manifest; public List<VerifyAsset> assets = new List<VerifyAsset>(); }
+    [Serializable] public class VerifyDoc
+    {
+        public string schema = "eap.unity_verify/1";
+        public string pipeline, manifest;
+        // v1.11：内部时间戳（本地时区偏移），供 --parity-check 判定新鲜度；clone/checkout 不改变它
+        public string generatedAt;
+        public List<VerifyAsset> assets = new List<VerifyAsset>();
+    }
     [Serializable] public class VerifyAsset
     {
         public string id, prefab, shader;
@@ -52,6 +59,8 @@ namespace EAP
     {
         public string schema = "eap.unity_placements_verify/1";
         public string manifest;
+        // v1.11：内部时间戳（本地时区偏移），供 --parity-check 判定新鲜度；clone/checkout 不改变它
+        public string generatedAt;
         public string scene = ManifestImporter.PlaceScenePath;
         public bool sceneExists;
         public Dictionary<string, int> instances = new Dictionary<string, int>();
@@ -626,9 +635,10 @@ namespace EAP
                 }
                 doc.assets.Add(va);
             }
+            doc.generatedAt = DateTimeOffset.Now.ToString("yyyy-MM-dd'T'HH:mm:sszzz");
             string outPath = Path.ChangeExtension(manifestPath, ".unity_verify.json");
             File.WriteAllText(outPath, JsonConvert.SerializeObject(doc, Formatting.Indented));
-            Debug.Log("[EAP] verify → " + outPath + " assets=" + doc.assets.Count);
+            Debug.Log("[EAP] verify → " + outPath + " assets=" + doc.assets.Count + " at=" + doc.generatedAt);
         }
 
         /// <summary>把 manifest 的 placements 真正落到场景：Import（材质/Prefab）→ 实例化 → 存场景。</summary>
@@ -799,10 +809,11 @@ namespace EAP
                 }
             }
 
+            doc.generatedAt = DateTimeOffset.Now.ToString("yyyy-MM-dd'T'HH:mm:sszzz");
             string outPath = Path.ChangeExtension(manifestPath, ".unity_placements_verify.json");
             File.WriteAllText(outPath, JsonConvert.SerializeObject(doc, Formatting.Indented));
-            Debug.Log(string.Format("[EAP] placements verify → {0} total={1} colliders={2} sceneExists={3} detail={4}",
-                                    outPath, doc.total, doc.colliders, doc.sceneExists, doc.instancesDetail.Count));
+            Debug.Log(string.Format("[EAP] placements verify → {0} total={1} colliders={2} sceneExists={3} detail={4} at={5}",
+                                    outPath, doc.total, doc.colliders, doc.sceneExists, doc.instancesDetail.Count, doc.generatedAt));
         }
 
         static float NormalizeYaw(float y)
