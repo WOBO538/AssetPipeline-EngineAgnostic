@@ -2,7 +2,7 @@
 
 > 项目代号：`Engine-Agnostic Pipeline`（下称 EAP）
 > 定位：前端 PCG + AIGC 生成 → Python 中台（格式中转 + 合规审查）→ UE5 / Unity 双端消费。
-> **当前进度：阶段一（manifest 标准 + 双端消费端模板）+ Layer1 数据出口 + 地块扩到 200×200 m（1892 实例）+ placements 落位（回灌成 UE ISM）+ 换真实树 glb（1892 棵树端到端跑通）**。
+> **当前进度（v1.12.1，2026-11-24）**：阶段一 6 条中 5 条闭合、1 条待截图（法线 sRGB Inspector）；Layer1 数据出口 + 200×200 m（1,892 实例）+ UE ISM 落位 + 换真实树 glb + 材质规范化/贴图三档/roughness 贴图；**Unity 消费端全链路**（模型/贴图/Prefab + 1,892 实例落位 + Collider + 4 级 LOD）；**双端逐实例对账**（1,892 条，maxPos 0 / maxYaw 0 / maxScale 1e-6）与**三段性能表**、**双端 LOD 4 级**均已入库并带断言。现行门槛：`--multi` 13 / `--real-multi` 20 / `--with-compile` 21 / `--unity-check` 4 / `--unity-placements-check` 4 / `--parity-check` 4 / `--lod-check` 4。
 
 ## 一、这个项目在作品集里的位置（先读这段）
 
@@ -775,6 +775,27 @@ screen size/height、引用文件与 SHA），**不声称验证了视觉切换**
 
 > 没截图、没日志、没退出码 = 没过。这条照搬项目验收标准。
 
+### 四之一、阶段一 6 条的终局状态（2026-11-24，v1.12.1）
+
+| # | 判据 | 状态 | 证据（可复跑） |
+|:--:|---|:--:|---|
+| 1 | 同一份 manifest 双端都能读 | ✅ | 两端读 `schemas/tree_manifest_multi.json`：UE `CHAIN PASS assets=2 placements=1892`；Unity `UNITY-CHECK PASS assets=2 prefabs=2 textures=4/4` |
+| 2 | UE 自动建母材质 + MIC 并连好贴图 | ✅ | v1.6 断言②③：MIC `_Roughness`、`RoughnessScale=0.9`、4/4 槽、三档压缩（`TC_Default`+sRGB / `TC_Normalmap`+线性 / `TC_Masks`+线性）、main=6/10 贴图 |
+| 3 | Unity 自动建 Material 并映射贴图 | ✅ | v1.7 读回：`Universal Render Pipeline/Lit`，BaseColor/Normal `texturesApplied` 全 true，贴图路径全在 `Assets/` 下 |
+| 4 | 法线贴图不吃 sRGB | ⚠️ | 代码与断言已覆盖（UE `TC_Normalmap` + `srgb=False`；Unity `TextureImporterType.NormalMap`），**两端 Inspector 截图待补**（开编辑器时顺手截） |
+| 5 | 2 的幂/通道不通过时被拦住 | ✅ | `test_validator.py` → `拦截成功 9/9`（2026-11-24 复跑） |
+| 6 | 两端资产名/路径/尺寸一致 | ✅ | `docs/dual_engine_parity.md`：1,892 条逐实例三列对照，`maxPos=0 m / maxYaw=0° / maxScale=1e-6`；Unity 读回 triCount 3,370/3,505、bounds 误差 ≤2e-5 m |
+
+**6 条之外、本轮新增的双端能力（都已带断言）**：
+
+| 能力 | 命令 | 门槛 |
+|---|---|---|
+| Unity 1,892 实例落位 + 逐实例 Collider | `--unity-placements-check` | 4/4 |
+| 双端逐实例对账（位置/朝向/缩放） | `--parity-check` | 4/4（容差 0.01 m / 0.05° / 1e-3） |
+| 双端 4 级 LOD（LOD0 与源 glb 对顶点/材质/UV） | `--lod-check` | 4/4 |
+| 三段性能表（导入 / 材质 / 碰撞 × 20 资产） | `--perf` | 4 条 + 断言 5（冷隔离结论随数据） |
+
+
 ### 四之二、Layer 1 链路验收（现行口径：`--multi` 13 条 + `--real-multi` 20/21 条）
 
 > **现行判据（v1.6）**：`python tools/run_pcg_chain.py --multi --expect-assets 20` = **13 条**；
@@ -811,10 +832,10 @@ screen size/height、引用文件与 SHA），**不声称验证了视觉切换**
 - **轴心（Pivot）**：UE Python API **没有**直接改 StaticMesh 轴心的接口。本仓库的做法是把 `pivot.mode` + `pivot.offsetM` 写进 manifest，在**导出端**（DCC/glTF 节点变换）执行；消费端只做校验与告警。Unity 端同理由 Prefab 根节点补偿。
 - **Unity 的粗糙度通道**：URP 的 `_MetallicGlossMap` 是 R=Metallic、A=Smoothness，**Smoothness = 1 − Roughness**。manifest 里显式写 `channelPacking`，转换在消费端完成（不在导出端预乘），避免两端各算一遍。
 - **贴图压缩格式**：UE 的 `TC_Normalmap` / Unity 的 crunch 等属于平台设置，本阶段只写进 manifest 的期望值，不保证跨机器一致。
-- **LOD/HLOD**：manifest 里记录 `lods[]`，本阶段只校验不生成。
-- **placements 落位只落 transform（v1.1）**：`place_manifest.py` 把 1892 条落成 ISM 实例并验证坐标/旋转/缩放，
-  但 manifest 里的材质、碰撞、LOD 字段本阶段不落；v1.4 起落位支持多资产（每 asset 一个 ISM），
-  但材质规范化只对文件型 glb（`model.source=file`）生效。
+- **LOD/HLOD（LOD 已于 v1.12 补上）**：两棵树各 3 级真几何 LOD（Blender Decimate 0.5/0.25/0.10），UE StaticMesh 4 级、Unity Prefab `LODGroup` 4 级，`--lod-check` 4/4；**HLOD 仍未做**。
+- **placements 落位的能力边界（v1.1 起，至 v1.12 已扩）**：UE 侧 ISM 落 transform，v1.9 起**启用碰撞**
+  （`enabled=True / BlockAll / 1,892 实例`）；Unity 侧 v1.8 起落 1,892 实例 + 逐实例 Collider，v1.12 起带 4 级 LOD。
+  仍未做的：UE 侧 ISM 的 per-instance LOD 切换手感（无头无法验视觉）、HLOD、以及 manifest 里材质/碰撞/LOD 字段的**完全自由映射**。
 - **给关卡 Actor 加组件的坑（v1.1）**：`unreal.new_object(InstancedStaticMeshComponent, outer=actor)` 建出来的组件
   不在 `OwnedComponents`，存关卡后会被丢弃；必须用 `SubobjectDataSubsystem.add_new_subobject`（Details→Add Component 的 API）。
 - **PCG 点级 metadata 读不到（v1.1）**：`get_generated_graph_output()` 能拿到 `PCGDataCollection`（tagged=1），但点级 attribute（密度/seed）没有暴露的 Python 访问器。所以出口以**实例 transform** 为准——实例是最终结果，反而更可信。
@@ -833,8 +854,8 @@ screen size/height、引用文件与 SHA），**不声称验证了视觉切换**
   材质覆盖不落盘。**先关编辑器再跑链**，否则会拿到"看着 PASS 但没存住"的假结果。
 - **UE 侧三角面数要看清口径（v1.2）**：glTF 源数据 conifer 3 370 面，导入 UE 后 `get_num_triangles(0)` 报 1 414
   （broadleaf 3 505 → 2 354）——返回的是 **Nanite fallback** 简化网格。引用数字时写明是哪一侧。
-- **树资产没有 LOD（v1.2）**：两棵树都只有 1 个 LOD（3 370 / 3 505 面，符合"低模无 LOD"门槛），
-  1892 棵全量无 LOD 只能靠 Nanite 与实例剔除撑；LOD 链是下一项工作。
+- **树资产 LOD 已补（v1.12，历史记录）**：v1.2 时两棵树只有 1 个 LOD；v1.12 已补 3 级（面数 3370→1685/842/337、"
+  3505→1752/876/350），UE/Unity 双端各 4 级并带 `--lod-check`。**无头只能验数据，LOD 实际切换手感需在编辑器里拖视角看**。
 - **真实双树种混排已接通（v1.5）**：`--real-multi` 用 `conifer.glb` + `broadleaf.glb` 同一份 1892 点散点，
   UE 落成 2 个 ISM 并读回（17/17 断言）。但**散点仍是合成的**（固定 seed，只保证可复现，不代表真实 PCG 图输出），
   且只支持 2 个树种 / 单块 200×200 m 地块；`--tree`（单树种全量替换）自 v1.5 起降级为历史链路（见 §五）。

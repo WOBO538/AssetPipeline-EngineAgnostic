@@ -187,3 +187,48 @@ Unity 端尚未实跑、`PlacedTrees` 关卡无灯光地面（需真实编辑器
 | G5 | 性能表（导入 / 材质 / 碰撞 三段 × 20 资产）未做 | 加分项，非资格项 | 低优先 |
 | G6 | 树资产各只有 1 个 LOD | 大规模场景性能 | ✅ v1.12 已补：Blender Decimate 3 级 → UE SM 4 级 + Unity LODGroup 4 级，`--lod-check` 4/4（只验数据，不验视觉切换） |
 | G7 | roughness 合成区间窄（0.65–0.80），视觉差异弱 | 画面说服力 | 可选：拉大到 0.95 / 0.55（需同步 3 条断言与 4 张 SHA） |
+
+---
+
+## E. 阶段一终局复核（2026-11-24，v1.12.1）
+
+> 复核人：lead。复核方式：重跑全部门槛 + 负向测试 + 读回证据。行号对应 §A 的 6 条。
+> 现行门槛：`--multi` **13** / `--real-multi` **20** / `--with-compile` **21** / `--unity-check` **4** /
+> `--unity-placements-check` **4** / `--parity-check` **4** / `--lod-check` **4**；`test_validator.py` **9/9**。
+
+| # | 判据 | 终局状态 | 证据（2026-11-24 复跑） |
+|:--:|---|:--:|---|
+| 1 | 同一份 manifest 双端都能读，资产数一致 | ✅ | UE `CHAIN PASS assets=2 placements=1892`；Unity `UNITY-CHECK PASS assets=2 prefabs=2 textures=4/4` |
+| 2 | UE 自动建母材质 + MIC 并连好贴图 | ✅ | MIC `_Roughness`、`RoughnessScale=0.9`、4/4 槽、三档压缩、main=6/10 贴图 |
+| 3 | Unity 自动建 Material 并映射贴图 | ✅ | URP Lit；BaseColor/Normal `texturesApplied=true`；路径全 `Assets/` |
+| 4 | 法线贴图不吃 sRGB | ⚠️ | 代码+断言已覆盖（UE `TC_Normalmap`+`srgb=False`；Unity `NormalMap`），**Inspector 截图待补** |
+| 5 | 2 的幂/通道不通过被拦住 | ✅ | `拦截成功 9/9`，exit=0 |
+| 6 | 两端资产名/路径/尺寸一致 | ✅ | `docs/dual_engine_parity.md`：1,892 条逐实例三列对照；`maxPos=0 m / maxYaw=0° / maxScale=1e-6`；Unity triCount 3,370/3,505、bounds ≤2e-5 m |
+
+### E2. §D 缺口清单的关闭情况
+
+| # | 缺口 | 关闭情况 |
+|:--:|---|---|
+| G1 | UE 侧 ISM 无碰撞、无 LOD | ✅ v1.9 碰撞（BlockAll / 1,892）+ v1.12 LOD（4 级） |
+| G2 | Unity 朝向无直接判据 | ✅ v1.9 逐实例 yaw 全查（max 0°） |
+| G3 | 无逐资产三列对照表 | ✅ `docs/dual_engine_parity.md`（1,892 条） |
+| G4 | 法线 sRGB 两端 Inspector 截图 | ⏳ 待开编辑器 |
+| G5 | 性能表（导入/材质/碰撞 × 20 资产） | ✅ v1.10 `docs/perf_report.md`（冷/热 DDC 未分离已如实标注） |
+| G6 | 树资产 LOD | ✅ v1.12 / v1.12.1（LOD0 与源 glb 对顶点/材质/UV） |
+| G7 | roughness 区间窄（0.65–0.80） | ⏳ 可选优化 |
+
+### E3. 本轮新增的门槛（均为独立命令，不并入老门槛）
+
+| 命令 | 断言 | 反验（lead 做过） |
+|---|---|---|
+| `--unity-placements-check` | 4/4 | 删场景 → `--unity-placements-verify-only` → 4 条全 FAIL；重建后 4/4 |
+| `--parity-check` | 前置 + 4/4 | 注入 yaw 0.1°→只挂断言3；UE 证据 t+1cm→只挂断言2；`EAP_COLLISION=0`→只挂前置 |
+| `--lod-check` | 4/4 | 删 LOD3→只挂断言1；改 LOD0 面数→只挂断言2；改 Unity 面数→只挂断言3 |
+| `--perf` | 4 条 + 断言 5 | 写死采样→断言3 FAIL；改报告文字→断言5 FAIL；伪造快照→生成器翻到"已验证"分支 |
+
+### E4. 诚实的边界（复试/面试可以直接引用）
+
+1. 无头只验**数据**（数量、面数、transform、SHA、LOD 级数），**不验视觉**；
+2. LOD 切换、材质观感、光照需要人在编辑器里看——v1.12 报告里已明写；
+3. 性能表是**本机一次性采样**（`docs/perf_20261124_141714.json`），换机器需重跑；
+4. 冷/热 DDC **未分离**（快照证明冷样本仍写盘），报告已如实标注，没有把热数据当冷数据宣传。
