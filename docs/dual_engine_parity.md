@@ -1,6 +1,6 @@
 # 双端逐实例对账（v1.9）
 
-- 生成：2026-11-24T17:18:58
+- 生成：2026-11-24T18:24:29
 - manifest：tree_manifest_multi.json
 - 来源：UE `docs\placed_tree_multi_verify.json` / Unity `schemas\tree_manifest_multi.unity_placements_verify.json`
 - 注入 yaw 偏移：0.000°（0 = 正常对账）

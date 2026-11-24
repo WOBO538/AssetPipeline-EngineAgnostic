@@ -967,6 +967,201 @@ def _run_unity_placements_check(args):
     return 0
 
 
+def _unity_tex_asset_path(rel):
+    """仓库相对路径 → Unity 资产路径；与 ManifestImporter.TextureAssetPath 逐字一致。"""
+    p = str(rel or "").replace("\\", "/")
+    if p.startswith("Assets/"):
+        return p
+    return "Assets/EAP/Trees/Textures/" + os.path.basename(p)
+
+
+def _sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _run_unity_materials_check(args):
+    """v1.13 Unity 双材质槽：读回逐 LOD/Renderer 材质，4 条断言。
+
+    1) 每资产材质数 == slots 数，且每 LOD 每 Renderer 槽 0 与槽 1 的**资产路径**不同；
+    2) 槽 0 的 BaseMap / BumpMap 与 manifest 槽 0 指向一致；
+    3) 槽 1 的 BaseMap 对、alphaClip=true、_ALPHATEST_ON 在 shaderKeywords、cutoff=0.33、renderQueue=2450；
+    4) manifest 里每张槽贴图的 sha256 与磁盘一致。
+    """
+    manifest = os.path.abspath(args.manifest)
+    project = os.path.abspath(args.unity_project)
+    fails = []
+    print("[0/5] Unity 双材质槽读回（%s）" % manifest)
+
+    if not os.path.isfile(manifest):
+        print("CHAIN FAIL: 找不到 manifest: " + manifest)
+        return 1
+    with open(manifest, "r", encoding="utf-8-sig") as fh:
+        man = json.load(fh)
+    assets = man.get("assets") or []
+
+    verify_path = os.environ.get("EAP_UNITY_MATERIALS_JSON") \
+        or os.path.splitext(manifest)[0] + ".unity_materials_verify.json"
+    if args.unity_materials_verify_only:
+        print("[1/5] SKIP Unity 读回（--unity-materials-verify-only）证据=%s" % verify_path)
+    else:
+        if _unity_running():
+            print("CHAIN FAIL: Unity.exe 正在运行，先关掉 Unity 再来")
+            return 1
+        if not os.path.isfile(args.unity):
+            fails.append("找不到 Unity.exe: " + args.unity)
+        if not os.path.isdir(project):
+            fails.append("找不到 Unity 工程: " + project)
+        if fails:
+            print("CHAIN FAIL: " + " | ".join(fails))
+            return 1
+        changed = _deploy_unity_script(project)
+        print("[1/5] 消费端脚本 %s → %s" % ("已更新" if changed else "无变化", project))
+        if os.path.isfile(verify_path):
+            os.remove(verify_path)
+        vlog = os.path.splitext(manifest)[0] + ".unity_materials_verify.unity_log.txt"
+        rc, log_text = _run_unity(
+            args.unity, project, "EAP.ManifestImporter.VerifyMaterialsFromArgs", manifest, vlog)
+        print("[2/5] Unity batchmode 读回 exit=%s → %s" % (rc, "PASS" if rc == 0 else "FAIL"))
+        if rc != 0:
+            fails.append("Unity 读回失败 exit=%s | log_tail: %s" % (rc, _tail(log_text)))
+
+    vdata = None
+    if os.path.isfile(verify_path):
+        with open(verify_path, "r", encoding="utf-8-sig") as fh:
+            vdata = json.load(fh)
+    if vdata is None:
+        print("CHAIN FAIL: 读回证据不存在: " + verify_path)
+        return 1
+    vmap = {a.get("id"): a for a in (vdata.get("assets") or [])}
+
+    # 断言 1：材质数=槽数；每 LOD 每 Renderer 槽0≠槽1（比资产路径）
+    ok1 = True
+    detail1 = []
+    for a in assets:
+        aid = a.get("id")
+        slots = ((a.get("textures") or {}).get("slots") or [])
+        want_n = len(slots)
+        v = vmap.get(aid) or {}
+        if not v.get("prefabExists"):
+            ok1 = False
+            fails.append("断言1 %s prefab 不存在" % aid)
+            continue
+        if want_n < 2:
+            ok1 = False
+            fails.append("断言1 %s manifest 没有 2 个槽（slots=%d）" % (aid, want_n))
+            continue
+        lods = v.get("lodMaterials") or []
+        if not lods:
+            ok1 = False
+            fails.append("断言1 %s 读回没有 lodMaterials" % aid)
+            continue
+        for lv in lods:
+            renders = lv.get("renderers") or []
+            if not renders:
+                ok1 = False
+                fails.append("断言1 %s LOD%s 没有 Renderer" % (aid, lv.get("lod")))
+                continue
+            for ri, mats in enumerate(renders):
+                mats = [m for m in (mats or [])]
+                if len(mats) != want_n:
+                    ok1 = False
+                    fails.append("断言1 %s LOD%s Renderer%d 材质数=%d（期望 %d）: %r"
+                                 % (aid, lv.get("lod"), ri, len(mats), want_n, mats))
+                    continue
+                if len(set(mats)) != len(mats):
+                    ok1 = False
+                    fails.append("断言1 %s LOD%s Renderer%d 槽材质路径重复: %r"
+                                 % (aid, lv.get("lod"), ri, mats))
+                detail1.append("%s/LOD%s/R%d=%s" % (aid, lv.get("lod"), ri, mats))
+    print("[2/5] 材质数=槽数 且 槽0≠槽1（资产路径） %d 个 Renderer → %s"
+          % (len(detail1), "PASS" if ok1 else "FAIL"))
+
+    # 断言 2/3：槽 0 BaseMap/BumpMap；槽 1 BaseMap + alpha clip 全套
+    ok2 = ok3 = True
+    for a in assets:
+        aid = a.get("id")
+        slots = ((a.get("textures") or {}).get("slots") or [])
+        if len(slots) < 2:
+            ok2 = ok3 = False
+            fails.append("%s slots 不足 2，无法比对槽 0/1" % aid)
+            continue
+        s0, s1 = slots[0], slots[1]
+        v = vmap.get(aid) or {}
+        got = {int(s.get("slot", -1)): s for s in (v.get("slots") or [])}
+        g0, g1 = got.get(0) or {}, got.get(1) or {}
+        want_bc0 = _unity_tex_asset_path((s0.get("BaseColor") or {}).get("path"))
+        want_nm0 = _unity_tex_asset_path((s0.get("Normal") or {}).get("path")) if s0.get("Normal") else None
+        if g0.get("baseMap") != want_bc0:
+            ok2 = False
+            fails.append("断言2 %s 槽0 BaseMap=%r 期望 %r" % (aid, g0.get("baseMap"), want_bc0))
+        if want_nm0 and g0.get("bumpMap") != want_nm0:
+            ok2 = False
+            fails.append("断言2 %s 槽0 BumpMap=%r 期望 %r" % (aid, g0.get("bumpMap"), want_nm0))
+        want_bc1 = _unity_tex_asset_path((s1.get("BaseColor") or {}).get("path"))
+        if g1.get("baseMap") != want_bc1:
+            ok3 = False
+            fails.append("断言3 %s 槽1 BaseMap=%r 期望 %r" % (aid, g1.get("baseMap"), want_bc1))
+        checks = {
+            "alphaClip": (g1.get("alphaClip") is True, True),
+            "alphaTestKeyword": (g1.get("alphaTestKeyword") is True, True),
+            "cutoff": (g1.get("cutoff"), 0.33),
+            "renderQueue": (g1.get("renderQueue"), 2450),
+            "baseMapAlphaIsTransparency": (g1.get("baseMapAlphaIsTransparency") is True, True),
+        }
+        for name, (got_v, want_v) in checks.items():
+            if isinstance(want_v, float) or name == "cutoff":
+                okv = got_v is not None and abs(float(got_v) - float(want_v)) < 1e-6
+            else:
+                okv = got_v == want_v
+            if not okv:
+                ok3 = False
+                fails.append("断言3 %s 槽1 %s=%r 期望 %r" % (aid, name, got_v, want_v))
+        print("     槽1 %s: keyword=%r queue=%r cutoff=%r clip=%r alphaSource=%r alphaIsTransparency=%r"
+              % (aid, g1.get("alphaTestKeyword"), g1.get("renderQueue"), g1.get("cutoff"),
+                 g1.get("alphaClip"), g1.get("baseMapAlphaSource"), g1.get("baseMapAlphaIsTransparency")))
+    print("[3/5] 槽0 BaseMap/BumpMap + 槽1 BaseMap/alpha clip(keyword+queue+cutoff) → %s"
+          % ("PASS" if (ok2 and ok3) else "FAIL"))
+
+    # 断言 4：manifest 槽贴图 sha256 与磁盘一致
+    ok4 = True
+    n_tex = 0
+    for a in assets:
+        aid = a.get("id")
+        for s in ((a.get("textures") or {}).get("slots") or []):
+            for chan in ("BaseColor", "Normal", "ORM"):
+                t = s.get(chan)
+                if not isinstance(t, dict):
+                    continue
+                n_tex += 1
+                rel, want = t.get("path"), t.get("sha256")
+                if not want:
+                    ok4 = False
+                    fails.append("断言4 %s 槽%s %s 缺 sha256" % (aid, s.get("slot"), chan))
+                    continue
+                abs_path = os.path.join(REPO, rel.replace("/", os.sep))
+                if not os.path.isfile(abs_path):
+                    ok4 = False
+                    fails.append("断言4 %s 槽%s %s 文件不存在: %s" % (aid, s.get("slot"), chan, rel))
+                    continue
+                got_sha = _sha256_file(abs_path)
+                if got_sha.lower() != str(want).lower():
+                    ok4 = False
+                    fails.append("断言4 %s 槽%s %s sha=%s 期望 %s"
+                                 % (aid, s.get("slot"), chan, got_sha, want))
+    print("[4/5] manifest 槽贴图 SHA256 对磁盘（%d 张） → %s" % (n_tex, "PASS" if ok4 else "FAIL"))
+
+    if fails:
+        print("CHAIN FAIL: " + " | ".join(fails))
+        return 1
+    print("UNITY-MATERIALS-CHECK PASS assets=%d slots=%s textures=%d"
+          % (len(assets), [len((a.get("textures") or {}).get("slots") or []) for a in assets], n_tex))
+    return 0
+
+
 DUAL_PARITY_JSON = os.path.join(REPO, "docs", "dual_engine_parity.json")
 DUAL_PARITY_MD = os.path.join(REPO, "docs", "dual_engine_parity.md")
 PARITY_TOL_POS_M = 0.01
@@ -2189,6 +2384,10 @@ def main(argv):
                     help="Unity 端 placements 落位：换算验证 + batchmode 落位/读回 + 4 条断言（独立命令）")
     ap.add_argument("--unity-placements-verify-only", action="store_true",
                     help="--unity-placements-check 时跳过落位，只读回（反向验证清态用，绕开场景自愈）")
+    ap.add_argument("--unity-materials-check", action="store_true",
+                    help="Unity 双材质槽：逐 LOD/Renderer 读回材质 + 4 条断言（独立命令）")
+    ap.add_argument("--unity-materials-verify-only", action="store_true",
+                    help="--unity-materials-check 时跳过 Unity，只读已有证据（反验用，可用 EAP_UNITY_MATERIALS_JSON 指副本）")
     ap.add_argument("--parity-check", action="store_true",
                     help="双端逐实例对账：UE 读回 vs Unity 读回 + 4 条断言 + 三列对照表（独立命令）")
     ap.add_argument("--lod-check", action="store_true",
@@ -2216,6 +2415,8 @@ def main(argv):
         return _run_lod_check(args)
     if args.parity_check:
         return _run_parity_check(args)
+    if args.unity_materials_check:
+        return _run_unity_materials_check(args)
     if args.unity_placements_check:
         return _run_unity_placements_check(args)
     if args.unity_check:

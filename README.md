@@ -762,6 +762,60 @@ screen size/height、引用文件与 SHA），**不声称验证了视觉切换**
 老门槛不变：13 / 20 / 21 / 4 / 4 / 4，`--perf` 与断言 5 未动，v1.6 贴图与三个 roughness SHA 未动，
 6 个 LOD fbx 的 SHA256 未动（`make_tree_lods.py --self-check-sha` 全一致）。
 
+## 三之十四、Unity 双材质槽：树皮不透明 + 树叶 alpha clip（v1.13）
+
+> 症状：v1.12 的 Unity 端每棵树只有一个材质 `M_<id>.mat` 赋给所有槽，槽 1 的树叶
+> 也吃了槽 0 的树皮贴图 → 树叶渲染成铜色/不透明。根因是 manifest 只有一层 `textures`
+> （槽 0），落位端没有"按槽拆材质"的数据。
+
+**A · manifest 多槽结构（旧字段保留）**：`tree_to_manifest.py` 新增
+`textures.slots[]`，顺序 = glb `materials` 下标 = primitive 顺序（构建时与
+`docs/tree_lods.json` 的 `source.materialNames` 对账，不一致直接报错）：
+
+| slot | material | alphaMode | cutoff | BaseColor | Normal |
+|:--:|---|---|---:|---|---|
+| 0 | Bark_NormalTree | OPAQUE | — | 有 | 有 |
+| 1 | Leaves_Pine / Leaves_NormalTree | MASKED | 0.33 | 有 | 无（glb 没有叶法线） |
+
+每张贴图带 `path / srgb / size / channels / channelCount / sha256`；叶子 BaseColor 的
+PNG colorType=6 → `channels=RGBA`、`channelCount=4`（本身带 alpha）。
+**`textures.BaseColor` / `textures.Normal` 旧字段原样保留**（仍指向槽 0），validator 与
+`schemas/manifest.schema.json` 同步放开 `slots`，老 manifest 不受影响。
+
+**B · Unity 按槽建材质**：`M_<asset>_Bark.mat`（URP Lit，不透明）+
+`M_<asset>_Leaves.mat`（URP Lit + Alpha Clipping）。LOD0–LOD3 每个 Renderer 的
+`m_Materials` 严格 `[槽0, 槽1]` 两元素且路径不同。叶子 BaseColor 导入时
+`alphaSource=FromInput`、`alphaIsTransparency=true`，否则裁剪无从谈起。
+
+**C · `--unity-materials-check`（4 条断言，独立命令）**：
+
+| # | 断言 | 实测 |
+|:--:|---|---|
+| 1 | 每资产材质数 = 槽数，且每 LOD 每 Renderer 槽 0 与槽 1 **资产路径**不同（不比 instanceID/Equals） | 8 个 Renderer（2 资产×4 LOD）全 PASS |
+| 2 | 槽 0 `_BaseMap`/`_BumpMap` 与 manifest 槽 0 的 BaseColor/Normal 一致 | 两树种一致 |
+| 3 | 槽 1 `_BaseMap` 对，且 `alphaClip=true`、`_ALPHATEST_ON` 在 keyword、`_Cutoff=0.33`、`renderQueue=2450`、贴图 alphaIsTransparency=true | 两树种全 PASS |
+| 4 | manifest 里每张槽贴图 SHA256 与磁盘文件一致 | 6/6 PASS |
+
+**alpha clip 不是一个 float**：URP 只设 `_Cutoff`/`_Surface` 不会真裁剪，本实现同时
+`_AlphaClip=1` + `EnableKeyword("_ALPHATEST_ON")` + `renderQueue=2450`（AlphaTest），
+读回证据里四项都记（`alphaClip / alphaTestKeyword / cutoff / renderQueue`），断言 3 全核。
+
+**向后兼容**：`slots` 是可选字段。用基线 `2120155` 里的 v1.2 manifest（无 slots）实跑
+`--unity-check` → 4/4 PASS，仍能建出单材质 Prefab；老断言 3（贴图读回 + `texturesApplied`）
+语义不变，仍是逐通道严格判，没有放宽成"至少一个槽对"。
+
+**反向验证（真跑，证据副本 + `EAP_UNITY_MATERIALS_JSON`，不碰仓库）**：
+① 两槽都指向同一个材质 → **只有断言 1 FAIL**（`槽材质路径重复`），断言 2/3/4 PASS；
+② 槽 1 关掉 Alpha Clipping（`alphaClip/keyword` 置 false、cutoff 回 0.5、queue 回 2000）→
+**只有断言 3 FAIL**（四项逐条报错），断言 1/2/4 PASS；对照组真实证据 4/4 PASS。
+
+**诚实边界**：无头环境只验**数据**（槽数、材质路径、贴图引用、keyword、renderQueue、
+cutoff、SHA），**不声称验证了最终像素**——树叶是否真被裁成叶形、是否呈绿色，
+需要在编辑器/游戏里看（lead 截图验收）。`--unity-placements-check` 的材质抽样仍读
+Renderer 槽 0（Bark），1892 实例数/collider 数不受本次改动影响。
+
+老门槛不变：13 / 20 / 21 / 4 / 4 / 4 / 4 + parity 4/4；UE 侧代码与 6 个 fbx 未动。
+
 ## 四、阶段一验收（6 条，逐条可判）
 
 | # | 判据 | 判法 |

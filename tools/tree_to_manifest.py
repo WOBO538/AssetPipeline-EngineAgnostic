@@ -111,13 +111,25 @@ def export_textures(glb_path, asset_id, out_dir=None):
             "slot": item["slot"], "channel": item["channel"],
             "path": os.path.relpath(abs_path, REPO).replace("\\", "/"),
             "size": [item["width"], item["height"]],
+            "channels": _channels(item["colorType"]),
+            "channelCount": _channel_count(item["colorType"]),
             "sha256": hashlib.sha256(item["png"]).hexdigest(),
         })
     return written
 
 
+def _channels(color_type):
+    """PNG colorType → 通道名（glb 内嵌图统一是 colorType 6=RGBA）。"""
+    return {0: "L", 2: "RGB", 3: "P", 4: "LA", 6: "RGBA"}.get(int(color_type), "RGB")
+
+
+def _channel_count(color_type):
+    """PNG colorType → 通道数：6=RGBA→4，2=RGB→3，0/3→1，4=LA→2。"""
+    return {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}.get(int(color_type), 3)
+
+
 def manifest_textures(tex_files):
-    """资产级 textures：slot 0 的 BaseColor / Normal（Normal 必须 sRGB=false）。"""
+    """资产级 textures（v1.1 旧字段，保留不动）：slot 0 的 BaseColor / Normal。"""
     out = {}
     for chan, srgb in (("BaseColor", True), ("Normal", False)):
         hit = next((t for t in tex_files if t["slot"] == 0 and t["channel"] == chan), None)
@@ -126,6 +138,58 @@ def manifest_textures(tex_files):
         out[chan] = {"path": hit["path"], "srgb": srgb, "size": hit["size"],
                      "channels": "RGB", "source": "glb-embedded"}
     return out
+
+
+def manifest_slots(tex_files, materials):
+    """v1.13 新增：按 glb 材质槽拆贴图（槽顺序 = glb materials 下标 = primitive 顺序）。
+
+    每槽带 BaseColor/Normal 的 path/srgb/size/channels/sha256，供 Unity 侧按槽建材质，
+    并让 --unity-materials-check 用 SHA 对磁盘复核。旧字段 textures.BaseColor/Normal 不动。
+    """
+    slots = []
+    for idx in sorted({int(t["slot"]) for t in tex_files}):
+        mat = materials[idx] if idx < len(materials) else {}
+        # glTF 的 BLEND/MASK 在这里统一成落位端的 MASKED 目标（与 UE normalization.opacityClip 0.33 对齐）
+        alpha_src = str(mat.get("alphaMode") or "OPAQUE").upper()
+        alpha = "MASKED" if alpha_src in ("BLEND", "MASK") else alpha_src
+        slot = {"slot": idx, "material": mat.get("name"), "alphaMode": alpha}
+        if alpha == "MASKED":
+            slot["cutoff"] = 0.33
+        for chan, srgb in (("BaseColor", True), ("Normal", False)):
+            hit = next((t for t in tex_files if t["slot"] == idx and t["channel"] == chan), None)
+            if hit is None:
+                continue
+            slot[chan] = {"path": hit["path"], "srgb": srgb, "size": hit["size"],
+                          "channels": hit["channels"], "channelCount": hit["channelCount"],
+                          "sha256": hit["sha256"], "source": "glb-embedded"}
+        slots.append(slot)
+    return slots
+
+
+def _textures_payload(glb_abs, asset_id, stats, species):
+    """旧 BaseColor/Normal + 新增 slots[]；slots 顺序与 tree_lods.json 的 source 对账。"""
+    tex_files = export_textures(glb_abs, asset_id)
+    textures = manifest_textures(tex_files)
+    slots = manifest_slots(tex_files, stats["materials"])
+    got = [s.get("material") for s in slots]
+    expect = expected_slot_names(species)
+    if expect and got != expect:
+        raise SystemExit("材质槽顺序与 tree_lods.json 不一致: manifest=%r tree_lods=%r" % (got, expect))
+    textures["slots"] = slots
+    return textures
+
+
+def expected_slot_names(species):
+    """槽名期望值：来自 docs/tree_lods.json 的 source.materialNames（glb primitive 顺序）。
+
+    与 manifest_slots 的材质名三方对齐（tree_lods.json / manifest / UE 证据），
+    顺序不一致就报错，避免"字母序 / dict 序"这类隐性重排。
+    """
+    path = os.path.join(REPO, "docs", "tree_lods.json")
+    if not os.path.isfile(path):
+        return None
+    names = (((read_json(path).get("species") or {}).get(species) or {}).get("source") or {}).get("materialNames")
+    return [n for n in (names or []) if n] or None
 
 
 def _node_matrix(n):
@@ -447,8 +511,7 @@ def build(source_path, scatter_path, out_path, species="conifer", pipeline_id=No
         })
 
     asset_id = "SM_Tree_%s_PCG_Pilot" % species
-    tex_files = export_textures(glb_abs, asset_id)
-    textures = manifest_textures(tex_files)
+    textures = _textures_payload(glb_abs, asset_id, stats, species)
     fbx_rel = "assets/raw/trees/fbx/%s.fbx" % species
     asset = _asset_payload(
         entry, species, stats, glb_rel, items, pivot_z_m,
@@ -542,8 +605,7 @@ def build_multi(source_path, scatter_path, out_path, species_pair=("conifer", "b
                       if tree_base else
                       "散点 t 是引擎 Cube 中心（半高 %.3f m），落位前统一扣掉" % pivot_z_m)
         asset_id = "SM_Tree_%s_PCG_Multi" % species
-        tex_files = export_textures(glb_abs, asset_id)
-        textures = manifest_textures(tex_files)
+        textures = _textures_payload(glb_abs, asset_id, stats, species)
         fbx_rel = "assets/raw/trees/fbx/%s.fbx" % species
         asset = _asset_payload(entry, species, stats, glb_rel, items, pivot_z_m,
                                name_suffix="真实树混排", asset_id=asset_id,
@@ -552,7 +614,10 @@ def build_multi(source_path, scatter_path, out_path, species_pair=("conifer", "b
         assets.append(asset)
         species_summary.append({"species": species, "asset": asset["id"], "glb": glb_rel,
                                 "triCount": stats["triCount"], "heightM": bbox_height(stats),
-                                "placements": len(items), "textures": len(tex_files),
+                                "placements": len(items),
+                                "textures": sum(1 for sl in textures.get("slots") or []
+                                                for k in ("BaseColor", "Normal", "ORM") if k in sl),
+                                "slots": len(textures.get("slots") or []),
                                 "ueMeshPath": asset["engineTargets"]["UE5"]["meshPath"]})
 
     manifest = {

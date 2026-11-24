@@ -60,20 +60,32 @@
         },
         "textures": {
           "type": "object",
-          "description": "v1.1：允许空对象，但仅当 material.template == \"none\"（引擎默认材质）；校验器强制该条件。",
-          "propertyNames": { "enum": ["BaseColor", "Normal", "Roughness", "Metallic", "AO", "ORM", "Height"] },
-          "additionalProperties": {
-            "type": "object",
-            "required": ["path", "srgb"],
-            "additionalProperties": false,
-            "properties": {
-              "path": { "type": "string" },
-              "srgb": { "type": "boolean" },
-              "size": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 2, "maxItems": 2 },
-              "channels": { "type": "string" },
-              "source": { "type": "string", "enum": ["glb-embedded"], "description": "v1.2：贴图来源；老文件可省略" }
+          "description": "v1.1：允许空对象，但仅当 material.template == \"none\"（引擎默认材质）；校验器强制该条件。v1.13 新增可选 slots[]。",
+          "properties": {
+            "slots": {
+              "type": "array",
+              "description": "v1.13：按 glb 材质槽拆贴图，顺序 = glb materials 下标 = primitive 顺序。",
+              "items": {
+                "type": "object",
+                "required": ["slot", "material", "alphaMode"],
+                "additionalProperties": false,
+                "properties": {
+                  "slot": { "type": "integer", "minimum": 0 },
+                  "material": { "type": "string" },
+                  "alphaMode": { "type": "string", "enum": ["OPAQUE", "MASKED", "BLEND"] },
+                  "cutoff": { "type": "number" },
+                  "BaseColor": { "$ref": "#/$defs/texture" },
+                  "Normal": { "$ref": "#/$defs/texture" },
+                  "ORM": { "$ref": "#/$defs/texture" }
+                }
+              }
             }
-          }
+          },
+          "propertyNames": { "enum": ["BaseColor", "Normal", "Roughness", "Metallic", "AO", "ORM", "Height", "slots"] },
+          "patternProperties": {
+            "^(BaseColor|Normal|Roughness|Metallic|AO|ORM|Height)$": { "$ref": "#/$defs/texture" }
+          },
+          "additionalProperties": false
         },
         "material": {
           "type": "object",
@@ -188,6 +200,20 @@
             }
           }
         }
+      }
+    },
+    "texture": {
+      "type": "object",
+      "required": ["path", "srgb"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "srgb": { "type": "boolean" },
+        "size": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 2, "maxItems": 2 },
+        "channels": { "type": "string" },
+        "channelCount": { "type": "integer", "minimum": 1, "description": "v1.13：PNG 通道数（RGBA=4）" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "v1.13：贴图字节 SHA256，落位端对磁盘复核" },
+        "source": { "type": "string", "enum": ["glb-embedded"], "description": "v1.2：贴图来源；老文件可省略" }
       }
     }
   }

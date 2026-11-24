@@ -21,7 +21,7 @@ namespace EAP
     {
         public string id, name, category, type;
         public Model model;
-        public Dictionary<string, Tex> textures;
+        public TexturesDef textures;
         public MaterialDef material;
         public Collision collision;
         public Placements placements;
@@ -31,7 +31,33 @@ namespace EAP
     }
     [Serializable] public class Model { public string path, format, unit, upAxis, forwardAxis; public int triCount; public BBox boundingBoxM; }
     [Serializable] public class BBox { public float[] min, max; }
-    [Serializable] public class Tex { public string path, channels, source; public bool srgb; public int[] size; }
+    [Serializable] public class Tex { public string path, channels, source, sha256; public bool srgb; public int[] size; public int channelCount; }
+    // v1.13：textures 的旧字段（BaseColor/Normal/...，指向槽 0）原样保留，新增可选 slots[]。
+    // 老 manifest（v1.1/v1.2）没有 slots → Channels() 只含旧字段，行为与 v1.12 完全一致。
+    [Serializable] public class TexturesDef
+    {
+        public Tex BaseColor, Normal, Roughness, Metallic, AO, ORM, Height;
+        public List<TextureSlot> slots;
+        public Dictionary<string, Tex> Channels()
+        {
+            var d = new Dictionary<string, Tex>();
+            if (BaseColor != null) d["BaseColor"] = BaseColor;
+            if (Normal != null) d["Normal"] = Normal;
+            if (Roughness != null) d["Roughness"] = Roughness;
+            if (Metallic != null) d["Metallic"] = Metallic;
+            if (AO != null) d["AO"] = AO;
+            if (ORM != null) d["ORM"] = ORM;
+            if (Height != null) d["Height"] = Height;
+            return d;
+        }
+    }
+    [Serializable] public class TextureSlot
+    {
+        public int slot;
+        public string material, alphaMode;
+        public float cutoff = 0.33f;
+        public Tex BaseColor, Normal, ORM;
+    }
     [Serializable] public class MaterialDef { public string template, unityShader; public Dictionary<string, float> @params; }
     [Serializable] public class Collision { public string mode; public CollisionUnity unity; }
     [Serializable] public class CollisionUnity { public string collider; }
@@ -66,6 +92,39 @@ namespace EAP
         public Dictionary<string, bool> texturesApplied = new Dictionary<string, bool>();
         // v1.12：LODGroup 读回（无 LODGroup 时为 null）
         public LodReadback lod;
+        // v1.13：LOD0 Renderer 上的材质逐槽读回（老 manifest 只有 1 个）
+        public List<SlotReadback> materialSlots = new List<SlotReadback>();
+    }
+    // v1.13：单槽材质读回——alpha clip 必须核 keyword/renderQueue，不能只看 _Cutoff。
+    [Serializable] public class SlotReadback
+    {
+        public int slot;
+        public string material, materialPath, baseMap, bumpMap;
+        public bool alphaClip, alphaTestKeyword;
+        public float cutoff, surface;
+        public int renderQueue;
+        public string baseMapAlphaSource;
+        public bool baseMapAlphaIsTransparency;
+    }
+    [Serializable] public class MaterialsVerifyDoc
+    {
+        public string schema = "eap.unity_materials_verify/1";
+        public string manifest;
+        public string generatedAt;
+        public string pipeline;
+        public List<MaterialsVerifyAsset> assets = new List<MaterialsVerifyAsset>();
+    }
+    [Serializable] public class MaterialsVerifyAsset
+    {
+        public string id, prefab;
+        public bool prefabExists;
+        public List<SlotReadback> slots = new List<SlotReadback>();
+        public List<LodMaterials> lodMaterials = new List<LodMaterials>();
+    }
+    [Serializable] public class LodMaterials
+    {
+        public int lod;
+        public List<List<string>> renderers = new List<List<string>>();   // 每 Renderer 的材质资产路径（按槽序）
     }
     [Serializable] public class PlacementsVerifyDoc
     {
@@ -395,8 +454,8 @@ namespace EAP
                     foreach (var lm in a.lod.models)
                         if (lm != null && !string.IsNullOrEmpty(lm.path))
                             items.Add(new KeyValuePair<string, string>(lm.path, ModelAssetPath(lm.path)));
-                foreach (var kv in a.textures ?? new Dictionary<string, Tex>())
-                    if (!string.IsNullOrEmpty(kv.Value.path)) items.Add(new KeyValuePair<string, string>(kv.Value.path, TextureAssetPath(kv.Value.path)));
+                foreach (var t in AllTextures(a))
+                    if (!string.IsNullOrEmpty(t.path)) items.Add(new KeyValuePair<string, string>(t.path, TextureAssetPath(t.path)));
                 foreach (var item in items)
                 {
                     string src = Path.GetFullPath(Path.Combine(repoRoot, item.Key));
@@ -411,6 +470,22 @@ namespace EAP
             if (copied + kept > 0) AssetDatabase.Refresh();
             report.Add(string.Format("- sync: copied={0} unchanged={1}", copied, kept));
             Debug.Log(string.Format("[EAP] sync copied={0} unchanged={1}", copied, kept));
+        }
+
+        /// <summary>旧 textures 字段 + v1.13 slots 里的所有贴图（去重前会重复复制，按内容哈希幂等）。</summary>
+        static IEnumerable<Tex> AllTextures(Asset a)
+        {
+            if (a.textures == null) yield break;
+            foreach (var kv in a.textures.Channels())
+                if (kv.Value != null) yield return kv.Value;
+            if (a.textures.slots == null) yield break;
+            foreach (var s in a.textures.slots)
+            {
+                if (s == null) continue;
+                if (s.BaseColor != null) yield return s.BaseColor;
+                if (s.Normal != null) yield return s.Normal;
+                if (s.ORM != null) yield return s.ORM;
+            }
         }
 
         static void DetectPipeline()
@@ -450,9 +525,9 @@ namespace EAP
                     if (a.engineTargets == null || !a.engineTargets.TryGetValue("Unity", out tgt))
                     { report.Add("- SKIP " + a.id + " (skipped_no_target)"); continue; }
                     EnsureFolder(tgt.destPath);
-                    Material mat = BuildMaterial(a, tgt, repoRoot, report);
-                    GameObject prefabRoot = BuildPrefab(a, tgt, mat, repoRoot, report);
-                    report.Add($"- OK {a.id} mat={AssetDatabase.GetAssetPath(mat)} prefab={(prefabRoot != null ? AssetDatabase.GetAssetPath(prefabRoot) : "<none: 模型未导入>")}");
+                    List<Material> mats = BuildMaterials(a, tgt, repoRoot, report);
+                    GameObject prefabRoot = BuildPrefab(a, tgt, mats, repoRoot, report);
+                    report.Add($"- OK {a.id} mats={string.Join(",", mats.ConvertAll(m => AssetDatabase.GetAssetPath(m)).ToArray())} prefab={(prefabRoot != null ? AssetDatabase.GetAssetPath(prefabRoot) : "<none: 模型未导入>")}");
                     ok++;
                 }
                 catch (Exception e)
@@ -478,19 +553,24 @@ namespace EAP
             }
         }
 
-        static Material BuildMaterial(Asset a, EngineTarget tgt, string repoRoot, List<string> report)
+        static List<Material> BuildMaterials(Asset a, EngineTarget tgt, string repoRoot, List<string> report)
         {
-            string shaderName = tgt.shader ?? a.material?.unityShader ?? (_isUrp ? UrpShader : BuiltInShader);
-            Shader shader = Shader.Find(shaderName);
-            if (shader == null)
+            // v1.13：有 slots[] → 每槽一个材质（槽序 = manifest 顺序 = glb primitive 顺序）；
+            // 老 manifest 没有 slots → 只建一个材质，行为与 v1.12 完全一致。
+            if (a.textures != null && a.textures.slots != null && a.textures.slots.Count > 0)
             {
-                report.Add("- WARN " + a.id + " 找不到 shader " + shaderName + "，回退 " + (_isUrp ? UrpShader : BuiltInShader));
-                shader = _shader;
+                var mats = new List<Material>();
+                foreach (var s in a.textures.slots) mats.Add(BuildSlotMaterial(a, tgt, s, report));
+                return mats;
             }
-            var mat = new Material(shader) { name = "M_" + a.id };
-            var map = tgt.propertyMap ?? _pipePropMap;
+            return new List<Material> { BuildMaterial(a, tgt, report) };
+        }
 
-            foreach (var kv in a.textures ?? new Dictionary<string, Tex>())
+        static Material BuildMaterial(Asset a, EngineTarget tgt, List<string> report)
+        {
+            var mat = CreateMaterial(a, tgt, "M_" + a.id, report);
+            var map = tgt.propertyMap ?? _pipePropMap;
+            foreach (var kv in a.textures.Channels())
             {
                 string texAssetPath = TextureAssetPath(kv.Value.path);
                 ConfigureImporter(texAssetPath, kv.Key, kv.Value.srgb);
@@ -501,21 +581,123 @@ namespace EAP
                 if (prop != null && mat.HasProperty(prop)) mat.SetTexture(prop, tex);
                 else report.Add("- WARN " + a.id + " 材质无属性 " + prop + "（channel=" + kv.Key + "）");
             }
+            ApplyMaterialParams(a, mat, report);
+            AssetDatabase.CreateAsset(mat, (tgt.destPath ?? "Assets/EAP").TrimEnd('/') + "/" + mat.name + ".mat");
+            return mat;
+        }
 
-            if (a.material?.@params != null)
+        /// <summary>v1.13：单槽材质——槽 1 叶子必须是 URP Lit + Alpha Clipping（keyword + cutoff + renderQueue 全套）。</summary>
+        static Material BuildSlotMaterial(Asset a, EngineTarget tgt, TextureSlot s, List<string> report)
+        {
+            string suffix = SlotSuffix(s);
+            var mat = CreateMaterial(a, tgt, "M_" + a.id + "_" + suffix, report);
+            var map = tgt.propertyMap ?? _pipePropMap;
+            bool masked = IsMasked(s.alphaMode);
+            if (s.BaseColor != null)
             {
-                foreach (var kv in a.material.@params)
+                string p = TextureAssetPath(s.BaseColor.path);
+                ConfigureImporter(p, "BaseColor", s.BaseColor.srgb, masked);
+                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(p);
+                if (tex == null) report.Add("- WARN " + a.id + " 槽" + s.slot + " BaseColor 未导入: " + p);
+                else if (map.ContainsKey("BaseColor") && mat.HasProperty(map["BaseColor"])) mat.SetTexture(map["BaseColor"], tex);
+            }
+            if (s.Normal != null)
+            {
+                string p = TextureAssetPath(s.Normal.path);
+                ConfigureImporter(p, "Normal", s.Normal.srgb, false);
+                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(p);
+                if (tex == null) report.Add("- WARN " + a.id + " 槽" + s.slot + " Normal 未导入: " + p);
+                else if (map.ContainsKey("Normal") && mat.HasProperty(map["Normal"])) mat.SetTexture(map["Normal"], tex);
+            }
+            if (s.ORM != null) report.Add("- WARN " + a.id + " 槽" + s.slot + " ORM 暂未在双槽路径处理");
+            ApplyMaterialParams(a, mat, report);
+            ApplyAlphaMode(mat, masked, s.cutoff);
+            AssetDatabase.CreateAsset(mat, (tgt.destPath ?? "Assets/EAP").TrimEnd('/') + "/" + mat.name + ".mat");
+            report.Add(string.Format("- MAT {0} slot={1} material={2} alphaMode={3} cutoff={4:F2} masked={5} -> {6}",
+                a.id, s.slot, s.material, s.alphaMode, s.cutoff, masked, mat.name));
+            return mat;
+        }
+
+        static Material CreateMaterial(Asset a, EngineTarget tgt, string name, List<string> report)
+        {
+            string shaderName = tgt.shader ?? a.material?.unityShader ?? (_isUrp ? UrpShader : BuiltInShader);
+            Shader shader = Shader.Find(shaderName);
+            if (shader == null)
+            {
+                report.Add("- WARN " + a.id + " 找不到 shader " + shaderName + "，回退 " + (_isUrp ? UrpShader : BuiltInShader));
+                shader = _shader;
+            }
+            return new Material(shader) { name = name };
+        }
+
+        static string SlotSuffix(TextureSlot s)
+        {
+            // 槽名来自 glb 材质名（Bark_NormalTree / Leaves_Pine）；取首段做后缀，未知就用槽号。
+            string n = s.material;
+            if (!string.IsNullOrEmpty(n))
+            {
+                int cut = n.IndexOf('_');
+                string head = cut > 0 ? n.Substring(0, cut) : n;
+                if (!string.IsNullOrEmpty(head)) return head;
+            }
+            return "Slot" + s.slot;
+        }
+
+        static bool IsMasked(string alphaMode)
+            => string.Equals(alphaMode, "MASKED", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(alphaMode, "MASK", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>URP：只设 _Cutoff 不生效，必须同时开 _ALPHATEST_ON；renderQueue 落 AlphaTest(2450)。</summary>
+        static void ApplyAlphaMode(Material mat, bool masked, float cutoff)
+        {
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 0f);   // 0 = Opaque（裁剪不是半透明）
+            if (_isUrp)
+            {
+                if (mat.HasProperty("_AlphaClip")) mat.SetFloat("_AlphaClip", masked ? 1f : 0f);
+                if (mat.HasProperty("_Cutoff")) mat.SetFloat("_Cutoff", masked ? cutoff : 0.5f);
+                if (masked)
                 {
-                    string p = MapParam(kv.Key);
-                    if (p == null) continue;
-                    if (mat.HasProperty(p)) mat.SetFloat(p, ConvertParam(kv.Key, kv.Value));
-                    else report.Add("- WARN " + a.id + " 无参数属性 " + p + "（" + kv.Key + "）");
+                    mat.EnableKeyword("_ALPHATEST_ON");
+                    mat.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    mat.SetOverrideTag("RenderType", "TransparentCutout");
+                    mat.renderQueue = 2450;
+                }
+                else
+                {
+                    mat.DisableKeyword("_ALPHATEST_ON");
+                    mat.SetOverrideTag("RenderType", "Opaque");
+                    mat.renderQueue = 2000;
                 }
             }
+            else
+            {
+                if (mat.HasProperty("_Mode")) mat.SetFloat("_Mode", masked ? 1f : 0f);
+                if (mat.HasProperty("_Cutoff")) mat.SetFloat("_Cutoff", masked ? cutoff : 0.5f);
+                if (masked)
+                {
+                    mat.EnableKeyword("_ALPHATEST_ON");
+                    mat.SetOverrideTag("RenderType", "TransparentCutout");
+                    mat.renderQueue = 2450;
+                }
+                else
+                {
+                    mat.DisableKeyword("_ALPHATEST_ON");
+                    mat.SetOverrideTag("RenderType", "Opaque");
+                    mat.renderQueue = 2000;
+                }
+            }
+        }
 
-            string matPath = (tgt.destPath ?? "Assets/EAP").TrimEnd('/') + "/" + mat.name + ".mat";
-            AssetDatabase.CreateAsset(mat, matPath);
-            return mat;
+        static void ApplyMaterialParams(Asset a, Material mat, List<string> report)
+        {
+            if (a.material?.@params == null) return;
+            foreach (var kv in a.material.@params)
+            {
+                string p = MapParam(kv.Key);
+                if (p == null) continue;
+                if (mat.HasProperty(p)) mat.SetFloat(p, ConvertParam(kv.Key, kv.Value));
+                else report.Add("- WARN " + a.id + " 无参数属性 " + p + "（" + kv.Key + "）");
+            }
         }
 
         static string MapParam(string name)
@@ -569,7 +751,7 @@ namespace EAP
             AssetDatabase.CreateAsset(tex, dir + "/" + tex.name + ".asset");
         }
 
-        static void ConfigureImporter(string assetPath, string channel, bool srgb)
+        static void ConfigureImporter(string assetPath, string channel, bool srgb, bool alphaClip = false)
         {
             var imp = AssetImporter.GetAtPath(assetPath) as TextureImporter;
             if (imp == null) return;
@@ -578,10 +760,18 @@ namespace EAP
             { imp.textureType = TextureImporterType.NormalMap; changed = true; }
             if (channel != "Normal" && imp.sRGBTexture != srgb)
             { imp.sRGBTexture = srgb; changed = true; }
+            // v1.13：叶子 BaseColor 要真能裁剪，PNG 的 alpha 必须被导入且被识别为透明
+            if (alphaClip && channel == "BaseColor")
+            {
+                if (imp.alphaSource != TextureImporterAlphaSource.FromInput)
+                { imp.alphaSource = TextureImporterAlphaSource.FromInput; changed = true; }
+                if (!imp.alphaIsTransparency)
+                { imp.alphaIsTransparency = true; changed = true; }
+            }
             if (changed) imp.SaveAndReimport();
         }
 
-        static GameObject BuildPrefab(Asset a, EngineTarget tgt, Material mat, string repoRoot, List<string> report)
+        static GameObject BuildPrefab(Asset a, EngineTarget tgt, List<Material> mats, string repoRoot, List<string> report)
         {
             string declared = !string.IsNullOrEmpty(tgt.modelPath) ? tgt.modelPath : a.model?.path;
             string modelPath = ModelAssetPath(declared);
@@ -595,13 +785,31 @@ namespace EAP
             var go = (GameObject)PrefabUtility.InstantiatePrefab(mesh);
             var renderers = go.GetComponentsInChildren<Renderer>(true);
             if (renderers.Length == 0) renderers = new Renderer[] { go.AddComponent<MeshRenderer>() };
-            foreach (var r in renderers) r.sharedMaterial = mat;
+            foreach (var r in renderers) r.sharedMaterials = MaterialsFor(mats, SubMeshCountOf(r));
             AddCollider(go, a);   // 必须在加 LOD 子网格之前：碰撞只用 LOD0
-            AttachLodGroup(go, a, mat, report);
+            AttachLodGroup(go, a, mats, report);
             string prefabPath = (tgt.destPath ?? "Assets/EAP").TrimEnd('/') + "/" + a.id + ".prefab";
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, prefabPath);
             UnityEngine.Object.DestroyImmediate(go);
             return prefab;
+        }
+
+        /// <summary>v1.13：双槽时每个 Renderer 严格 [槽0, 槽1]；单材质（老 manifest）沿用 v1.12 的复制行为。</summary>
+        static Material[] MaterialsFor(List<Material> mats, int subMeshCount)
+        {
+            if (mats.Count > 1) return mats.ToArray();
+            var arr = new Material[Mathf.Max(1, subMeshCount)];
+            for (int i = 0; i < arr.Length; i++) arr[i] = mats[0];
+            return arr;
+        }
+
+        static int SubMeshCountOf(Renderer r)
+        {
+            var mf = r.GetComponent<MeshFilter>();
+            if (mf != null && mf.sharedMesh != null) return mf.sharedMesh.subMeshCount;
+            var smr = r as SkinnedMeshRenderer;
+            if (smr != null && smr.sharedMesh != null) return smr.sharedMesh.subMeshCount;
+            return 1;
         }
 
         /// <summary>v1.12：给 prefab 加 4 级 LODGroup。
@@ -611,7 +819,7 @@ namespace EAP
         /// screenHeights 是 0–1 归一化高度，来自 manifest 的可选字段；与 UE 的 screen size
         /// 1.0/0.5/0.25/0.1 一一对应（LOD0 的 1.0 在 LODGroup 里是隐式的，不写）。
         /// </summary>
-        static void AttachLodGroup(GameObject root, Asset a, Material mat, List<string> report)
+        static void AttachLodGroup(GameObject root, Asset a, List<Material> mats, List<string> report)
         {
             if (a.lod == null || a.lod.models == null || a.lod.models.Count == 0) return;
             var lod0 = root.GetComponentsInChildren<Renderer>(true);
@@ -638,9 +846,7 @@ namespace EAP
                     if (mf.sharedMesh == null) continue;
                     var mr = mf.GetComponent<MeshRenderer>();
                     if (mr == null) mr = mf.gameObject.AddComponent<MeshRenderer>();
-                    var mats = new Material[Mathf.Max(1, mf.sharedMesh.subMeshCount)];
-                    for (int i = 0; i < mats.Length; i++) mats[i] = mat;
-                    mr.sharedMaterials = mats;
+                    mr.sharedMaterials = MaterialsFor(mats, mf.sharedMesh.subMeshCount);
                     list.Add(mr);
                 }
                 if (list.Count == 0) { UnityEngine.Object.DestroyImmediate(inst); continue; }
@@ -691,7 +897,7 @@ namespace EAP
                 string prefabPath = (tgt.destPath ?? "Assets/EAP").TrimEnd('/') + "/" + a.id + ".prefab";
                 var va = new VerifyAsset { id = a.id, prefab = prefabPath };
                 va.prefabExists = File.Exists(Path.Combine(projectRoot, prefabPath));
-                foreach (var kv in a.textures ?? new Dictionary<string, Tex>())
+                foreach (var kv in a.textures != null ? a.textures.Channels() : new Dictionary<string, Tex>())
                     va.textures[kv.Key] = TextureAssetPath(kv.Value.path);
                 if (va.prefabExists)
                 {
@@ -733,10 +939,17 @@ namespace EAP
                             va.boundsM = new BBox { min = new[] { b.min.x, b.min.y, b.min.z }, max = new[] { b.max.x, b.max.y, b.max.z } };
                         var mat = rs.Length > 0 ? rs[0].sharedMaterial : null;
                         va.shader = mat != null && mat.shader != null ? mat.shader.name : null;
-                        foreach (var kv in a.textures ?? new Dictionary<string, Tex>())
+                        foreach (var kv in a.textures != null ? a.textures.Channels() : new Dictionary<string, Tex>())
                         {
                             string prop = _pipePropMap.ContainsKey(kv.Key) ? _pipePropMap[kv.Key] : null;
                             va.texturesApplied[kv.Key] = mat != null && prop != null && mat.HasProperty(prop) && mat.GetTexture(prop) != null;
+                        }
+                        // v1.13：把 LOD0 Renderer 的材质按槽如实读回（老 manifest 只有 1 槽）
+                        if (rs.Length > 0)
+                        {
+                            var slotMats = rs[0].sharedMaterials;
+                            for (int si = 0; si < slotMats.Length; si++)
+                                if (slotMats[si] != null) va.materialSlots.Add(ReadSlot(si, slotMats[si]));
                         }
                         UnityEngine.Object.DestroyImmediate(go);
                     }
@@ -933,6 +1146,122 @@ namespace EAP
 
         static float Round5(float v) { return (float)Math.Round(v, 5); }
         static float Round6(float v) { return (float)Math.Round(v, 6); }
+
+        /// <summary>v1.13：读单个材质的槽信息（贴图/alpha clip keyword/cutoff/renderQueue/导入 alpha 设置）。</summary>
+        static SlotReadback ReadSlot(int slot, Material mat)
+        {
+            string baseProp = _pipePropMap.ContainsKey("BaseColor") ? _pipePropMap["BaseColor"] : null;
+            string normProp = _pipePropMap.ContainsKey("Normal") ? _pipePropMap["Normal"] : null;
+            string baseMap = (baseProp != null && mat.HasProperty(baseProp) && mat.GetTexture(baseProp) != null)
+                ? AssetDatabase.GetAssetPath(mat.GetTexture(baseProp)) : null;
+            string bumpMap = (normProp != null && mat.HasProperty(normProp) && mat.GetTexture(normProp) != null)
+                ? AssetDatabase.GetAssetPath(mat.GetTexture(normProp)) : null;
+            var info = new SlotReadback
+            {
+                slot = slot,
+                material = mat.name,
+                materialPath = AssetDatabase.GetAssetPath(mat),
+                baseMap = baseMap,
+                bumpMap = bumpMap,
+                alphaClip = mat.HasProperty("_AlphaClip") && mat.GetFloat("_AlphaClip") > 0.5f,
+                alphaTestKeyword = mat.IsKeywordEnabled("_ALPHATEST_ON"),
+                cutoff = mat.HasProperty("_Cutoff") ? mat.GetFloat("_Cutoff") : -1f,
+                surface = mat.HasProperty("_Surface") ? mat.GetFloat("_Surface") : -1f,
+                renderQueue = mat.renderQueue,
+            };
+            var imp = !string.IsNullOrEmpty(baseMap) ? AssetImporter.GetAtPath(baseMap) as TextureImporter : null;
+            if (imp != null)
+            {
+                info.baseMapAlphaSource = imp.alphaSource.ToString();
+                info.baseMapAlphaIsTransparency = imp.alphaIsTransparency;
+            }
+            return info;
+        }
+
+        static LodMaterials ReadLevelMaterials(int lod, Renderer[] rs)
+        {
+            var rec = new LodMaterials { lod = lod };
+            if (rs == null) return rec;
+            foreach (var r in rs)
+            {
+                if (r == null) continue;
+                var paths = new List<string>();
+                foreach (var m in r.sharedMaterials)
+                    paths.Add(m != null ? AssetDatabase.GetAssetPath(m) : null);
+                rec.renderers.Add(paths);
+            }
+            return rec;
+        }
+
+        public static void VerifyMaterialsFromArgs()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++)
+                if (args[i] == "-eapManifest")
+                {
+                    try { VerifyMaterials(args[i + 1]); EditorApplication.Exit(0); }
+                    catch (Exception e) { Debug.LogError("[EAP] materials verify 失败: " + e); EditorApplication.Exit(1); }
+                    return;
+                }
+            Debug.LogError("[EAP] 缺少 -eapManifest 参数");
+            EditorApplication.Exit(1);
+        }
+
+        /// <summary>v1.13：逐 LOD / 逐 Renderer 读回材质资产路径，并读 LOD0 的逐槽材质属性。</summary>
+        public static void VerifyMaterials(string manifestPath)
+        {
+            DetectPipeline();
+            var manifest = JsonConvert.DeserializeObject<Manifest>(File.ReadAllText(manifestPath));
+            if (manifest == null || manifest.assets == null)
+                throw new Exception("manifest 为空或结构不符: " + manifestPath);
+            string projectRoot = Path.GetDirectoryName(Application.dataPath);
+            var doc = new MaterialsVerifyDoc { manifest = Path.GetFileName(manifestPath), pipeline = _isUrp ? "URP" : "BuiltIn" };
+            foreach (var a in manifest.assets)
+            {
+                EngineTarget tgt;
+                if (a.engineTargets == null || !a.engineTargets.TryGetValue("Unity", out tgt)) continue;
+                string prefabPath = PrefabAssetPath(tgt, a);
+                var rec = new MaterialsVerifyAsset { id = a.id, prefab = prefabPath };
+                rec.prefabExists = File.Exists(Path.Combine(projectRoot, prefabPath));
+                if (rec.prefabExists)
+                {
+                    var asset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                    if (asset != null)
+                    {
+                        var go = (GameObject)PrefabUtility.InstantiatePrefab(asset);
+                        try
+                        {
+                            var lg = go.GetComponentInChildren<LODGroup>(true);
+                            Renderer[] lod0;
+                            if (lg != null)
+                            {
+                                var lods = lg.GetLODs();
+                                for (int li = 0; li < lods.Length; li++)
+                                    rec.lodMaterials.Add(ReadLevelMaterials(li, lods[li].renderers));
+                                lod0 = (lods.Length > 0) ? lods[0].renderers : null;
+                            }
+                            else
+                            {
+                                lod0 = go.GetComponentsInChildren<Renderer>(true);
+                                rec.lodMaterials.Add(ReadLevelMaterials(0, lod0));
+                            }
+                            if (lod0 != null && lod0.Length > 0 && lod0[0] != null)
+                            {
+                                var ms = lod0[0].sharedMaterials;
+                                for (int si = 0; si < ms.Length; si++)
+                                    if (ms[si] != null) rec.slots.Add(ReadSlot(si, ms[si]));
+                            }
+                        }
+                        finally { UnityEngine.Object.DestroyImmediate(go); }
+                    }
+                }
+                doc.assets.Add(rec);
+            }
+            doc.generatedAt = DateTimeOffset.Now.ToString("yyyy-MM-dd'T'HH:mm:sszzz");
+            string outPath = Path.ChangeExtension(manifestPath, ".unity_materials_verify.json");
+            File.WriteAllText(outPath, JsonConvert.SerializeObject(doc, Formatting.Indented));
+            Debug.Log("[EAP] materials verify → " + outPath + " assets=" + doc.assets.Count + " at=" + doc.generatedAt);
+        }
 
         static void AddCollider(GameObject go, Asset a)
         {

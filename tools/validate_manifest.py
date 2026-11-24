@@ -104,6 +104,8 @@ def validate(path, check_files=False, allow_npot=False):
         if not textures and (a.get("material") or {}).get("template") not in ("none", "embedded"):
             errors.append("%s textures 为空（material.template 不是 none/embedded）" % tag)
         for chan, t in textures.items():
+            if chan == "slots":   # v1.13 多槽字段，单独校验（见下）
+                continue
             if chan not in TEX_KEYS:
                 errors.append("%s 未知贴图通道: %s" % (tag, chan))
                 continue
@@ -128,6 +130,50 @@ def validate(path, check_files=False, allow_npot=False):
             if check_files and t.get("path"):
                 if not os.path.isfile(os.path.join(repo, t["path"])):
                     warnings.append("%s 贴图文件不存在: %s" % (tag, t["path"]))
+
+        # v1.13 多材质槽：slots 顺序 = glb 材质索引；每槽贴图也要过同样的 POT/路径/哈希检查
+        slots = textures.get("slots") if isinstance(textures, dict) else None
+        if slots is not None:
+            if not isinstance(slots, list):
+                errors.append("%s textures.slots 必须是数组" % tag)
+            else:
+                seen_slots = set()
+                for si, s in enumerate(slots):
+                    stag = "%s textures.slots[%d]" % (tag, si)
+                    if not isinstance(s, dict):
+                        errors.append(stag + " 不是对象")
+                        continue
+                    idx = s.get("slot")
+                    if not isinstance(idx, int) or idx < 0:
+                        errors.append(stag + " slot 必须是非负整数: %r" % (idx,))
+                    elif idx in seen_slots:
+                        errors.append(stag + " slot 重复: %r" % (idx,))
+                    else:
+                        seen_slots.add(idx)
+                    if not str(s.get("material") or "").strip():
+                        errors.append(stag + " 缺 material 名")
+                    if s.get("alphaMode") not in ("OPAQUE", "MASKED", "BLEND"):
+                        warnings.append(stag + " alphaMode 不常见: %r" % (s.get("alphaMode"),))
+                    if s.get("alphaMode") == "MASKED" and not isinstance(s.get("cutoff"), (int, float)):
+                        errors.append(stag + " MASKED 槽缺 cutoff")
+                    for chan in ("BaseColor", "Normal", "ORM"):
+                        t = s.get(chan)
+                        if not isinstance(t, dict):
+                            continue
+                        if not t.get("path"):
+                            errors.append(stag + " %s 缺 path" % chan)
+                        if chan == "Normal" and t.get("srgb") is not False:
+                            errors.append(stag + " Normal srgb 必须为 false（当前 %r）" % (t.get("srgb"),))
+                        if chan == "BaseColor" and t.get("srgb") is not True:
+                            warnings.append(stag + " BaseColor srgb 建议为 true（当前 %r）" % (t.get("srgb"),))
+                        size = t.get("size")
+                        if size and (len(size) != 2 or not all(pot(int(v)) for v in size)):
+                            errors.append(stag + " %s 贴图尺寸非 2 的幂: %s" % (chan, size))
+                        if "sha256" in t and not re.match(r"^[0-9a-f]{64}$", str(t.get("sha256"))):
+                            errors.append(stag + " %s sha256 格式不合法" % chan)
+                        if check_files and t.get("path"):
+                            if not os.path.isfile(os.path.join(repo, t["path"])):
+                                warnings.append(stag + " %s 贴图文件不存在: %s" % (chan, t["path"]))
 
         targets = a.get("engineTargets") or {}
         if not targets:

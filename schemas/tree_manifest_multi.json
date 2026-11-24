@@ -1,7 +1,7 @@
 {
   "manifestVersion": "1.2",
   "pipelineId": "eap-tree-pair-20261124",
-  "generatedAt": "2026-11-24T17:16:29+08:00",
+  "generatedAt": "2026-11-24T18:22:07+08:00",
   "units": "m",
   "source": {
     "kind": "glb_ingest",
@@ -59,7 +59,56 @@
           ],
           "channels": "RGB",
           "source": "glb-embedded"
-        }
+        },
+        "slots": [
+          {
+            "slot": 0,
+            "material": "Bark_NormalTree",
+            "alphaMode": "OPAQUE",
+            "BaseColor": {
+              "path": "assets/eap_textures/SM_Tree_conifer_PCG_Multi_0_BaseColor.png",
+              "srgb": true,
+              "size": [
+                1024,
+                1024
+              ],
+              "channels": "RGBA",
+              "channelCount": 4,
+              "sha256": "0f44db85650c8b134d2e484716559653c06a53082f685a8804d80a2672a75d8a",
+              "source": "glb-embedded"
+            },
+            "Normal": {
+              "path": "assets/eap_textures/SM_Tree_conifer_PCG_Multi_0_Normal.png",
+              "srgb": false,
+              "size": [
+                1024,
+                1024
+              ],
+              "channels": "RGBA",
+              "channelCount": 4,
+              "sha256": "92ec2beb16db08e56151d35b1257647d572e099a297cf5a1681130ab7bc8d9bb",
+              "source": "glb-embedded"
+            }
+          },
+          {
+            "slot": 1,
+            "material": "Leaves_Pine",
+            "alphaMode": "MASKED",
+            "cutoff": 0.33,
+            "BaseColor": {
+              "path": "assets/eap_textures/SM_Tree_conifer_PCG_Multi_1_BaseColor.png",
+              "srgb": true,
+              "size": [
+                1024,
+                1024
+              ],
+              "channels": "RGBA",
+              "channelCount": 4,
+              "sha256": "25d2fad0ca1cea96fd027315c6018ed3ac341a1a2ff2547e3465397ccbd613c6",
+              "source": "glb-embedded"
+            }
+          }
+        ]
       },
       "material": {
         "template": "embedded",
@@ -22799,7 +22848,56 @@
           ],
           "channels": "RGB",
           "source": "glb-embedded"
-        }
+        },
+        "slots": [
+          {
+            "slot": 0,
+            "material": "Bark_NormalTree",
+            "alphaMode": "OPAQUE",
+            "BaseColor": {
+              "path": "assets/eap_textures/SM_Tree_broadleaf_PCG_Multi_0_BaseColor.png",
+              "srgb": true,
+              "size": [
+                1024,
+                1024
+              ],
+              "channels": "RGBA",
+              "channelCount": 4,
+              "sha256": "0f44db85650c8b134d2e484716559653c06a53082f685a8804d80a2672a75d8a",
+              "source": "glb-embedded"
+            },
+            "Normal": {
+              "path": "assets/eap_textures/SM_Tree_broadleaf_PCG_Multi_0_Normal.png",
+              "srgb": false,
+              "size": [
+                1024,
+                1024
+              ],
+              "channels": "RGBA",
+              "channelCount": 4,
+              "sha256": "92ec2beb16db08e56151d35b1257647d572e099a297cf5a1681130ab7bc8d9bb",
+              "source": "glb-embedded"
+            }
+          },
+          {
+            "slot": 1,
+            "material": "Leaves_NormalTree",
+            "alphaMode": "MASKED",
+            "cutoff": 0.33,
+            "BaseColor": {
+              "path": "assets/eap_textures/SM_Tree_broadleaf_PCG_Multi_1_BaseColor.png",
+              "srgb": true,
+              "size": [
+                1024,
+                1024
+              ],
+              "channels": "RGBA",
+              "channelCount": 4,
+              "sha256": "8e4474241568d60fc8974b0b06691d3cf957a3015b5b9d1cb376b3c2852fe817",
+              "source": "glb-embedded"
+            }
+          }
+        ]
       },
       "material": {
         "template": "embedded",
