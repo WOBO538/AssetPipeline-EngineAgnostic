@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T13:00:00+08:00",
+  "updatedAt": "2026-11-24T13:06:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -187,6 +187,18 @@
           "status": "done",
           "owner": "lead",
           "date": "11-23"
+        },
+        {
+          "name": "双端逐实例对账 + 三列对照表（G2/G3，任务单 7：docs/_TRAE任务_碰撞与双端对账_20261124.md，目标 --parity-check 4/4）",
+          "status": "doing",
+          "owner": "trae",
+          "date": "11-24"
+        },
+        {
+          "name": "UE 侧 ISM 碰撞启用（G1，任务单 7 同批；读回 collision{enabled/profile/instanceCount/meshHasCollision}）",
+          "status": "doing",
+          "owner": "trae",
+          "date": "11-24"
         }
       ]
     },
