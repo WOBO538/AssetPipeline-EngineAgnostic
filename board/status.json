@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T18:45:00+08:00",
+  "updatedAt": "2026-11-24T18:55:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -242,8 +242,15 @@
           "owner": "lead",
           "date": "11-24",
           "note": "manifest textures 新增 slots[]（槽0 Bark OPAQUE / 槽1 Leaves MASKED cutoff0.33，旧 BaseColor/Normal 保留）；Unity 建 M_<asset>_Bark/_Leaves 两个 URP Lit 材质，槽1 开 _ALPHATEST_ON + renderQueue2450，叶 BaseColor alphaSource/alphaIsTransparency 设对；LOD0-3 每 Renderer 严格两槽且路径不同。--unity-materials-check 4/4（8 Renderer）；老 v1.2 manifest 无 slots 仍 4/4 PASS；反验：两槽同材质只挂断言1、关 alpha clip 只挂断言3，对照组 PASS。老门槛 13/20/21/4/4/4/4+parity 不变，UE 侧与 6 个 fbx 未动"
+        },
+        {
+          "name": "阶段一收口（2026-11-24）：6/6 验收闭合；v1.9 双端逐实例对账、v1.10 性能表（冷/热 DDC 未分离已如实标注）、v1.11 新鲜度门禁改内部时间戳、v1.12/1.12.1 双端 4 级 LOD（LOD0 对源 glb 顶点/材质/UV）、v1.13 Unity 双材质槽（树叶 alpha 裁 0.33）；作品集 NO.10 已升级（5 图，含 Unity 侧出图）",
+          "status": "done",
+          "owner": "lead",
+          "date": "11-24"
         }
-      ]
+      ],
+      "stage": "阶段一验收 6/6 全闭（2026-11-24）"
     },
     {
       "id": "P2",
