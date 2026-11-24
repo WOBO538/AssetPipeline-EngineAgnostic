@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T16:20:00+08:00",
+  "updatedAt": "2026-11-24T17:01:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -229,6 +229,12 @@
           "owner": "lead",
           "date": "11-24",
           "note": "make_tree_lods.py：Decimate 0.5/0.25/0.10，tri 1685/842/337 与 1752/876/350，每级 2 材质槽 + UV；FBX 两次导出逐字节一致（monkeypatch datetime.now + _key_to_uuid 的 hash，非事后归一化）。UE 走 StaticMeshEditorSubsystem.import_lod（pathUsed 写进 tree_lods_ue.json），screen size 1.0/0.5/0.25/0.1，LOD0 真面数靠内存关 Nanite 读 3370/3505（fallback 1414/2354 另记）。Unity LODGroup 4 级，screenHeights 0.5/0.25/0.1/0，读回 triCounts 与 UE 逐级相等。--lod-check 4/4 PASS；反验：删 UE LOD3 挂断言1、改 UE LOD0 挂断言2、改 Unity LOD2 挂断言3（临时副本，仓库未污染）。老门槛 13/20/21/4/4/4 不变"
+        },
+        {
+          "name": "LOD0 判据补硬（任务单 10b：docs/_TRAE任务_LOD0判据补硬_20261124.md；断言2 加 顶点容差/材质名/UV通道数 与源 glb 比对，防「3370 面冒充网格」）",
+          "status": "doing",
+          "owner": "trae",
+          "date": "11-24"
         }
       ]
     },
