@@ -71,6 +71,23 @@ namespace EAP
         public float yawDeg;
         public bool matched;
     }
+    [Serializable] public class PerfSample
+    {
+        public string segment = "C_collision_unity";
+        public int round;
+        public string coldWarm = "n/a";   // Unity 侧无 DDC 概念，如实标 n/a
+        public double durationS;
+        public List<double> perPrefab = new List<double>();
+        public int prefabs, colliders, convexColliders, bakeCalls, bakeErrors;
+        public string note;
+    }
+    [Serializable] public class PerfDoc
+    {
+        public string schema = "eap.perf.unity/1";
+        public string manifest;
+        public int rounds;
+        public List<PerfSample> samples = new List<PerfSample>();
+    }
 
     public static class ManifestImporter
     {
@@ -155,6 +172,152 @@ namespace EAP
                 }
             Debug.LogError("[EAP] 缺少 -eapManifest 参数");
             EditorApplication.Exit(1);
+        }
+
+        static string ArgValue(string[] args, string name)
+        {
+            for (int i = 0; i < args.Length - 1; i++)
+                if (args[i] == name) return args[i + 1];
+            return null;
+        }
+
+        /// <summary>性能段 C（Unity 侧）：20 个 prefab 副本各加 MeshCollider(convex) + Physics.BakeMesh。
+        ///
+        /// 计时边界：每个 prefab 从"实例化副本"开始，到"加完 convex MeshCollider 并强制烘焙"结束
+        /// （含实例化与销毁副本实例；不含 prefab 副本复制、不含模型导入/材质）。
+        /// 用一个 20 份的循环重复 --eapPerfRounds 次，每轮写一条采样。
+        /// 网格 Read/Write 若关闭，Physics.BakeMesh 无法烘焙 → 计时前先把 manifest 引用的模型
+        /// importer 打开 isReadable（只动 Unity 工程内导入设置，仓库资产不动），并在日志里说明。
+        /// </summary>
+        public static void PerfCollisionFromArgs()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            string manifestPath = ArgValue(args, "-eapManifest");
+            string outPath = ArgValue(args, "-eapPerfOut");
+            int rounds = 3;
+            int.TryParse(ArgValue(args, "-eapPerfRounds") ?? "3", out rounds);
+            try
+            {
+                if (string.IsNullOrEmpty(manifestPath) || string.IsNullOrEmpty(outPath))
+                    throw new Exception("缺 -eapManifest 或 -eapPerfOut");
+                RunPerfCollision(manifestPath, outPath, rounds);
+                EditorApplication.Exit(0);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[EAP] perf collision 失败: " + e);
+                EditorApplication.Exit(1);
+            }
+        }
+
+        static void RunPerfCollision(string manifestPath, string outPath, int rounds)
+        {
+            DetectPipeline();
+            var manifest = JsonConvert.DeserializeObject<Manifest>(File.ReadAllText(manifestPath));
+            if (manifest == null || manifest.assets == null)
+                throw new Exception("manifest 为空或结构不符: " + manifestPath);
+            string projectRoot = Path.GetDirectoryName(Application.dataPath);
+            var prefabs = new List<string>();
+            var models = new HashSet<string>();
+            foreach (var a in manifest.assets)
+            {
+                EngineTarget tgt;
+                if (a.engineTargets == null || !a.engineTargets.TryGetValue("Unity", out tgt)) continue;
+                string pp = PrefabAssetPath(tgt, a);
+                if (!File.Exists(Path.Combine(projectRoot, pp)))
+                    throw new Exception("源 prefab 不存在（先跑 --unity-check）: " + pp);
+                prefabs.Add(pp);
+                string declared = !string.IsNullOrEmpty(tgt.modelPath) ? tgt.modelPath : a.model?.path;
+                if (!string.IsNullOrEmpty(declared)) models.Add(ModelAssetPath(declared));
+            }
+            if (prefabs.Count == 0) throw new Exception("manifest 里没有 Unity 目标资产");
+            foreach (var m in models)
+            {
+                var imp = AssetImporter.GetAtPath(m) as ModelImporter;
+                if (imp != null && !imp.isReadable)
+                {
+                    imp.isReadable = true;
+                    imp.SaveAndReimport();
+                    Debug.Log("[EAP] perf C: 打开 Read/Write 以便烘焙凸包 → " + m);
+                }
+            }
+
+            const int PrefabsPerSample = 20;
+            EnsureFolder("Assets/EAP/Perf");
+            var doc = new PerfDoc { manifest = Path.GetFileName(manifestPath), rounds = rounds };
+            for (int r = 1; r <= rounds; r++)
+            {
+                var copies = new List<string>();
+                for (int i = 0; i < PrefabsPerSample; i++)
+                {
+                    string copy = "Assets/EAP/Perf/C_r" + r + "_" + i.ToString("00") + ".prefab";
+                    AssetDatabase.DeleteAsset(copy);
+                    if (!AssetDatabase.CopyAsset(prefabs[i % prefabs.Count], copy))
+                        throw new Exception("prefab 副本失败: " + copy);
+                    AssetDatabase.ImportAsset(copy, ImportAssetOptions.ForceSynchronousImport);
+                    copies.Add(copy);
+                }
+                var s = new PerfSample
+                {
+                    round = r,
+                    note = "20 个 prefab 副本（conifer/broadleaf 各半）各加 MeshCollider(convex)+Physics.BakeMesh；"
+                         + "副本自带 collider 先摘掉避免重复；不写回 prefab（运行时网格不能序列化）",
+                };
+                double total = 0;
+                foreach (var copy in copies)
+                {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(copy);
+                    if (prefab == null) throw new Exception("加载副本失败: " + copy);
+                    var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                    try
+                    {
+                        foreach (var c in go.GetComponentsInChildren<Collider>(true))
+                            UnityEngine.Object.DestroyImmediate(c);
+                        int added = 0;
+                        foreach (var mf in go.GetComponentsInChildren<MeshFilter>(true))
+                        {
+                            if (mf.sharedMesh == null) continue;
+                            var m = UnityEngine.Object.Instantiate(mf.sharedMesh);
+                            m.name = "EAP_PerfCook_r" + r + "_" + s.prefabs;
+                            var mc = mf.gameObject.AddComponent<MeshCollider>();
+                            mc.sharedMesh = m;
+                            mc.convex = true;
+                            // Unity 2022.3 的 Physics.BakeMesh 返回 void（无法回读成功与否），
+                            // 以"调用未抛异常 + 碰撞体 convex/网格读回"当证据，见文档说明。
+                            try
+                            {
+                                Physics.BakeMesh(m.GetInstanceID(), true);
+                                s.bakeCalls++;
+                            }
+                            catch (Exception be)
+                            {
+                                s.bakeErrors++;
+                                Debug.LogWarning("[EAP] Physics.BakeMesh 失败: " + be.Message);
+                            }
+                            s.colliders++;
+                            if (mc.convex && mc.sharedMesh != null) s.convexColliders++;
+                            added++;
+                            UnityEngine.Object.DestroyImmediate(m);
+                        }
+                        if (added == 0) throw new Exception("副本没有可加碰撞的网格: " + copy);
+                    }
+                    finally { UnityEngine.Object.DestroyImmediate(go); }
+                    sw.Stop();
+                    double sec = sw.Elapsed.TotalSeconds;
+                    s.perPrefab.Add(Math.Round(sec, 6));
+                    total += sec;
+                    s.prefabs++;
+                }
+                s.durationS = Math.Round(total, 6);
+                doc.samples.Add(s);
+                Debug.Log(string.Format("[EAP] perf C round={0} prefabs={1} colliders={2} convex={3} bakeCalls={4} bakeErrors={5} {6:F3}s",
+                    r, s.prefabs, s.colliders, s.convexColliders, s.bakeCalls, s.bakeErrors, s.durationS));
+                foreach (var copy in copies) AssetDatabase.DeleteAsset(copy);
+                AssetDatabase.Refresh();
+            }
+            File.WriteAllText(outPath, JsonConvert.SerializeObject(doc, Formatting.Indented));
+            Debug.Log("[EAP] perf C → " + outPath + " rounds=" + doc.samples.Count);
         }
 
         /// <summary>UE(Z-up) → Unity(Y-up) 唯一权威换算：unityPos = (x, z, y)。</summary>

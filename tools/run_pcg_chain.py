@@ -662,9 +662,11 @@ def _deploy_unity_script(project):
     return False
 
 
-def _run_unity(unity, project, method, manifest, log_path, timeout=1200):
+def _run_unity(unity, project, method, manifest, log_path, timeout=1200, extra=None):
     cmd = [unity, "-batchmode", "-quit", "-projectPath", project,
            "-executeMethod", method, "-eapManifest", manifest, "-logFile", log_path]
+    if extra:
+        cmd.extend(extra)
     print("[unity] %s ..." % method.split(".")[-1])
     if os.path.isfile(log_path):
         os.remove(log_path)
@@ -1233,6 +1235,601 @@ def _run_parity_check(args):
     return 0
 
 
+PERF_PROBE = os.path.join(REPO, "ue", "Content", "Python", "perf_probe.py")
+PERF_GLB_SRC = os.path.join(REPO, "assets", "raw", "trees", "conifer.glb")
+PERF_REPORT_MD = os.path.join(REPO, "docs", "perf_report.md")
+PERF_COPIES = 20
+PERF_REQUIRED = [("A_import", "cold"), ("A_import", "hot"),
+                 ("B_material", "cold"), ("B_material", "hot"),
+                 ("C_collision_unity", "n/a")]
+PERF_REPORT_MARKERS = ("## 方法说明", "计时边界", "只对本机配置有效")
+
+
+def _win_hw():
+    """CPU / GPU 名称（Windows CIM）；拿不到就退回 platform，不让整条命令挂掉。"""
+    import platform
+    cpu = platform.processor() or "unknown"
+    gpu = "unknown"
+    try:
+        ps = ("$c=(Get-CimInstance Win32_Processor | Select-Object -First 1).Name;"
+              "$g=(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join '; ';"
+              "Write-Output $c; Write-Output $g")
+        p = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                           capture_output=True, text=True, timeout=60)
+        lines = [ln.strip() for ln in (p.stdout or "").splitlines() if ln.strip()]
+        if len(lines) >= 1:
+            cpu = lines[0]
+        if len(lines) >= 2:
+            gpu = lines[1]
+    except Exception:  # noqa: BLE001
+        pass
+    return cpu, gpu
+
+
+def _mem_total_gb():
+    try:
+        import ctypes
+
+        class MemStatus(ctypes.Structure):
+            _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+        st = MemStatus()
+        st.dwLength = ctypes.sizeof(MemStatus)
+        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(st))
+        return round(st.ullTotalPhys / float(1024 ** 3), 1)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _ue_version(ue_path):
+    engine = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(ue_path))))
+    bv = os.path.join(engine, "Build", "Build.version")
+    if not os.path.isfile(bv):
+        return None
+    try:
+        with open(bv, "r", encoding="utf-8-sig") as fh:
+            d = json.load(fh)
+        return "UE %s.%s.%s (CL %s, %s)" % (d.get("MajorVersion"), d.get("MinorVersion"),
+                                            d.get("PatchVersion"), d.get("Changelist"),
+                                            d.get("BranchName"))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _unity_version(project):
+    p = os.path.join(project, "ProjectSettings", "ProjectVersion.txt")
+    if not os.path.isfile(p):
+        return None
+    try:
+        with open(p, "r", encoding="utf-8-sig") as fh:
+            for ln in fh:
+                if ln.strip().startswith("m_EditorVersion:"):
+                    return ln.split(":", 1)[1].strip()
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def _machine_info(args):
+    cpu, gpu = _win_hw()
+    return {
+        "date": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "os": os.environ.get("OS", "Windows"),
+        "cpu": cpu,
+        "cores": os.cpu_count(),
+        "ramGb": _mem_total_gb(),
+        "gpu": gpu,
+        "ue": _ue_version(args.ue),
+        "unity": _unity_version(os.path.abspath(args.unity_project)),
+        "python": sys.version.split()[0],
+    }
+
+
+def _ddc_dirs(args):
+    cands = [os.path.join(os.environ.get("LOCALAPPDATA", ""), "UnrealEngine", "Common", "DerivedDataCache"),
+             r"D:\UECache",
+             os.path.join(os.path.dirname(os.path.abspath(args.project)), "DerivedDataCache")]
+    out = []
+    for d in cands:
+        if d and os.path.isdir(d) and d not in out:
+            out.append(d)
+    return out
+
+
+def _ddc_stat(dirs):
+    files, size = 0, 0
+    for d in dirs:
+        for root, _ds, fs in os.walk(d):
+            for f in fs:
+                files += 1
+                try:
+                    size += os.path.getsize(os.path.join(root, f))
+                except OSError:
+                    pass
+    return {"dirs": list(dirs), "files": files, "bytes": size}
+
+
+def _copy_perf_glbs(dst, n):
+    """把同一份 conifer.glb 复制成 n 个字节级相同、文件名不同的副本（不进仓库）。
+
+    DDC 键包含源文件名 → 20 个副本不是同一个 DDC 键，但几何/贴图内容完全一致。
+    """
+    if not os.path.isfile(PERF_GLB_SRC):
+        raise RuntimeError("找不到 perf 源 glb: " + PERF_GLB_SRC)
+    import hashlib
+    with open(PERF_GLB_SRC, "rb") as fh:
+        src_sha = hashlib.sha256(fh.read()).hexdigest()
+    out = []
+    for i in range(n):
+        p = os.path.join(dst, "perf_import_%02d.glb" % i)
+        shutil.copyfile(PERF_GLB_SRC, p)
+        with open(p, "rb") as fh:
+            if hashlib.sha256(fh.read()).hexdigest() != src_sha:
+                raise RuntimeError("副本 SHA 不一致: " + p)
+        out.append(p)
+    return out, src_sha
+
+
+def _perf_groups(rows):
+    g = {}
+    for r in rows:
+        g.setdefault((r.get("segment"), r.get("cold_warm")), []).append(r)
+    return g
+
+
+def _perf_summary(rows):
+    out = []
+    for (seg, cw), rs in sorted(_perf_groups(rows).items(),
+                                key=lambda kv: (str(kv[0][0]), str(kv[0][1]))):
+        vals = sorted(float(r["duration_s"]) for r in rs if r.get("duration_s") is not None)
+        if not vals:
+            continue
+        mid = len(vals) // 2
+        p50 = vals[mid] if len(vals) % 2 else (vals[mid - 1] + vals[mid]) / 2.0
+        out.append({"segment": seg, "cold_warm": cw, "n": len(vals),
+                    "min": vals[0], "p50": p50, "max": vals[-1]})
+    return out
+
+
+def _perf_assert(rows, report_path, rounds=3):
+    """4 条断言：采样齐全 / 每次 >0 / min≤p50≤max 且非退化 / 报告有方法说明段。
+
+    注意：这里**没有任何绝对耗时阈值**——只查记录完整、数字自洽、可复现。
+    """
+    fails = []
+    groups = _perf_groups(rows)
+
+    # 断言 1：A/B 冷热各 rounds 次、C 段 rounds 次（Unity 侧无 DDC，如实标 n/a）
+    for seg, cw in PERF_REQUIRED:
+        rs = groups.get((seg, cw), [])
+        got_rounds = sorted(set(int(r.get("round") or 0) for r in rs))
+        if len(rs) != rounds or got_rounds != list(range(1, rounds + 1)):
+            fails.append("断言1 %s/%s 采样 %d 次 rounds=%r（要求 %d 次 1..%d）"
+                         % (seg, cw, len(rs), got_rounds, rounds, rounds))
+    print("[1/4] 采样齐全（A/B 冷热各 %d + C %d） → %s"
+          % (rounds, rounds, "PASS" if not fails else "FAIL"))
+
+    # 断言 2：每次采样 duration_s > 0
+    bad2 = ["%s/%s r%s=%r" % (r.get("segment"), r.get("cold_warm"), r.get("round"), r.get("duration_s"))
+            for r in rows if r.get("duration_s") is None or float(r.get("duration_s") or 0) <= 0]
+    print("[2/4] 每次采样 duration_s > 0（%d 条） → %s" % (len(rows), "PASS" if not bad2 else "FAIL"))
+    if bad2:
+        fails.append("断言2 非法耗时: " + "; ".join(bad2))
+
+    # 断言 3：min ≤ p50 ≤ max，且样本不能全都一模一样（防把采样写死）
+    summary = _perf_summary(rows)
+    bad3 = []
+    for s in summary:
+        if not (s["min"] <= s["p50"] <= s["max"]):
+            bad3.append("%s/%s min=%.6f p50=%.6f max=%.6f" % (s["segment"], s["cold_warm"],
+                                                              s["min"], s["p50"], s["max"]))
+        elif s["n"] >= 2 and not (s["max"] > s["min"]):
+            bad3.append("%s/%s %d 次采样完全相同（max==min=%.6f，疑似写死）"
+                        % (s["segment"], s["cold_warm"], s["n"], s["max"]))
+    print("[3/4] 汇总表 min≤p50≤max 且样本非退化（%d 组） → %s"
+          % (len(summary), "PASS" if not bad3 else "FAIL"))
+    if bad3:
+        fails.append("断言3 " + "; ".join(bad3))
+
+    # 断言 4：报告存在且含方法说明段（防"只贴数字不写口径"）
+    text = ""
+    if os.path.isfile(report_path):
+        with open(report_path, "r", encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+    missing = [m for m in PERF_REPORT_MARKERS if m not in text]
+    ok4 = bool(text) and not missing
+    print("[4/4] 报告方法说明段（%s） → %s"
+          % (os.path.basename(report_path), "PASS" if ok4 else "FAIL"))
+    if not ok4:
+        fails.append("断言4 报告缺失/缺标记 %r（%s）"
+                     % (missing, report_path if os.path.isfile(report_path) else "<not written>"))
+    return fails, summary
+
+
+def _fmt_sec(v):
+    return "%.4f" % float(v)
+
+
+def _rel(path):
+    try:
+        return os.path.relpath(path, REPO)
+    except ValueError:
+        return path
+
+
+def _perf_sample_rows(rows):
+    """按 A/B 冷热、C 分组排版原始采样（报告用）。"""
+    out = []
+    for (seg, cw), rs in sorted(_perf_groups(rows).items(), key=lambda kv: (str(kv[0][0]), str(kv[0][1]))):
+        for r in sorted(rs, key=lambda x: int(x.get("round") or 0)):
+            out.append((seg, cw, r))
+    return out
+
+
+def _write_perf_report(out_json, rows, summary, machine, notes, failures):
+    glb_sha = notes.get("glbSha256") or "?"
+    lines = []
+    lines.append("# 性能表（v1.10）：导入 / 材质 / 碰撞 × 20 资产")
+    lines.append("")
+    lines.append("> 生成：%s｜原始采样：`%s`" % (machine.get("date"), _rel(out_json)))
+    lines.append("> **这些数字只对本机配置有效，换机器需重跑 `python tools/run_pcg_chain.py --perf`。**")
+    lines.append("")
+    lines.append("## 机器与版本")
+    lines.append("")
+    lines.append("| 项 | 值 |")
+    lines.append("|---|---|")
+    for k, label in (("cpu", "CPU"), ("cores", "逻辑核"), ("ramGb", "RAM (GB)"), ("gpu", "GPU"),
+                     ("ue", "UE"), ("unity", "Unity"), ("python", "Python"), ("date", "采样时间")):
+        lines.append("| %s | %s |" % (label, machine.get(k)))
+    lines.append("")
+    lines.append("## 方法说明")
+    lines.append("")
+    lines.append("### 计时边界（与 `ue/Content/Python/perf_probe.py` / `unity/Editor/ManifestImporter.cs` 逐字对应）")
+    lines.append("")
+    lines.append("| 段 | 从哪到哪 | 20 资产定义 |")
+    lines.append("|---|---|---|")
+    lines.append("| **A. 导入** | `t0` 紧贴 `import_asset_tasks([task])` 之前，`t1` 紧跟其返回之后；"
+                 "含 Interchange 翻译 glb、建 StaticMesh/贴图资产、`save=True` 落盘；"
+                 "不含材质规范化、不含 UE 启动、不含副本复制 | 同一份 conifer.glb 的 20 个字节级相同副本"
+                 "（`perf_import_00..19.glb`，SHA256 `%s`），导入到每样本唯一的 `/Game/EAP/Perf/<tag>/A/imp_XX` |" % glb_sha[:16])
+    lines.append("| **B. 材质** | `t0` 紧贴 `_normalize_materials(mesh, ...)` 之前，`t1` 紧跟其返回之后；"
+                 "含母材质复用（母材质已在本样本计时前预热）、MIC 创建、BaseColor/Normal 贴图参数、"
+                 "三档压缩设置、roughness 灰度贴图生成与导入、`save_loaded_asset` 落盘；不含 A 段导入 | "
+                 "A 段导入出来的 20 个资产，各 2 个材质槽（Bark: OPAQUE+Normal / Leaves: BLEND 无 Normal） |")
+    lines.append("| **C. 碰撞（Unity）** | 每个 prefab 副本从\"实例化\"到\"加完 `MeshCollider(convex)` + "
+                 "`Physics.BakeMesh`\"；含实例化/销毁副本、凸包烘焙；不含 prefab 副本复制、模型导入、材质。"
+                 "Unity 2022.3 的 `BakeMesh` 返回 void（无法回读成功与否）→ 以调用未抛异常 + "
+                 "`MeshCollider.convex`/`sharedMesh` 读回计数当证据 | "
+                 "20 个 prefab 副本（conifer/broadleaf 各 10 份，从 v1.8 的真实 prefab 复制） |")
+    lines.append("| **C. 碰撞（UE）** | 无独立可测耗时 | 1,892 实例 ISM 的碰撞是组件开关 + profile 设置"
+                 "（一次性标志，亚毫秒级），没有可比的三次采样 → **不编数字**；碰撞证据见 "
+                 "`docs/placed_tree_multi_verify.json`（v1.9 已验证 enabled/BlockAll/1892/meshHasCollision） |")
+    lines.append("")
+    lines.append("### 20 资产的真实定义（坦白）")
+    lines.append("")
+    lines.append("- A/B 的 20 个资产是**同一棵 conifer glb 的 20 个副本**，不是 20 个不同资产；"
+                 "它们字节级相同（SHA256 一致），DDC 键含源文件名所以是 20 个不同键，但几何/贴图工作量等价。")
+    lines.append("- 冷样本是**单进程 20 资产批处理**：第 1 个副本付完整翻译成本，第 2~20 个在进程内存 DDC 里"
+                 "共享第 1 个的结果。这是批处理口径的固有性质，不是把冷样本偷换成热样本（进程起点没有磁盘 DDC）。")
+    lines.append("- C 段 Unity 的 20 个 prefab 是 2 个真实 prefab（conifer/broadleaf）各复制 10 份；"
+                 "凸包烘焙时每个副本用独立的网格实例（否则 2 个源网格的烘焙结果会被共享，耗时塌成 0）。")
+    lines.append("")
+    lines.append("### 冷/热 DDC 处理")
+    lines.append("")
+    lines.append("- DDC 目录（快照）：%s" % "、".join("`%s`" % d for d in (notes.get("ddcDirs") or [])))
+    lines.append("- **冷**：UE 进程命令带 `-DDC-ForceMemoryCache`（DDC 只驻内存，磁盘/共享 DDC 不读不写）；"
+                 "每个冷样本前后各拍一次 DDC 目录快照，files/bytes 未变即为生效。")
+    lines.append("- **热**：不带该 flag，走磁盘 DDC；3 次热采样前先跑一次**不计时**的热启动（只做 A 段）把 DDC 填满。")
+    lines.append("- 冷热差不做断言；清不掉/没生效就如实标（下表\"结论\"列）。")
+    lines.append("")
+    lines.append("| 样本 | 模式 | flag | DDC files 前→后 | DDC bytes 前→后 | 结论 |")
+    lines.append("|---|---|---|---|---|---|")
+    for p in notes.get("ddcProof") or []:
+        lines.append("| %s r%s | %s | `%s` | %s → %s | %s → %s | %s |"
+                     % (p.get("segment"), p.get("round"), p.get("mode"), p.get("flag"),
+                        p.get("filesBefore"), p.get("filesAfter"),
+                        p.get("bytesBefore"), p.get("bytesAfter"), p.get("verdict")))
+    lines.append("")
+    lines.append("## 汇总表")
+    lines.append("")
+    lines.append("| 段 | 状态 | n | min (s) | p50 (s) | max (s) |")
+    lines.append("|---|---|---|---|---|---|")
+    for s in summary:
+        lines.append("| %s | %s | %d | %s | %s | %s |"
+                     % (s["segment"], s["cold_warm"], s["n"], _fmt_sec(s["min"]),
+                        _fmt_sec(s["p50"]), _fmt_sec(s["max"])))
+    lines.append("")
+    lines.append("## 原始采样")
+    lines.append("")
+    lines.append("| 段 | 状态 | round | duration_s | 备注 |")
+    lines.append("|---|---|---|---|---|")
+    for seg, cw, r in _perf_sample_rows(rows):
+        extra = ""
+        if seg == "A_import":
+            pa = r.get("per_asset_s") or []
+            if pa:
+                extra = "20 副本；首个 %.4fs / 其余 min %.4fs" % (pa[0], min(pa[1:]) if len(pa) > 1 else pa[0])
+        elif seg == "B_material":
+            extra = "20 资产 × 2 槽；warmup(不计时) %.2fs" % float(r.get("warmup_s") or 0)
+        elif seg == "C_collision_unity":
+            extra = "prefabs=%s colliders=%s convex=%s bakeCalls=%s bakeErrors=%s" % (
+                r.get("prefabs"), r.get("colliders"), r.get("convexColliders"),
+                r.get("bakeCalls"), r.get("bakeErrors"))
+        lines.append("| %s | %s | %s | %s | %s |"
+                     % (seg, cw, r.get("round"), _fmt_sec(r.get("duration_s")), extra))
+    lines.append("")
+    lines.append("原始 JSON：`%s`（每次采样一行，含 per-asset 明细与机器信息）。" % _rel(out_json))
+    lines.append("")
+    lines.append("## 断言")
+    lines.append("")
+    lines.append("| # | 断言 | 结果 |")
+    lines.append("|---|---|---|")
+    lines.append("| 1 | 三段 × 冷热 × 3 次采样齐全（A/B 各 3 冷 + 3 热；C 3 次，无 DDC 标 n/a） | %s |"
+                 % ("PASS" if not [f for f in failures if f.startswith("断言1")] else "FAIL"))
+    lines.append("| 2 | 每次采样 duration_s > 0 | %s |"
+                 % ("PASS" if not [f for f in failures if f.startswith("断言2")] else "FAIL"))
+    lines.append("| 3 | 汇总表 min ≤ p50 ≤ max 且样本非退化（防写死） | %s |"
+                 % ("PASS" if not [f for f in failures if f.startswith("断言3")] else "FAIL"))
+    lines.append("| 4 | 报告含方法说明段 | %s |"
+                 % ("PASS" if not [f for f in failures if f.startswith("断言4")] else "FAIL"))
+    lines.append("")
+    lines.append("## 已知噪音源")
+    lines.append("")
+    lines.append("- DDC 状态：冷样本用 `-DDC-ForceMemoryCache` 强制无磁盘缓存；热样本依赖前序热启动。")
+    lines.append("- 后台进程 / Windows Defender 对 `%TEMP%` 与 UE 资产的实时扫描。")
+    lines.append("- 笔记本温度墙 / 频率漂移：A/B 每样本约几十秒，长跑后半段可能降频。")
+    lines.append("- B 段的大头是 `_make_roughness_texture` 的**纯 Python** PNG 解码/缩放/编码（CPU 单线程），"
+                 "不是 UE 材质系统本身；换实现会显著改变 B 的数字。")
+    lines.append("- Unity 侧 C 段 3 轮在同一进程内连续跑（Unity 无 DDC/冷热语义），第 1 轮含首次资产加载，后两轮更热。")
+    lines.append("- `-nullrhi`：A/B 不编译渲染管线着色器；真实带 RHI 的首次导入会额外付 Nanite/着色器编译成本。")
+    lines.append("")
+    lines.append("**声明：以上数字只对本机配置有效，换机器/换 UE·Unity 版本需重跑 `--perf`，不要跨机器比较。**")
+    lines.append("")
+    d = os.path.dirname(PERF_REPORT_MD)
+    if d and not os.path.isdir(d):
+        os.makedirs(d)
+    with open(PERF_REPORT_MD, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
+    return PERF_REPORT_MD
+
+
+def _run_perf_from(args):
+    """复用已有采样 JSON：重算汇总/报告/断言（反验用，不再跑 UE/Unity）。"""
+    path = os.path.abspath(args.perf_from)
+    if not os.path.isfile(path):
+        print("CHAIN FAIL: 找不到采样 JSON: " + path)
+        return 1
+    with open(path, "r", encoding="utf-8-sig") as fh:
+        payload = json.load(fh)
+    rows = payload.get("runs") or []
+    machine = payload.get("machine") or {}
+    notes = payload.get("notes") or {}
+    print("[0/4] 复用采样：%s（%d 条）" % (path, len(rows)))
+    summary = _perf_summary(rows)
+    payload["summary"] = summary
+    # 先落一版报告给断言 4 读，再按断言结果重写
+    _write_perf_report(path, rows, summary, machine, notes, [])
+    fails, summary = _perf_assert(rows, PERF_REPORT_MD, rounds=args.perf_rounds)
+    _write_perf_report(path, rows, summary, machine, notes, fails)
+    for s in summary:
+        print("     %-20s %-5s n=%d min=%.4f p50=%.4f max=%.4f"
+              % (s["segment"], s["cold_warm"], s["n"], s["min"], s["p50"], s["max"]))
+    if fails:
+        print("\nCHAIN FAIL: " + " | ".join(fails))
+        return 1
+    print("\nPERF PASS rows=%d groups=%d（复用 %s）" % (len(rows), len(summary), os.path.basename(path)))
+    return 0
+
+
+def _run_perf(args):
+    """三段性能表：A 导入 / B 材质（UE，冷热各 3 次）+ C 碰撞（Unity 侧 3 次，UE 侧如实不报）。"""
+    manifest = os.path.abspath(args.manifest)
+    project = os.path.abspath(args.unity_project)
+    fails = []
+    print("[0/4] 性能表：A 导入 / B 材质（UE 冷热各 %d 次）+ C 碰撞（Unity %d 次）"
+          % (args.perf_rounds, args.perf_rounds))
+
+    if _unity_running():
+        print("CHAIN FAIL: Unity.exe 正在运行，先关掉 Unity 再来")
+        return 1
+    for p, label in ((args.ue, "UnrealEditor-Cmd"), (args.unity, "Unity.exe")):
+        if not os.path.isfile(p):
+            fails.append("找不到 %s: %s" % (label, p))
+    if not os.path.isfile(manifest):
+        fails.append("找不到 manifest: " + manifest)
+    if not os.path.isdir(project):
+        fails.append("找不到 Unity 工程: " + project)
+    if not os.path.isfile(PERF_GLB_SRC):
+        fails.append("找不到 perf 源 glb: " + PERF_GLB_SRC)
+    if fails:
+        print("CHAIN FAIL: " + " | ".join(fails))
+        return 1
+
+    changed = _deploy_unity_script(project)
+    print("[0/4] 消费端脚本 %s → %s" % ("已更新" if changed else "无变化", project))
+
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    out_json = os.path.join(REPO, "docs", "perf_%s.json" % stamp)
+    temp = tempfile.mkdtemp(prefix="eap_perf_")
+    glb_dir = os.path.join(temp, "glb")
+    os.makedirs(glb_dir)
+    rows = []
+    notes = {}
+    machine = _machine_info(args)
+    try:
+        copies, glb_sha = _copy_perf_glbs(glb_dir, PERF_COPIES)
+        print("[0/4] 同源副本 %d 个 → %s（SHA256 %s…）" % (len(copies), glb_dir, glb_sha[:16]))
+        print("[0/4] 机器: %s | %s | RAM %s GB | %s | %s | %s"
+              % (machine.get("cpu"), machine.get("gpu"), machine.get("ramGb"),
+                 machine.get("ue"), machine.get("unity"), machine.get("date")))
+        ddc_dirs = _ddc_dirs(args)
+        notes["ddcDirs"] = ddc_dirs
+        notes["glbSha256"] = glb_sha
+        notes["ddcProof"] = []
+
+        # ---- C 段（Unity 侧）：先跑一次不计时的 Import 保证 prefab 存在，再 3 轮碰撞采样 ----
+        c_json = os.path.join(temp, "perf_unity_c.json")
+        c_log = os.path.join(temp, "perf_unity_c.log.txt")
+        import_log = os.path.join(temp, "perf_unity_import.log.txt")
+        try:
+            irc, ilog = _run_unity(args.unity, project, "EAP.ManifestImporter.ImportFromArgs",
+                                   manifest, import_log, timeout=1800)
+            print("[1/4] Unity 预热导入（不计时）exit=%s" % irc)
+            if irc != 0:
+                fails.append("C 段预热导入失败 exit=%s | log_tail: %s" % (irc, _tail(ilog)))
+            crc, clog = _run_unity(args.unity, project, "EAP.ManifestImporter.PerfCollisionFromArgs",
+                                   manifest, c_log, timeout=1800,
+                                   extra=["-eapPerfOut", c_json, "-eapPerfRounds", str(args.perf_rounds)])
+            cdoc = None
+            if os.path.isfile(c_json):
+                with open(c_json, "r", encoding="utf-8-sig") as fh:
+                    cdoc = json.load(fh)
+            if crc != 0 or cdoc is None:
+                fails.append("C 段采样失败 exit=%s json=%s | log_tail: %s"
+                             % (crc, c_json if cdoc is not None else "<not written>", _tail(clog)))
+            for s in (cdoc or {}).get("samples") or []:
+                rows.append({
+                    "segment": "C_collision_unity",
+                    "round": int(s.get("round") or 0),
+                    "cold_warm": s.get("coldWarm") or "n/a",
+                    "duration_s": float(s.get("durationS") or 0),
+                    "prefabs": s.get("prefabs"), "colliders": s.get("colliders"),
+                    "convexColliders": s.get("convexColliders"),
+                    "bakeCalls": s.get("bakeCalls"), "bakeErrors": s.get("bakeErrors"),
+                    "perPrefab_s": s.get("perPrefab") or [],
+                    "note": s.get("note"),
+                })
+                print("[1/4] C round=%s %.4fs prefabs=%s colliders=%s convex=%s bakeCalls=%s bakeErrors=%s"
+                      % (s.get("round"), float(s.get("durationS") or 0), s.get("prefabs"),
+                         s.get("colliders"), s.get("convexColliders"),
+                         s.get("bakeCalls"), s.get("bakeErrors")))
+        except subprocess.TimeoutExpired:
+            fails.append("C 段 Unity 调用超时（未补插值，缺格如实报）")
+
+        def _ue_sample(mode, rnd, tag, segments="import,material", flag=None):
+            """跑一次 UE 探针；冷样本带 -DDC-ForceMemoryCache 并前后快照 DDC 证明生效。"""
+            probe_out = os.path.join(temp, "perf_ue_%s_r%d.json" % (mode, rnd))
+            env = {
+                "EAP_PERF_OUT": probe_out,
+                "EAP_PERF_GLB_DIR": glb_dir,
+                "EAP_PERF_TAG": tag,
+                "EAP_PERF_ROUND": str(rnd),
+                "EAP_PERF_COLD_WARM": mode,
+                "EAP_PERF_SEGMENTS": segments,
+                "EAP_PERF_COPIES": str(PERF_COPIES),
+                "EAP_PERF_MANIFEST": manifest,
+            }
+            cmd = _ue_cmd(args.ue, args.project, PERF_PROBE)
+            if flag:
+                cmd.append(flag)
+            before = _ddc_stat(ddc_dirs)
+            try:
+                p, _ = _run("%s %s r%d" % ("UE 冷" if mode == "cold" else "UE 热", segments, rnd),
+                            cmd, timeout=1800, env=env)
+            except subprocess.TimeoutExpired:
+                fails.append("%s 样本 %s r%d 超时（缺格如实报，不插值）" % (mode, segments, rnd))
+                return None
+            after = _ddc_stat(ddc_dirs)
+            verdict = "生效：DDC 目录无变化" if before["files"] == after["files"] and before["bytes"] == after["bytes"] \
+                else "DDC 目录有变化（见数字）"
+            if mode == "hot":
+                verdict = "热：走磁盘 DDC（目录变化可有可无）"
+            notes["ddcProof"].append({
+                "segment": segments, "round": rnd, "mode": mode,
+                "flag": flag or "(none)",
+                "filesBefore": before["files"], "filesAfter": after["files"],
+                "bytesBefore": before["bytes"], "bytesAfter": after["bytes"],
+                "verdict": verdict,
+            })
+            if p.returncode != 0:
+                fails.append("%s r%d UE 退出码 %d | tail: %s"
+                             % (segments, rnd, p.returncode, _tail(p.stdout or "")))
+                return None
+            if not os.path.isfile(probe_out):
+                fails.append("%s r%d 采样 JSON 未生成: %s" % (segments, rnd, probe_out))
+                return None
+            with open(probe_out, "r", encoding="utf-8-sig") as fh:
+                return json.load(fh)
+
+        # ---- 冷样本：每条样本一个独立进程 + 强制内存 DDC（真冷）----
+        for rnd in range(1, args.perf_rounds + 1):
+            data = _ue_sample("cold", rnd, "pc%s_c%d" % (stamp.replace("_", ""), rnd),
+                              flag="-DDC-ForceMemoryCache")
+            for s in (data or {}).get("samples") or []:
+                rows.append({
+                    "segment": s.get("segment"), "round": rnd, "cold_warm": "cold",
+                    "duration_s": float(s.get("duration_s") or 0),
+                    "per_asset_s": s.get("per_asset_s") or [],
+                    "assets": s.get("assets"), "warmup_s": s.get("warmup_s"),
+                    "detail": s.get("detail") or [],
+                })
+                print("[2/4] 冷 r%d %s %.4fs" % (rnd, s.get("segment"), float(s.get("duration_s") or 0)))
+
+        # ---- 热启动（不计时，只做 A 段）把磁盘 DDC 填满，再采 3 次热样本 ----
+        _ue_sample("hot", 0, "pc%s_hw" % stamp.replace("_", ""), segments="import")
+        for rnd in range(1, args.perf_rounds + 1):
+            data = _ue_sample("hot", rnd, "pc%s_h%d" % (stamp.replace("_", ""), rnd))
+            for s in (data or {}).get("samples") or []:
+                rows.append({
+                    "segment": s.get("segment"), "round": rnd, "cold_warm": "hot",
+                    "duration_s": float(s.get("duration_s") or 0),
+                    "per_asset_s": s.get("per_asset_s") or [],
+                    "assets": s.get("assets"), "warmup_s": s.get("warmup_s"),
+                    "detail": s.get("detail") or [],
+                })
+                print("[3/4] 热 r%d %s %.4fs" % (rnd, s.get("segment"), float(s.get("duration_s") or 0)))
+    except Exception as exc:  # noqa: BLE001
+        print("CHAIN FAIL: 性能采样异常: %r" % (exc,))
+        return 1
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+
+    for r in rows:
+        r["machine"] = machine
+    summary = _perf_summary(rows)
+    payload = {
+        "schema": "eap.perf/1",
+        "when": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "machine": machine,
+        "definitions": {
+            "A_import": "同一份 conifer.glb 的 20 个字节级相同副本 → Interchange 导入返回 StaticMesh",
+            "B_material": "上述 20 个资产 × 2 槽：母材质复用 + MIC + 贴图参数 + 三档压缩 + roughness 生成",
+            "C_collision_unity": "20 个 prefab 副本各加 MeshCollider(convex) + Physics.BakeMesh",
+            "C_collision_ue": "ISM 碰撞启用是组件标志（亚毫秒，无独立可测耗时）→ 不报数字",
+        },
+        "notes": notes,
+        "runs": rows,
+        "summary": summary,
+        "failures": fails,
+    }
+    print("[3/4] 原始采样 %d 条（A/B 冷热 + C）" % len(rows))
+
+    # 先落一版报告（断言 4 要读它），跑断言，再按最终失败集重写报告与 JSON
+    _write_perf_report(out_json, rows, summary, machine, notes, fails)
+    assertion_fails, summary = _perf_assert(rows, PERF_REPORT_MD, rounds=args.perf_rounds)
+    fails.extend(assertion_fails)
+    payload["summary"] = summary
+    payload["failures"] = fails
+    with open(out_json, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, ensure_ascii=False, indent=2, default=str)
+    _write_perf_report(out_json, rows, summary, machine, notes, fails)
+    for s in summary:
+        print("     %-20s %-5s n=%d min=%.4f p50=%.4f max=%.4f"
+              % (s["segment"], s["cold_warm"], s["n"], s["min"], s["p50"], s["max"]))
+    print("[4/4] 原始采样 → %s" % out_json)
+    print("      汇总报告 → %s" % PERF_REPORT_MD)
+    if fails:
+        print("\nCHAIN FAIL: " + " | ".join(fails))
+        return 1
+    print("\nPERF PASS rows=%d groups=%d → %s" % (len(rows), len(summary), out_json))
+    print("产物: %s" % out_json)
+    print("      %s" % PERF_REPORT_MD)
+    return 0
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--ue", default=DEFAULT_UE)
@@ -1279,12 +1876,21 @@ def main(argv):
                     help="双端逐实例对账：UE 读回 vs Unity 读回 + 4 条断言 + 三列对照表（独立命令）")
     ap.add_argument("--parity-inject-yaw-deg", type=float, default=0.0,
                     help="反向验证：读 Unity 证据时给 yaw 加偏移（默认 0；0.1 应当只挂断言 3）")
+    ap.add_argument("--perf", action="store_true",
+                    help="三段性能表：A 导入 / B 材质（UE 冷热各 3 次）+ C 碰撞（Unity 3 次）")
+    ap.add_argument("--perf-from", default=None,
+                    help="复用已有 perf_*.json，只重算汇总/报告/4 条断言（反验用，不再采样）")
+    ap.add_argument("--perf-rounds", type=int, default=3, help="每段每状态采样次数（任务单要求 3）")
     ap.add_argument("--unity", default=DEFAULT_UNITY, help="Unity.exe 路径")
     ap.add_argument("--unity-project", default=DEFAULT_UNITY_PROJECT, help="Unity 工程路径")
     ap.add_argument("--manifest", default=REAL_MULTI_MANIFEST_JSON,
                     help="--unity-check 读取的 manifest（默认 schemas/tree_manifest_multi.json）")
     args = ap.parse_args(argv[1:])
 
+    if args.perf_from:
+        return _run_perf_from(args)
+    if args.perf:
+        return _run_perf(args)
     if args.parity_check:
         return _run_parity_check(args)
     if args.unity_placements_check:

@@ -1,0 +1,3204 @@
+{
+  "schema": "eap.perf/1",
+  "when": "2026-11-24T14:26:38",
+  "machine": {
+    "date": "2026-11-24 14:17:16",
+    "os": "Windows_NT",
+    "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+    "cores": 24,
+    "ramGb": 31.4,
+    "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+    "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+    "unity": "2022.3.62f3c1",
+    "python": "3.12.10"
+  },
+  "definitions": {
+    "A_import": "同一份 conifer.glb 的 20 个字节级相同副本 → Interchange 导入返回 StaticMesh",
+    "B_material": "上述 20 个资产 × 2 槽：母材质复用 + MIC + 贴图参数 + 三档压缩 + roughness 生成",
+    "C_collision_unity": "20 个 prefab 副本各加 MeshCollider(convex) + Physics.BakeMesh",
+    "C_collision_ue": "ISM 碰撞启用是组件标志（亚毫秒，无独立可测耗时）→ 不报数字"
+  },
+  "notes": {
+    "ddcDirs": [
+      "C:\\Users\\ASUS\\AppData\\Local\\UnrealEngine\\Common\\DerivedDataCache",
+      "D:\\UECache",
+      "D:\\UE_Projects\\VegetationPCG\\DerivedDataCache"
+    ],
+    "glbSha256": "56f88f78f38fc19496a8faa5006ae311ba8e62a3672ca2c813399dee0d6a20e4",
+    "ddcProof": [
+      {
+        "segment": "import,material",
+        "round": 1,
+        "mode": "cold",
+        "flag": "-DDC-ForceMemoryCache",
+        "filesBefore": 266,
+        "filesAfter": 266,
+        "bytesBefore": 680630606,
+        "bytesAfter": 680653670,
+        "verdict": "DDC 目录有变化（见数字）"
+      },
+      {
+        "segment": "import,material",
+        "round": 2,
+        "mode": "cold",
+        "flag": "-DDC-ForceMemoryCache",
+        "filesBefore": 266,
+        "filesAfter": 269,
+        "bytesBefore": 680653670,
+        "bytesAfter": 680678986,
+        "verdict": "DDC 目录有变化（见数字）"
+      },
+      {
+        "segment": "import,material",
+        "round": 3,
+        "mode": "cold",
+        "flag": "-DDC-ForceMemoryCache",
+        "filesBefore": 269,
+        "filesAfter": 271,
+        "bytesBefore": 680678986,
+        "bytesAfter": 680703286,
+        "verdict": "DDC 目录有变化（见数字）"
+      },
+      {
+        "segment": "import",
+        "round": 0,
+        "mode": "hot",
+        "flag": "(none)",
+        "filesBefore": 271,
+        "filesAfter": 273,
+        "bytesBefore": 680703286,
+        "bytesAfter": 680727069,
+        "verdict": "热：走磁盘 DDC（目录变化可有可无）"
+      },
+      {
+        "segment": "import,material",
+        "round": 1,
+        "mode": "hot",
+        "flag": "(none)",
+        "filesBefore": 273,
+        "filesAfter": 278,
+        "bytesBefore": 680727069,
+        "bytesAfter": 680752684,
+        "verdict": "热：走磁盘 DDC（目录变化可有可无）"
+      },
+      {
+        "segment": "import,material",
+        "round": 2,
+        "mode": "hot",
+        "flag": "(none)",
+        "filesBefore": 278,
+        "filesAfter": 278,
+        "bytesBefore": 680752684,
+        "bytesAfter": 680776825,
+        "verdict": "热：走磁盘 DDC（目录变化可有可无）"
+      },
+      {
+        "segment": "import,material",
+        "round": 3,
+        "mode": "hot",
+        "flag": "(none)",
+        "filesBefore": 278,
+        "filesAfter": 280,
+        "bytesBefore": 680776825,
+        "bytesAfter": 680801126,
+        "verdict": "热：走磁盘 DDC（目录变化可有可无）"
+      }
+    ]
+  },
+  "runs": [
+    {
+      "segment": "C_collision_unity",
+      "round": 1,
+      "cold_warm": "n/a",
+      "duration_s": 0.152492,
+      "prefabs": 20,
+      "colliders": 20,
+      "convexColliders": 20,
+      "bakeCalls": 20,
+      "bakeErrors": 0,
+      "perPrefab_s": [
+        0.009059,
+        0.014527,
+        0.003738,
+        0.010027,
+        0.003718,
+        0.01081,
+        0.003639,
+        0.010543,
+        0.003673,
+        0.010518,
+        0.004072,
+        0.01057,
+        0.003669,
+        0.010278,
+        0.007624,
+        0.009061,
+        0.003663,
+        0.010585,
+        0.003648,
+        0.009071
+      ],
+      "note": "20 个 prefab 副本（conifer/broadleaf 各半）各加 MeshCollider(convex)+Physics.BakeMesh；副本自带 collider 先摘掉避免重复；不写回 prefab（运行时网格不能序列化）",
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "C_collision_unity",
+      "round": 2,
+      "cold_warm": "n/a",
+      "duration_s": 0.134232,
+      "prefabs": 20,
+      "colliders": 20,
+      "convexColliders": 20,
+      "bakeCalls": 20,
+      "bakeErrors": 0,
+      "perPrefab_s": [
+        0.003909,
+        0.009995,
+        0.003812,
+        0.009689,
+        0.003711,
+        0.009637,
+        0.004082,
+        0.009516,
+        0.004141,
+        0.009539,
+        0.00373,
+        0.008669,
+        0.003482,
+        0.008973,
+        0.003689,
+        0.010947,
+        0.004639,
+        0.009804,
+        0.003512,
+        0.008757
+      ],
+      "note": "20 个 prefab 副本（conifer/broadleaf 各半）各加 MeshCollider(convex)+Physics.BakeMesh；副本自带 collider 先摘掉避免重复；不写回 prefab（运行时网格不能序列化）",
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "C_collision_unity",
+      "round": 3,
+      "cold_warm": "n/a",
+      "duration_s": 0.137092,
+      "prefabs": 20,
+      "colliders": 20,
+      "convexColliders": 20,
+      "bakeCalls": 20,
+      "bakeErrors": 0,
+      "perPrefab_s": [
+        0.00398,
+        0.009909,
+        0.003788,
+        0.009907,
+        0.003648,
+        0.008828,
+        0.004304,
+        0.0094,
+        0.003838,
+        0.009765,
+        0.003805,
+        0.009569,
+        0.003842,
+        0.009784,
+        0.003867,
+        0.010551,
+        0.003863,
+        0.009913,
+        0.004241,
+        0.010289
+      ],
+      "note": "20 个 prefab 副本（conifer/broadleaf 各半）各加 MeshCollider(convex)+Physics.BakeMesh；副本自带 collider 先摘掉避免重复；不写回 prefab（运行时网格不能序列化）",
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "A_import",
+      "round": 1,
+      "cold_warm": "cold",
+      "duration_s": 3.394454,
+      "per_asset_s": [
+        0.240255,
+        0.161481,
+        0.174049,
+        0.183297,
+        0.162594,
+        0.162701,
+        0.159366,
+        0.160114,
+        0.162462,
+        0.158642,
+        0.166885,
+        0.171615,
+        0.167645,
+        0.171239,
+        0.156227,
+        0.168332,
+        0.162607,
+        0.177,
+        0.168,
+        0.159943
+      ],
+      "assets": 20,
+      "warmup_s": null,
+      "detail": [
+        {
+          "i": 0,
+          "glb": "perf_import_00.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_00",
+          "duration_s": 0.240255,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_00/perf_import_00/StaticMeshes/perf_import_00.perf_import_00"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 1,
+          "glb": "perf_import_01.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_01",
+          "duration_s": 0.161481,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_01/perf_import_01/StaticMeshes/perf_import_01.perf_import_01"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 2,
+          "glb": "perf_import_02.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_02",
+          "duration_s": 0.174049,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_02/perf_import_02/StaticMeshes/perf_import_02.perf_import_02"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 3,
+          "glb": "perf_import_03.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_03",
+          "duration_s": 0.183297,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_03/perf_import_03/StaticMeshes/perf_import_03.perf_import_03"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 4,
+          "glb": "perf_import_04.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_04",
+          "duration_s": 0.162594,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_04/perf_import_04/StaticMeshes/perf_import_04.perf_import_04"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 5,
+          "glb": "perf_import_05.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_05",
+          "duration_s": 0.162701,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_05/perf_import_05/StaticMeshes/perf_import_05.perf_import_05"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 6,
+          "glb": "perf_import_06.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_06",
+          "duration_s": 0.159366,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_06/perf_import_06/StaticMeshes/perf_import_06.perf_import_06"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 7,
+          "glb": "perf_import_07.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_07",
+          "duration_s": 0.160114,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_07/perf_import_07/StaticMeshes/perf_import_07.perf_import_07"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 8,
+          "glb": "perf_import_08.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_08",
+          "duration_s": 0.162462,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_08/perf_import_08/StaticMeshes/perf_import_08.perf_import_08"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 9,
+          "glb": "perf_import_09.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_09",
+          "duration_s": 0.158642,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_09/perf_import_09/StaticMeshes/perf_import_09.perf_import_09"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 10,
+          "glb": "perf_import_10.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_10",
+          "duration_s": 0.166885,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_10/perf_import_10/StaticMeshes/perf_import_10.perf_import_10"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 11,
+          "glb": "perf_import_11.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_11",
+          "duration_s": 0.171615,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_11/perf_import_11/StaticMeshes/perf_import_11.perf_import_11"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 12,
+          "glb": "perf_import_12.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_12",
+          "duration_s": 0.167645,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_12/perf_import_12/StaticMeshes/perf_import_12.perf_import_12"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 13,
+          "glb": "perf_import_13.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_13",
+          "duration_s": 0.171239,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_13/perf_import_13/StaticMeshes/perf_import_13.perf_import_13"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 14,
+          "glb": "perf_import_14.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_14",
+          "duration_s": 0.156227,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_14/perf_import_14/StaticMeshes/perf_import_14.perf_import_14"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 15,
+          "glb": "perf_import_15.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_15",
+          "duration_s": 0.168332,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_15/perf_import_15/StaticMeshes/perf_import_15.perf_import_15"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 16,
+          "glb": "perf_import_16.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_16",
+          "duration_s": 0.162607,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_16/perf_import_16/StaticMeshes/perf_import_16.perf_import_16"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 17,
+          "glb": "perf_import_17.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_17",
+          "duration_s": 0.177,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_17/perf_import_17/StaticMeshes/perf_import_17.perf_import_17"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 18,
+          "glb": "perf_import_18.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_18",
+          "duration_s": 0.168,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_18/perf_import_18/StaticMeshes/perf_import_18.perf_import_18"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 19,
+          "glb": "perf_import_19.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_19",
+          "duration_s": 0.159943,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c1/A/imp_19/perf_import_19/StaticMeshes/perf_import_19.perf_import_19"
+          ],
+          "imported": 6
+        }
+      ],
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "B_material",
+      "round": 1,
+      "cold_warm": "cold",
+      "duration_s": 31.595495,
+      "per_asset_s": [
+        1.601515,
+        1.627889,
+        1.571244,
+        1.576668,
+        1.568226,
+        1.591427,
+        1.617442,
+        1.580902,
+        1.581755,
+        1.62851,
+        1.57122,
+        1.571448,
+        1.547981,
+        1.571014,
+        1.567481,
+        1.559719,
+        1.555746,
+        1.572139,
+        1.566472,
+        1.566696
+      ],
+      "assets": 20,
+      "warmup_s": 1.952888,
+      "detail": [
+        {
+          "i": 0,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_00/perf_import_00/StaticMeshes/perf_import_00.perf_import_00",
+          "duration_s": 1.601515,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s00_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s00_1_masked"
+          ]
+        },
+        {
+          "i": 1,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_01/perf_import_01/StaticMeshes/perf_import_01.perf_import_01",
+          "duration_s": 1.627889,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s01_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s01_1_masked"
+          ]
+        },
+        {
+          "i": 2,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_02/perf_import_02/StaticMeshes/perf_import_02.perf_import_02",
+          "duration_s": 1.571244,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s02_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s02_1_masked"
+          ]
+        },
+        {
+          "i": 3,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_03/perf_import_03/StaticMeshes/perf_import_03.perf_import_03",
+          "duration_s": 1.576668,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s03_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s03_1_masked"
+          ]
+        },
+        {
+          "i": 4,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_04/perf_import_04/StaticMeshes/perf_import_04.perf_import_04",
+          "duration_s": 1.568226,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s04_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s04_1_masked"
+          ]
+        },
+        {
+          "i": 5,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_05/perf_import_05/StaticMeshes/perf_import_05.perf_import_05",
+          "duration_s": 1.591427,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s05_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s05_1_masked"
+          ]
+        },
+        {
+          "i": 6,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_06/perf_import_06/StaticMeshes/perf_import_06.perf_import_06",
+          "duration_s": 1.617442,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s06_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s06_1_masked"
+          ]
+        },
+        {
+          "i": 7,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_07/perf_import_07/StaticMeshes/perf_import_07.perf_import_07",
+          "duration_s": 1.580902,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s07_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s07_1_masked"
+          ]
+        },
+        {
+          "i": 8,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_08/perf_import_08/StaticMeshes/perf_import_08.perf_import_08",
+          "duration_s": 1.581755,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s08_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s08_1_masked"
+          ]
+        },
+        {
+          "i": 9,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_09/perf_import_09/StaticMeshes/perf_import_09.perf_import_09",
+          "duration_s": 1.62851,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s09_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s09_1_masked"
+          ]
+        },
+        {
+          "i": 10,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_10/perf_import_10/StaticMeshes/perf_import_10.perf_import_10",
+          "duration_s": 1.57122,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s10_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s10_1_masked"
+          ]
+        },
+        {
+          "i": 11,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_11/perf_import_11/StaticMeshes/perf_import_11.perf_import_11",
+          "duration_s": 1.571448,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s11_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s11_1_masked"
+          ]
+        },
+        {
+          "i": 12,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_12/perf_import_12/StaticMeshes/perf_import_12.perf_import_12",
+          "duration_s": 1.547981,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s12_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s12_1_masked"
+          ]
+        },
+        {
+          "i": 13,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_13/perf_import_13/StaticMeshes/perf_import_13.perf_import_13",
+          "duration_s": 1.571014,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s13_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s13_1_masked"
+          ]
+        },
+        {
+          "i": 14,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_14/perf_import_14/StaticMeshes/perf_import_14.perf_import_14",
+          "duration_s": 1.567481,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s14_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s14_1_masked"
+          ]
+        },
+        {
+          "i": 15,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_15/perf_import_15/StaticMeshes/perf_import_15.perf_import_15",
+          "duration_s": 1.559719,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s15_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s15_1_masked"
+          ]
+        },
+        {
+          "i": 16,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_16/perf_import_16/StaticMeshes/perf_import_16.perf_import_16",
+          "duration_s": 1.555746,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s16_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s16_1_masked"
+          ]
+        },
+        {
+          "i": 17,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_17/perf_import_17/StaticMeshes/perf_import_17.perf_import_17",
+          "duration_s": 1.572139,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s17_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s17_1_masked"
+          ]
+        },
+        {
+          "i": 18,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_18/perf_import_18/StaticMeshes/perf_import_18.perf_import_18",
+          "duration_s": 1.566472,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s18_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s18_1_masked"
+          ]
+        },
+        {
+          "i": 19,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c1/A/imp_19/perf_import_19/StaticMeshes/perf_import_19.perf_import_19",
+          "duration_s": 1.566696,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s19_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c1_s19_1_masked"
+          ]
+        }
+      ],
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "A_import",
+      "round": 2,
+      "cold_warm": "cold",
+      "duration_s": 3.193554,
+      "per_asset_s": [
+        0.216366,
+        0.157748,
+        0.166702,
+        0.163557,
+        0.157532,
+        0.156737,
+        0.157316,
+        0.155739,
+        0.150522,
+        0.154942,
+        0.153065,
+        0.152333,
+        0.152997,
+        0.152546,
+        0.159901,
+        0.154299,
+        0.153251,
+        0.161203,
+        0.160316,
+        0.156484
+      ],
+      "assets": 20,
+      "warmup_s": null,
+      "detail": [
+        {
+          "i": 0,
+          "glb": "perf_import_00.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_00",
+          "duration_s": 0.216366,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_00/perf_import_00/StaticMeshes/perf_import_00.perf_import_00"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 1,
+          "glb": "perf_import_01.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_01",
+          "duration_s": 0.157748,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_01/perf_import_01/StaticMeshes/perf_import_01.perf_import_01"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 2,
+          "glb": "perf_import_02.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_02",
+          "duration_s": 0.166702,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_02/perf_import_02/StaticMeshes/perf_import_02.perf_import_02"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 3,
+          "glb": "perf_import_03.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_03",
+          "duration_s": 0.163557,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_03/perf_import_03/StaticMeshes/perf_import_03.perf_import_03"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 4,
+          "glb": "perf_import_04.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_04",
+          "duration_s": 0.157532,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_04/perf_import_04/StaticMeshes/perf_import_04.perf_import_04"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 5,
+          "glb": "perf_import_05.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_05",
+          "duration_s": 0.156737,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_05/perf_import_05/StaticMeshes/perf_import_05.perf_import_05"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 6,
+          "glb": "perf_import_06.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_06",
+          "duration_s": 0.157316,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_06/perf_import_06/StaticMeshes/perf_import_06.perf_import_06"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 7,
+          "glb": "perf_import_07.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_07",
+          "duration_s": 0.155739,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_07/perf_import_07/StaticMeshes/perf_import_07.perf_import_07"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 8,
+          "glb": "perf_import_08.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_08",
+          "duration_s": 0.150522,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_08/perf_import_08/StaticMeshes/perf_import_08.perf_import_08"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 9,
+          "glb": "perf_import_09.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_09",
+          "duration_s": 0.154942,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_09/perf_import_09/StaticMeshes/perf_import_09.perf_import_09"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 10,
+          "glb": "perf_import_10.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_10",
+          "duration_s": 0.153065,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_10/perf_import_10/StaticMeshes/perf_import_10.perf_import_10"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 11,
+          "glb": "perf_import_11.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_11",
+          "duration_s": 0.152333,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_11/perf_import_11/StaticMeshes/perf_import_11.perf_import_11"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 12,
+          "glb": "perf_import_12.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_12",
+          "duration_s": 0.152997,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_12/perf_import_12/StaticMeshes/perf_import_12.perf_import_12"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 13,
+          "glb": "perf_import_13.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_13",
+          "duration_s": 0.152546,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_13/perf_import_13/StaticMeshes/perf_import_13.perf_import_13"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 14,
+          "glb": "perf_import_14.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_14",
+          "duration_s": 0.159901,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_14/perf_import_14/StaticMeshes/perf_import_14.perf_import_14"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 15,
+          "glb": "perf_import_15.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_15",
+          "duration_s": 0.154299,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_15/perf_import_15/StaticMeshes/perf_import_15.perf_import_15"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 16,
+          "glb": "perf_import_16.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_16",
+          "duration_s": 0.153251,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_16/perf_import_16/StaticMeshes/perf_import_16.perf_import_16"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 17,
+          "glb": "perf_import_17.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_17",
+          "duration_s": 0.161203,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_17/perf_import_17/StaticMeshes/perf_import_17.perf_import_17"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 18,
+          "glb": "perf_import_18.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_18",
+          "duration_s": 0.160316,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_18/perf_import_18/StaticMeshes/perf_import_18.perf_import_18"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 19,
+          "glb": "perf_import_19.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_19",
+          "duration_s": 0.156484,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c2/A/imp_19/perf_import_19/StaticMeshes/perf_import_19.perf_import_19"
+          ],
+          "imported": 6
+        }
+      ],
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "B_material",
+      "round": 2,
+      "cold_warm": "cold",
+      "duration_s": 32.134483,
+      "per_asset_s": [
+        1.608958,
+        1.594387,
+        1.603833,
+        1.609662,
+        1.594691,
+        1.594284,
+        1.597158,
+        1.603007,
+        1.587151,
+        1.62584,
+        1.632946,
+        1.636283,
+        1.616372,
+        1.611484,
+        1.627595,
+        1.602541,
+        1.605717,
+        1.601259,
+        1.599189,
+        1.582127
+      ],
+      "assets": 20,
+      "warmup_s": 1.788005,
+      "detail": [
+        {
+          "i": 0,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_00/perf_import_00/StaticMeshes/perf_import_00.perf_import_00",
+          "duration_s": 1.608958,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s00_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s00_1_masked"
+          ]
+        },
+        {
+          "i": 1,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_01/perf_import_01/StaticMeshes/perf_import_01.perf_import_01",
+          "duration_s": 1.594387,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s01_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s01_1_masked"
+          ]
+        },
+        {
+          "i": 2,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_02/perf_import_02/StaticMeshes/perf_import_02.perf_import_02",
+          "duration_s": 1.603833,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s02_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s02_1_masked"
+          ]
+        },
+        {
+          "i": 3,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_03/perf_import_03/StaticMeshes/perf_import_03.perf_import_03",
+          "duration_s": 1.609662,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s03_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s03_1_masked"
+          ]
+        },
+        {
+          "i": 4,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_04/perf_import_04/StaticMeshes/perf_import_04.perf_import_04",
+          "duration_s": 1.594691,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s04_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s04_1_masked"
+          ]
+        },
+        {
+          "i": 5,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_05/perf_import_05/StaticMeshes/perf_import_05.perf_import_05",
+          "duration_s": 1.594284,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s05_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s05_1_masked"
+          ]
+        },
+        {
+          "i": 6,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_06/perf_import_06/StaticMeshes/perf_import_06.perf_import_06",
+          "duration_s": 1.597158,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s06_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s06_1_masked"
+          ]
+        },
+        {
+          "i": 7,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_07/perf_import_07/StaticMeshes/perf_import_07.perf_import_07",
+          "duration_s": 1.603007,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s07_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s07_1_masked"
+          ]
+        },
+        {
+          "i": 8,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_08/perf_import_08/StaticMeshes/perf_import_08.perf_import_08",
+          "duration_s": 1.587151,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s08_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s08_1_masked"
+          ]
+        },
+        {
+          "i": 9,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_09/perf_import_09/StaticMeshes/perf_import_09.perf_import_09",
+          "duration_s": 1.62584,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s09_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s09_1_masked"
+          ]
+        },
+        {
+          "i": 10,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_10/perf_import_10/StaticMeshes/perf_import_10.perf_import_10",
+          "duration_s": 1.632946,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s10_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s10_1_masked"
+          ]
+        },
+        {
+          "i": 11,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_11/perf_import_11/StaticMeshes/perf_import_11.perf_import_11",
+          "duration_s": 1.636283,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s11_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s11_1_masked"
+          ]
+        },
+        {
+          "i": 12,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_12/perf_import_12/StaticMeshes/perf_import_12.perf_import_12",
+          "duration_s": 1.616372,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s12_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s12_1_masked"
+          ]
+        },
+        {
+          "i": 13,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_13/perf_import_13/StaticMeshes/perf_import_13.perf_import_13",
+          "duration_s": 1.611484,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s13_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s13_1_masked"
+          ]
+        },
+        {
+          "i": 14,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_14/perf_import_14/StaticMeshes/perf_import_14.perf_import_14",
+          "duration_s": 1.627595,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s14_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s14_1_masked"
+          ]
+        },
+        {
+          "i": 15,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_15/perf_import_15/StaticMeshes/perf_import_15.perf_import_15",
+          "duration_s": 1.602541,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s15_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s15_1_masked"
+          ]
+        },
+        {
+          "i": 16,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_16/perf_import_16/StaticMeshes/perf_import_16.perf_import_16",
+          "duration_s": 1.605717,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s16_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s16_1_masked"
+          ]
+        },
+        {
+          "i": 17,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_17/perf_import_17/StaticMeshes/perf_import_17.perf_import_17",
+          "duration_s": 1.601259,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s17_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s17_1_masked"
+          ]
+        },
+        {
+          "i": 18,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_18/perf_import_18/StaticMeshes/perf_import_18.perf_import_18",
+          "duration_s": 1.599189,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s18_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s18_1_masked"
+          ]
+        },
+        {
+          "i": 19,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c2/A/imp_19/perf_import_19/StaticMeshes/perf_import_19.perf_import_19",
+          "duration_s": 1.582127,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s19_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c2_s19_1_masked"
+          ]
+        }
+      ],
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "A_import",
+      "round": 3,
+      "cold_warm": "cold",
+      "duration_s": 3.056422,
+      "per_asset_s": [
+        0.214078,
+        0.155684,
+        0.147284,
+        0.15082,
+        0.144437,
+        0.147562,
+        0.178378,
+        0.146262,
+        0.149043,
+        0.145451,
+        0.145463,
+        0.144777,
+        0.144846,
+        0.150226,
+        0.149604,
+        0.14943,
+        0.144658,
+        0.147732,
+        0.150059,
+        0.150626
+      ],
+      "assets": 20,
+      "warmup_s": null,
+      "detail": [
+        {
+          "i": 0,
+          "glb": "perf_import_00.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_00",
+          "duration_s": 0.214078,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_00/perf_import_00/StaticMeshes/perf_import_00.perf_import_00"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 1,
+          "glb": "perf_import_01.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_01",
+          "duration_s": 0.155684,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_01/perf_import_01/StaticMeshes/perf_import_01.perf_import_01"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 2,
+          "glb": "perf_import_02.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_02",
+          "duration_s": 0.147284,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_02/perf_import_02/StaticMeshes/perf_import_02.perf_import_02"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 3,
+          "glb": "perf_import_03.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_03",
+          "duration_s": 0.15082,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_03/perf_import_03/StaticMeshes/perf_import_03.perf_import_03"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 4,
+          "glb": "perf_import_04.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_04",
+          "duration_s": 0.144437,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_04/perf_import_04/StaticMeshes/perf_import_04.perf_import_04"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 5,
+          "glb": "perf_import_05.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_05",
+          "duration_s": 0.147562,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_05/perf_import_05/StaticMeshes/perf_import_05.perf_import_05"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 6,
+          "glb": "perf_import_06.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_06",
+          "duration_s": 0.178378,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_06/perf_import_06/StaticMeshes/perf_import_06.perf_import_06"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 7,
+          "glb": "perf_import_07.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_07",
+          "duration_s": 0.146262,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_07/perf_import_07/StaticMeshes/perf_import_07.perf_import_07"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 8,
+          "glb": "perf_import_08.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_08",
+          "duration_s": 0.149043,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_08/perf_import_08/StaticMeshes/perf_import_08.perf_import_08"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 9,
+          "glb": "perf_import_09.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_09",
+          "duration_s": 0.145451,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_09/perf_import_09/StaticMeshes/perf_import_09.perf_import_09"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 10,
+          "glb": "perf_import_10.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_10",
+          "duration_s": 0.145463,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_10/perf_import_10/StaticMeshes/perf_import_10.perf_import_10"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 11,
+          "glb": "perf_import_11.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_11",
+          "duration_s": 0.144777,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_11/perf_import_11/StaticMeshes/perf_import_11.perf_import_11"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 12,
+          "glb": "perf_import_12.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_12",
+          "duration_s": 0.144846,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_12/perf_import_12/StaticMeshes/perf_import_12.perf_import_12"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 13,
+          "glb": "perf_import_13.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_13",
+          "duration_s": 0.150226,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_13/perf_import_13/StaticMeshes/perf_import_13.perf_import_13"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 14,
+          "glb": "perf_import_14.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_14",
+          "duration_s": 0.149604,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_14/perf_import_14/StaticMeshes/perf_import_14.perf_import_14"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 15,
+          "glb": "perf_import_15.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_15",
+          "duration_s": 0.14943,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_15/perf_import_15/StaticMeshes/perf_import_15.perf_import_15"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 16,
+          "glb": "perf_import_16.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_16",
+          "duration_s": 0.144658,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_16/perf_import_16/StaticMeshes/perf_import_16.perf_import_16"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 17,
+          "glb": "perf_import_17.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_17",
+          "duration_s": 0.147732,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_17/perf_import_17/StaticMeshes/perf_import_17.perf_import_17"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 18,
+          "glb": "perf_import_18.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_18",
+          "duration_s": 0.150059,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_18/perf_import_18/StaticMeshes/perf_import_18.perf_import_18"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 19,
+          "glb": "perf_import_19.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_19",
+          "duration_s": 0.150626,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_c3/A/imp_19/perf_import_19/StaticMeshes/perf_import_19.perf_import_19"
+          ],
+          "imported": 6
+        }
+      ],
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "B_material",
+      "round": 3,
+      "cold_warm": "cold",
+      "duration_s": 31.183656,
+      "per_asset_s": [
+        1.527178,
+        1.555648,
+        1.581866,
+        1.563325,
+        1.586805,
+        1.521201,
+        1.551868,
+        1.571993,
+        1.554001,
+        1.604568,
+        1.610672,
+        1.586029,
+        1.544999,
+        1.53606,
+        1.526355,
+        1.525374,
+        1.542835,
+        1.561207,
+        1.561247,
+        1.570427
+      ],
+      "assets": 20,
+      "warmup_s": 1.708541,
+      "detail": [
+        {
+          "i": 0,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_00/perf_import_00/StaticMeshes/perf_import_00.perf_import_00",
+          "duration_s": 1.527178,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s00_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s00_1_masked"
+          ]
+        },
+        {
+          "i": 1,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_01/perf_import_01/StaticMeshes/perf_import_01.perf_import_01",
+          "duration_s": 1.555648,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s01_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s01_1_masked"
+          ]
+        },
+        {
+          "i": 2,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_02/perf_import_02/StaticMeshes/perf_import_02.perf_import_02",
+          "duration_s": 1.581866,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s02_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s02_1_masked"
+          ]
+        },
+        {
+          "i": 3,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_03/perf_import_03/StaticMeshes/perf_import_03.perf_import_03",
+          "duration_s": 1.563325,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s03_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s03_1_masked"
+          ]
+        },
+        {
+          "i": 4,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_04/perf_import_04/StaticMeshes/perf_import_04.perf_import_04",
+          "duration_s": 1.586805,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s04_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s04_1_masked"
+          ]
+        },
+        {
+          "i": 5,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_05/perf_import_05/StaticMeshes/perf_import_05.perf_import_05",
+          "duration_s": 1.521201,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s05_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s05_1_masked"
+          ]
+        },
+        {
+          "i": 6,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_06/perf_import_06/StaticMeshes/perf_import_06.perf_import_06",
+          "duration_s": 1.551868,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s06_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s06_1_masked"
+          ]
+        },
+        {
+          "i": 7,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_07/perf_import_07/StaticMeshes/perf_import_07.perf_import_07",
+          "duration_s": 1.571993,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s07_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s07_1_masked"
+          ]
+        },
+        {
+          "i": 8,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_08/perf_import_08/StaticMeshes/perf_import_08.perf_import_08",
+          "duration_s": 1.554001,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s08_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s08_1_masked"
+          ]
+        },
+        {
+          "i": 9,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_09/perf_import_09/StaticMeshes/perf_import_09.perf_import_09",
+          "duration_s": 1.604568,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s09_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s09_1_masked"
+          ]
+        },
+        {
+          "i": 10,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_10/perf_import_10/StaticMeshes/perf_import_10.perf_import_10",
+          "duration_s": 1.610672,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s10_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s10_1_masked"
+          ]
+        },
+        {
+          "i": 11,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_11/perf_import_11/StaticMeshes/perf_import_11.perf_import_11",
+          "duration_s": 1.586029,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s11_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s11_1_masked"
+          ]
+        },
+        {
+          "i": 12,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_12/perf_import_12/StaticMeshes/perf_import_12.perf_import_12",
+          "duration_s": 1.544999,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s12_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s12_1_masked"
+          ]
+        },
+        {
+          "i": 13,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_13/perf_import_13/StaticMeshes/perf_import_13.perf_import_13",
+          "duration_s": 1.53606,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s13_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s13_1_masked"
+          ]
+        },
+        {
+          "i": 14,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_14/perf_import_14/StaticMeshes/perf_import_14.perf_import_14",
+          "duration_s": 1.526355,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s14_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s14_1_masked"
+          ]
+        },
+        {
+          "i": 15,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_15/perf_import_15/StaticMeshes/perf_import_15.perf_import_15",
+          "duration_s": 1.525374,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s15_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s15_1_masked"
+          ]
+        },
+        {
+          "i": 16,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_16/perf_import_16/StaticMeshes/perf_import_16.perf_import_16",
+          "duration_s": 1.542835,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s16_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s16_1_masked"
+          ]
+        },
+        {
+          "i": 17,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_17/perf_import_17/StaticMeshes/perf_import_17.perf_import_17",
+          "duration_s": 1.561207,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s17_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s17_1_masked"
+          ]
+        },
+        {
+          "i": 18,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_18/perf_import_18/StaticMeshes/perf_import_18.perf_import_18",
+          "duration_s": 1.561247,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s18_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s18_1_masked"
+          ]
+        },
+        {
+          "i": 19,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_c3/A/imp_19/perf_import_19/StaticMeshes/perf_import_19.perf_import_19",
+          "duration_s": 1.570427,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s19_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_c3_s19_1_masked"
+          ]
+        }
+      ],
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "A_import",
+      "round": 1,
+      "cold_warm": "hot",
+      "duration_s": 3.057995,
+      "per_asset_s": [
+        0.223571,
+        0.154497,
+        0.146946,
+        0.14542,
+        0.147627,
+        0.15015,
+        0.145953,
+        0.148599,
+        0.154738,
+        0.148423,
+        0.148132,
+        0.146106,
+        0.147831,
+        0.149391,
+        0.149312,
+        0.143747,
+        0.154119,
+        0.155911,
+        0.149249,
+        0.148275
+      ],
+      "assets": 20,
+      "warmup_s": null,
+      "detail": [
+        {
+          "i": 0,
+          "glb": "perf_import_00.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_00",
+          "duration_s": 0.223571,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_00/perf_import_00/StaticMeshes/perf_import_00.perf_import_00"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 1,
+          "glb": "perf_import_01.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_01",
+          "duration_s": 0.154497,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_01/perf_import_01/StaticMeshes/perf_import_01.perf_import_01"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 2,
+          "glb": "perf_import_02.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_02",
+          "duration_s": 0.146946,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_02/perf_import_02/StaticMeshes/perf_import_02.perf_import_02"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 3,
+          "glb": "perf_import_03.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_03",
+          "duration_s": 0.14542,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_03/perf_import_03/StaticMeshes/perf_import_03.perf_import_03"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 4,
+          "glb": "perf_import_04.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_04",
+          "duration_s": 0.147627,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_04/perf_import_04/StaticMeshes/perf_import_04.perf_import_04"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 5,
+          "glb": "perf_import_05.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_05",
+          "duration_s": 0.15015,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_05/perf_import_05/StaticMeshes/perf_import_05.perf_import_05"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 6,
+          "glb": "perf_import_06.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_06",
+          "duration_s": 0.145953,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_06/perf_import_06/StaticMeshes/perf_import_06.perf_import_06"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 7,
+          "glb": "perf_import_07.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_07",
+          "duration_s": 0.148599,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_07/perf_import_07/StaticMeshes/perf_import_07.perf_import_07"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 8,
+          "glb": "perf_import_08.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_08",
+          "duration_s": 0.154738,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_08/perf_import_08/StaticMeshes/perf_import_08.perf_import_08"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 9,
+          "glb": "perf_import_09.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_09",
+          "duration_s": 0.148423,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_09/perf_import_09/StaticMeshes/perf_import_09.perf_import_09"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 10,
+          "glb": "perf_import_10.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_10",
+          "duration_s": 0.148132,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_10/perf_import_10/StaticMeshes/perf_import_10.perf_import_10"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 11,
+          "glb": "perf_import_11.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_11",
+          "duration_s": 0.146106,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_11/perf_import_11/StaticMeshes/perf_import_11.perf_import_11"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 12,
+          "glb": "perf_import_12.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_12",
+          "duration_s": 0.147831,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_12/perf_import_12/StaticMeshes/perf_import_12.perf_import_12"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 13,
+          "glb": "perf_import_13.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_13",
+          "duration_s": 0.149391,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_13/perf_import_13/StaticMeshes/perf_import_13.perf_import_13"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 14,
+          "glb": "perf_import_14.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_14",
+          "duration_s": 0.149312,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_14/perf_import_14/StaticMeshes/perf_import_14.perf_import_14"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 15,
+          "glb": "perf_import_15.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_15",
+          "duration_s": 0.143747,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_15/perf_import_15/StaticMeshes/perf_import_15.perf_import_15"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 16,
+          "glb": "perf_import_16.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_16",
+          "duration_s": 0.154119,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_16/perf_import_16/StaticMeshes/perf_import_16.perf_import_16"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 17,
+          "glb": "perf_import_17.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_17",
+          "duration_s": 0.155911,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_17/perf_import_17/StaticMeshes/perf_import_17.perf_import_17"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 18,
+          "glb": "perf_import_18.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_18",
+          "duration_s": 0.149249,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_18/perf_import_18/StaticMeshes/perf_import_18.perf_import_18"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 19,
+          "glb": "perf_import_19.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_19",
+          "duration_s": 0.148275,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h1/A/imp_19/perf_import_19/StaticMeshes/perf_import_19.perf_import_19"
+          ],
+          "imported": 6
+        }
+      ],
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "B_material",
+      "round": 1,
+      "cold_warm": "hot",
+      "duration_s": 31.560556,
+      "per_asset_s": [
+        1.577343,
+        1.60028,
+        1.595676,
+        1.587774,
+        1.605467,
+        1.542907,
+        1.53612,
+        1.599246,
+        1.57207,
+        1.620545,
+        1.59464,
+        1.612033,
+        1.549504,
+        1.531502,
+        1.549323,
+        1.539786,
+        1.5908,
+        1.59303,
+        1.588922,
+        1.573591
+      ],
+      "assets": 20,
+      "warmup_s": 1.722962,
+      "detail": [
+        {
+          "i": 0,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_00/perf_import_00/StaticMeshes/perf_import_00.perf_import_00",
+          "duration_s": 1.577343,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s00_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s00_1_masked"
+          ]
+        },
+        {
+          "i": 1,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_01/perf_import_01/StaticMeshes/perf_import_01.perf_import_01",
+          "duration_s": 1.60028,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s01_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s01_1_masked"
+          ]
+        },
+        {
+          "i": 2,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_02/perf_import_02/StaticMeshes/perf_import_02.perf_import_02",
+          "duration_s": 1.595676,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s02_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s02_1_masked"
+          ]
+        },
+        {
+          "i": 3,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_03/perf_import_03/StaticMeshes/perf_import_03.perf_import_03",
+          "duration_s": 1.587774,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s03_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s03_1_masked"
+          ]
+        },
+        {
+          "i": 4,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_04/perf_import_04/StaticMeshes/perf_import_04.perf_import_04",
+          "duration_s": 1.605467,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s04_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s04_1_masked"
+          ]
+        },
+        {
+          "i": 5,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_05/perf_import_05/StaticMeshes/perf_import_05.perf_import_05",
+          "duration_s": 1.542907,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s05_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s05_1_masked"
+          ]
+        },
+        {
+          "i": 6,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_06/perf_import_06/StaticMeshes/perf_import_06.perf_import_06",
+          "duration_s": 1.53612,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s06_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s06_1_masked"
+          ]
+        },
+        {
+          "i": 7,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_07/perf_import_07/StaticMeshes/perf_import_07.perf_import_07",
+          "duration_s": 1.599246,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s07_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s07_1_masked"
+          ]
+        },
+        {
+          "i": 8,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_08/perf_import_08/StaticMeshes/perf_import_08.perf_import_08",
+          "duration_s": 1.57207,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s08_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s08_1_masked"
+          ]
+        },
+        {
+          "i": 9,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_09/perf_import_09/StaticMeshes/perf_import_09.perf_import_09",
+          "duration_s": 1.620545,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s09_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s09_1_masked"
+          ]
+        },
+        {
+          "i": 10,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_10/perf_import_10/StaticMeshes/perf_import_10.perf_import_10",
+          "duration_s": 1.59464,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s10_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s10_1_masked"
+          ]
+        },
+        {
+          "i": 11,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_11/perf_import_11/StaticMeshes/perf_import_11.perf_import_11",
+          "duration_s": 1.612033,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s11_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s11_1_masked"
+          ]
+        },
+        {
+          "i": 12,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_12/perf_import_12/StaticMeshes/perf_import_12.perf_import_12",
+          "duration_s": 1.549504,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s12_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s12_1_masked"
+          ]
+        },
+        {
+          "i": 13,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_13/perf_import_13/StaticMeshes/perf_import_13.perf_import_13",
+          "duration_s": 1.531502,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s13_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s13_1_masked"
+          ]
+        },
+        {
+          "i": 14,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_14/perf_import_14/StaticMeshes/perf_import_14.perf_import_14",
+          "duration_s": 1.549323,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s14_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s14_1_masked"
+          ]
+        },
+        {
+          "i": 15,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_15/perf_import_15/StaticMeshes/perf_import_15.perf_import_15",
+          "duration_s": 1.539786,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s15_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s15_1_masked"
+          ]
+        },
+        {
+          "i": 16,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_16/perf_import_16/StaticMeshes/perf_import_16.perf_import_16",
+          "duration_s": 1.5908,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s16_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s16_1_masked"
+          ]
+        },
+        {
+          "i": 17,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_17/perf_import_17/StaticMeshes/perf_import_17.perf_import_17",
+          "duration_s": 1.59303,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s17_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s17_1_masked"
+          ]
+        },
+        {
+          "i": 18,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_18/perf_import_18/StaticMeshes/perf_import_18.perf_import_18",
+          "duration_s": 1.588922,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s18_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s18_1_masked"
+          ]
+        },
+        {
+          "i": 19,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h1/A/imp_19/perf_import_19/StaticMeshes/perf_import_19.perf_import_19",
+          "duration_s": 1.573591,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s19_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h1_s19_1_masked"
+          ]
+        }
+      ],
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "A_import",
+      "round": 2,
+      "cold_warm": "hot",
+      "duration_s": 3.063739,
+      "per_asset_s": [
+        0.215798,
+        0.154321,
+        0.149991,
+        0.152486,
+        0.147984,
+        0.145059,
+        0.149775,
+        0.147769,
+        0.144167,
+        0.147874,
+        0.155272,
+        0.145484,
+        0.149354,
+        0.151059,
+        0.144742,
+        0.150504,
+        0.148798,
+        0.155516,
+        0.154744,
+        0.153042
+      ],
+      "assets": 20,
+      "warmup_s": null,
+      "detail": [
+        {
+          "i": 0,
+          "glb": "perf_import_00.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_00",
+          "duration_s": 0.215798,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_00/perf_import_00/StaticMeshes/perf_import_00.perf_import_00"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 1,
+          "glb": "perf_import_01.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_01",
+          "duration_s": 0.154321,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_01/perf_import_01/StaticMeshes/perf_import_01.perf_import_01"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 2,
+          "glb": "perf_import_02.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_02",
+          "duration_s": 0.149991,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_02/perf_import_02/StaticMeshes/perf_import_02.perf_import_02"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 3,
+          "glb": "perf_import_03.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_03",
+          "duration_s": 0.152486,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_03/perf_import_03/StaticMeshes/perf_import_03.perf_import_03"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 4,
+          "glb": "perf_import_04.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_04",
+          "duration_s": 0.147984,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_04/perf_import_04/StaticMeshes/perf_import_04.perf_import_04"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 5,
+          "glb": "perf_import_05.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_05",
+          "duration_s": 0.145059,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_05/perf_import_05/StaticMeshes/perf_import_05.perf_import_05"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 6,
+          "glb": "perf_import_06.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_06",
+          "duration_s": 0.149775,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_06/perf_import_06/StaticMeshes/perf_import_06.perf_import_06"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 7,
+          "glb": "perf_import_07.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_07",
+          "duration_s": 0.147769,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_07/perf_import_07/StaticMeshes/perf_import_07.perf_import_07"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 8,
+          "glb": "perf_import_08.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_08",
+          "duration_s": 0.144167,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_08/perf_import_08/StaticMeshes/perf_import_08.perf_import_08"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 9,
+          "glb": "perf_import_09.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_09",
+          "duration_s": 0.147874,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_09/perf_import_09/StaticMeshes/perf_import_09.perf_import_09"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 10,
+          "glb": "perf_import_10.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_10",
+          "duration_s": 0.155272,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_10/perf_import_10/StaticMeshes/perf_import_10.perf_import_10"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 11,
+          "glb": "perf_import_11.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_11",
+          "duration_s": 0.145484,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_11/perf_import_11/StaticMeshes/perf_import_11.perf_import_11"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 12,
+          "glb": "perf_import_12.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_12",
+          "duration_s": 0.149354,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_12/perf_import_12/StaticMeshes/perf_import_12.perf_import_12"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 13,
+          "glb": "perf_import_13.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_13",
+          "duration_s": 0.151059,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_13/perf_import_13/StaticMeshes/perf_import_13.perf_import_13"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 14,
+          "glb": "perf_import_14.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_14",
+          "duration_s": 0.144742,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_14/perf_import_14/StaticMeshes/perf_import_14.perf_import_14"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 15,
+          "glb": "perf_import_15.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_15",
+          "duration_s": 0.150504,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_15/perf_import_15/StaticMeshes/perf_import_15.perf_import_15"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 16,
+          "glb": "perf_import_16.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_16",
+          "duration_s": 0.148798,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_16/perf_import_16/StaticMeshes/perf_import_16.perf_import_16"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 17,
+          "glb": "perf_import_17.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_17",
+          "duration_s": 0.155516,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_17/perf_import_17/StaticMeshes/perf_import_17.perf_import_17"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 18,
+          "glb": "perf_import_18.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_18",
+          "duration_s": 0.154744,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_18/perf_import_18/StaticMeshes/perf_import_18.perf_import_18"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 19,
+          "glb": "perf_import_19.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_19",
+          "duration_s": 0.153042,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h2/A/imp_19/perf_import_19/StaticMeshes/perf_import_19.perf_import_19"
+          ],
+          "imported": 6
+        }
+      ],
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "B_material",
+      "round": 2,
+      "cold_warm": "hot",
+      "duration_s": 31.53226,
+      "per_asset_s": [
+        1.554154,
+        1.591099,
+        1.635165,
+        1.600642,
+        1.578683,
+        1.53866,
+        1.53818,
+        1.543012,
+        1.596157,
+        1.586624,
+        1.597579,
+        1.589017,
+        1.554123,
+        1.564712,
+        1.540586,
+        1.558856,
+        1.598261,
+        1.60214,
+        1.602215,
+        1.562397
+      ],
+      "assets": 20,
+      "warmup_s": 1.719623,
+      "detail": [
+        {
+          "i": 0,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_00/perf_import_00/StaticMeshes/perf_import_00.perf_import_00",
+          "duration_s": 1.554154,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s00_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s00_1_masked"
+          ]
+        },
+        {
+          "i": 1,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_01/perf_import_01/StaticMeshes/perf_import_01.perf_import_01",
+          "duration_s": 1.591099,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s01_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s01_1_masked"
+          ]
+        },
+        {
+          "i": 2,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_02/perf_import_02/StaticMeshes/perf_import_02.perf_import_02",
+          "duration_s": 1.635165,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s02_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s02_1_masked"
+          ]
+        },
+        {
+          "i": 3,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_03/perf_import_03/StaticMeshes/perf_import_03.perf_import_03",
+          "duration_s": 1.600642,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s03_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s03_1_masked"
+          ]
+        },
+        {
+          "i": 4,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_04/perf_import_04/StaticMeshes/perf_import_04.perf_import_04",
+          "duration_s": 1.578683,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s04_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s04_1_masked"
+          ]
+        },
+        {
+          "i": 5,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_05/perf_import_05/StaticMeshes/perf_import_05.perf_import_05",
+          "duration_s": 1.53866,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s05_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s05_1_masked"
+          ]
+        },
+        {
+          "i": 6,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_06/perf_import_06/StaticMeshes/perf_import_06.perf_import_06",
+          "duration_s": 1.53818,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s06_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s06_1_masked"
+          ]
+        },
+        {
+          "i": 7,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_07/perf_import_07/StaticMeshes/perf_import_07.perf_import_07",
+          "duration_s": 1.543012,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s07_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s07_1_masked"
+          ]
+        },
+        {
+          "i": 8,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_08/perf_import_08/StaticMeshes/perf_import_08.perf_import_08",
+          "duration_s": 1.596157,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s08_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s08_1_masked"
+          ]
+        },
+        {
+          "i": 9,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_09/perf_import_09/StaticMeshes/perf_import_09.perf_import_09",
+          "duration_s": 1.586624,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s09_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s09_1_masked"
+          ]
+        },
+        {
+          "i": 10,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_10/perf_import_10/StaticMeshes/perf_import_10.perf_import_10",
+          "duration_s": 1.597579,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s10_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s10_1_masked"
+          ]
+        },
+        {
+          "i": 11,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_11/perf_import_11/StaticMeshes/perf_import_11.perf_import_11",
+          "duration_s": 1.589017,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s11_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s11_1_masked"
+          ]
+        },
+        {
+          "i": 12,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_12/perf_import_12/StaticMeshes/perf_import_12.perf_import_12",
+          "duration_s": 1.554123,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s12_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s12_1_masked"
+          ]
+        },
+        {
+          "i": 13,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_13/perf_import_13/StaticMeshes/perf_import_13.perf_import_13",
+          "duration_s": 1.564712,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s13_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s13_1_masked"
+          ]
+        },
+        {
+          "i": 14,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_14/perf_import_14/StaticMeshes/perf_import_14.perf_import_14",
+          "duration_s": 1.540586,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s14_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s14_1_masked"
+          ]
+        },
+        {
+          "i": 15,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_15/perf_import_15/StaticMeshes/perf_import_15.perf_import_15",
+          "duration_s": 1.558856,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s15_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s15_1_masked"
+          ]
+        },
+        {
+          "i": 16,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_16/perf_import_16/StaticMeshes/perf_import_16.perf_import_16",
+          "duration_s": 1.598261,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s16_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s16_1_masked"
+          ]
+        },
+        {
+          "i": 17,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_17/perf_import_17/StaticMeshes/perf_import_17.perf_import_17",
+          "duration_s": 1.60214,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s17_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s17_1_masked"
+          ]
+        },
+        {
+          "i": 18,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_18/perf_import_18/StaticMeshes/perf_import_18.perf_import_18",
+          "duration_s": 1.602215,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s18_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s18_1_masked"
+          ]
+        },
+        {
+          "i": 19,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h2/A/imp_19/perf_import_19/StaticMeshes/perf_import_19.perf_import_19",
+          "duration_s": 1.562397,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s19_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h2_s19_1_masked"
+          ]
+        }
+      ],
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "A_import",
+      "round": 3,
+      "cold_warm": "hot",
+      "duration_s": 3.105211,
+      "per_asset_s": [
+        0.22062,
+        0.155162,
+        0.154843,
+        0.152457,
+        0.145181,
+        0.149269,
+        0.148902,
+        0.147266,
+        0.151919,
+        0.146926,
+        0.149225,
+        0.189233,
+        0.153748,
+        0.145001,
+        0.144003,
+        0.150961,
+        0.150581,
+        0.140979,
+        0.155415,
+        0.15352
+      ],
+      "assets": 20,
+      "warmup_s": null,
+      "detail": [
+        {
+          "i": 0,
+          "glb": "perf_import_00.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_00",
+          "duration_s": 0.22062,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_00/perf_import_00/StaticMeshes/perf_import_00.perf_import_00"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 1,
+          "glb": "perf_import_01.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_01",
+          "duration_s": 0.155162,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_01/perf_import_01/StaticMeshes/perf_import_01.perf_import_01"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 2,
+          "glb": "perf_import_02.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_02",
+          "duration_s": 0.154843,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_02/perf_import_02/StaticMeshes/perf_import_02.perf_import_02"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 3,
+          "glb": "perf_import_03.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_03",
+          "duration_s": 0.152457,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_03/perf_import_03/StaticMeshes/perf_import_03.perf_import_03"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 4,
+          "glb": "perf_import_04.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_04",
+          "duration_s": 0.145181,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_04/perf_import_04/StaticMeshes/perf_import_04.perf_import_04"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 5,
+          "glb": "perf_import_05.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_05",
+          "duration_s": 0.149269,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_05/perf_import_05/StaticMeshes/perf_import_05.perf_import_05"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 6,
+          "glb": "perf_import_06.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_06",
+          "duration_s": 0.148902,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_06/perf_import_06/StaticMeshes/perf_import_06.perf_import_06"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 7,
+          "glb": "perf_import_07.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_07",
+          "duration_s": 0.147266,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_07/perf_import_07/StaticMeshes/perf_import_07.perf_import_07"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 8,
+          "glb": "perf_import_08.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_08",
+          "duration_s": 0.151919,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_08/perf_import_08/StaticMeshes/perf_import_08.perf_import_08"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 9,
+          "glb": "perf_import_09.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_09",
+          "duration_s": 0.146926,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_09/perf_import_09/StaticMeshes/perf_import_09.perf_import_09"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 10,
+          "glb": "perf_import_10.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_10",
+          "duration_s": 0.149225,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_10/perf_import_10/StaticMeshes/perf_import_10.perf_import_10"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 11,
+          "glb": "perf_import_11.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_11",
+          "duration_s": 0.189233,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_11/perf_import_11/StaticMeshes/perf_import_11.perf_import_11"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 12,
+          "glb": "perf_import_12.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_12",
+          "duration_s": 0.153748,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_12/perf_import_12/StaticMeshes/perf_import_12.perf_import_12"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 13,
+          "glb": "perf_import_13.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_13",
+          "duration_s": 0.145001,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_13/perf_import_13/StaticMeshes/perf_import_13.perf_import_13"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 14,
+          "glb": "perf_import_14.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_14",
+          "duration_s": 0.144003,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_14/perf_import_14/StaticMeshes/perf_import_14.perf_import_14"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 15,
+          "glb": "perf_import_15.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_15",
+          "duration_s": 0.150961,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_15/perf_import_15/StaticMeshes/perf_import_15.perf_import_15"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 16,
+          "glb": "perf_import_16.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_16",
+          "duration_s": 0.150581,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_16/perf_import_16/StaticMeshes/perf_import_16.perf_import_16"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 17,
+          "glb": "perf_import_17.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_17",
+          "duration_s": 0.140979,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_17/perf_import_17/StaticMeshes/perf_import_17.perf_import_17"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 18,
+          "glb": "perf_import_18.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_18",
+          "duration_s": 0.155415,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_18/perf_import_18/StaticMeshes/perf_import_18.perf_import_18"
+          ],
+          "imported": 6
+        },
+        {
+          "i": 19,
+          "glb": "perf_import_19.glb",
+          "dest": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_19",
+          "duration_s": 0.15352,
+          "meshes": [
+            "/Game/EAP/Perf/pc20261124141714_h3/A/imp_19/perf_import_19/StaticMeshes/perf_import_19.perf_import_19"
+          ],
+          "imported": 6
+        }
+      ],
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    },
+    {
+      "segment": "B_material",
+      "round": 3,
+      "cold_warm": "hot",
+      "duration_s": 31.355673,
+      "per_asset_s": [
+        1.535136,
+        1.566192,
+        1.573891,
+        1.567291,
+        1.586339,
+        1.531568,
+        1.533249,
+        1.58523,
+        1.555234,
+        1.578661,
+        1.571593,
+        1.564787,
+        1.529921,
+        1.527932,
+        1.537685,
+        1.579811,
+        1.599989,
+        1.622798,
+        1.611893,
+        1.596473
+      ],
+      "assets": 20,
+      "warmup_s": 1.695366,
+      "detail": [
+        {
+          "i": 0,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_00/perf_import_00/StaticMeshes/perf_import_00.perf_import_00",
+          "duration_s": 1.535136,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s00_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s00_1_masked"
+          ]
+        },
+        {
+          "i": 1,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_01/perf_import_01/StaticMeshes/perf_import_01.perf_import_01",
+          "duration_s": 1.566192,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s01_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s01_1_masked"
+          ]
+        },
+        {
+          "i": 2,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_02/perf_import_02/StaticMeshes/perf_import_02.perf_import_02",
+          "duration_s": 1.573891,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s02_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s02_1_masked"
+          ]
+        },
+        {
+          "i": 3,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_03/perf_import_03/StaticMeshes/perf_import_03.perf_import_03",
+          "duration_s": 1.567291,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s03_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s03_1_masked"
+          ]
+        },
+        {
+          "i": 4,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_04/perf_import_04/StaticMeshes/perf_import_04.perf_import_04",
+          "duration_s": 1.586339,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s04_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s04_1_masked"
+          ]
+        },
+        {
+          "i": 5,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_05/perf_import_05/StaticMeshes/perf_import_05.perf_import_05",
+          "duration_s": 1.531568,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s05_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s05_1_masked"
+          ]
+        },
+        {
+          "i": 6,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_06/perf_import_06/StaticMeshes/perf_import_06.perf_import_06",
+          "duration_s": 1.533249,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s06_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s06_1_masked"
+          ]
+        },
+        {
+          "i": 7,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_07/perf_import_07/StaticMeshes/perf_import_07.perf_import_07",
+          "duration_s": 1.58523,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s07_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s07_1_masked"
+          ]
+        },
+        {
+          "i": 8,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_08/perf_import_08/StaticMeshes/perf_import_08.perf_import_08",
+          "duration_s": 1.555234,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s08_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s08_1_masked"
+          ]
+        },
+        {
+          "i": 9,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_09/perf_import_09/StaticMeshes/perf_import_09.perf_import_09",
+          "duration_s": 1.578661,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s09_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s09_1_masked"
+          ]
+        },
+        {
+          "i": 10,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_10/perf_import_10/StaticMeshes/perf_import_10.perf_import_10",
+          "duration_s": 1.571593,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s10_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s10_1_masked"
+          ]
+        },
+        {
+          "i": 11,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_11/perf_import_11/StaticMeshes/perf_import_11.perf_import_11",
+          "duration_s": 1.564787,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s11_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s11_1_masked"
+          ]
+        },
+        {
+          "i": 12,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_12/perf_import_12/StaticMeshes/perf_import_12.perf_import_12",
+          "duration_s": 1.529921,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s12_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s12_1_masked"
+          ]
+        },
+        {
+          "i": 13,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_13/perf_import_13/StaticMeshes/perf_import_13.perf_import_13",
+          "duration_s": 1.527932,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s13_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s13_1_masked"
+          ]
+        },
+        {
+          "i": 14,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_14/perf_import_14/StaticMeshes/perf_import_14.perf_import_14",
+          "duration_s": 1.537685,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s14_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s14_1_masked"
+          ]
+        },
+        {
+          "i": 15,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_15/perf_import_15/StaticMeshes/perf_import_15.perf_import_15",
+          "duration_s": 1.579811,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s15_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s15_1_masked"
+          ]
+        },
+        {
+          "i": 16,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_16/perf_import_16/StaticMeshes/perf_import_16.perf_import_16",
+          "duration_s": 1.599989,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s16_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s16_1_masked"
+          ]
+        },
+        {
+          "i": 17,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_17/perf_import_17/StaticMeshes/perf_import_17.perf_import_17",
+          "duration_s": 1.622798,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s17_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s17_1_masked"
+          ]
+        },
+        {
+          "i": 18,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_18/perf_import_18/StaticMeshes/perf_import_18.perf_import_18",
+          "duration_s": 1.611893,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s18_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s18_1_masked"
+          ]
+        },
+        {
+          "i": 19,
+          "mesh": "/Game/EAP/Perf/pc20261124141714_h3/A/imp_19/perf_import_19/StaticMeshes/perf_import_19.perf_import_19",
+          "duration_s": 1.596473,
+          "slots": 2,
+          "materials": [
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s19_0_opaque_n",
+            "/Game/EAP/Materials/MI_EAP_pc20261124141714_h3_s19_1_masked"
+          ]
+        }
+      ],
+      "machine": {
+        "date": "2026-11-24 14:17:16",
+        "os": "Windows_NT",
+        "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+        "cores": 24,
+        "ramGb": 31.4,
+        "gpu": "Todesk Virtual Display Adapter; NVIDIA GeForce RTX 5060 Laptop GPU; Intel(R) Graphics",
+        "ue": "UE 5.7.4 (CL 51494982, ++UE5+Release-5.7)",
+        "unity": "2022.3.62f3c1",
+        "python": "3.12.10"
+      }
+    }
+  ],
+  "summary": [
+    {
+      "segment": "A_import",
+      "cold_warm": "cold",
+      "n": 3,
+      "min": 3.056422,
+      "p50": 3.193554,
+      "max": 3.394454
+    },
+    {
+      "segment": "A_import",
+      "cold_warm": "hot",
+      "n": 3,
+      "min": 3.057995,
+      "p50": 3.063739,
+      "max": 3.105211
+    },
+    {
+      "segment": "B_material",
+      "cold_warm": "cold",
+      "n": 3,
+      "min": 31.183656,
+      "p50": 31.595495,
+      "max": 32.134483
+    },
+    {
+      "segment": "B_material",
+      "cold_warm": "hot",
+      "n": 3,
+      "min": 31.355673,
+      "p50": 31.53226,
+      "max": 31.560556
+    },
+    {
+      "segment": "C_collision_unity",
+      "cold_warm": "n/a",
+      "n": 3,
+      "min": 0.134232,
+      "p50": 0.137092,
+      "max": 0.152492
+    }
+  ],
+  "failures": []
+}
