@@ -28,3 +28,6 @@ docs/material_compile_check*.json
 !docs/fbx_convert_report.json
 !assets/raw/trees/fbx/
 !assets/raw/trees/fbx/*.fbx
+
+# 编辑器里 stage() 的运行期证据（每次跑时间戳都变）
+docs/placed_level_stage.json

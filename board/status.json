@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T23:20:00+08:00",
+  "updatedAt": "2026-11-24T12:30:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -183,7 +183,7 @@
           "note": "坐标换算 unityPos=(x,z,y)/unityYaw=-yaw，1892 点换算 bbox vs UE bboxPlacedM 误差 0.0000 m（<0.05）；Unity batchmode PlaceFromArgs 12.2s 落 1892 实例 + 1892 Collider 到 Assets/Scenes/EAP_PlacedTrees.unity（6.3MB），新进程 VerifyPlacementsFromArgs 11.8s 读回 total=1892/1324+568、colliders=1892、bbox 0.00000 m、材质抽样 Assets/ 路径；Collider 选 MeshCollider convex（树冠非盒状，凸包共享、Prefab 本体带、无逐实例 override，代码不调 ApplyPrefabInstance）；manifest 新增可选 collision.unity.collider。反向验证：删场景 + --unity-placements-verify-only → 断言 1/2/3/4 FAIL，恢复后 4/4。老计数 13/20/21/4 不变"
         },
         {
-          "name": "修 stage() 的 set_actor_location 参数 bug（UE 5.7 需 3 参数；2026-11-23 lead 修，py_compile 通过，待编辑器复跑）",
+          "name": "修 stage() 的 set_actor_location 参数 bug（UE 5.7 需 3 参数；lead 修 747e4c4，2026-11-24 12:25 真实编辑器复跑通过：levelSaved=true、actorCount=6、无 TypeError）",
           "status": "done",
           "owner": "lead",
           "date": "11-23"
