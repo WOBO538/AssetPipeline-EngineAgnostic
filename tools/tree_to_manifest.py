@@ -223,6 +223,39 @@ def read_json(path):
         return json.load(fh)
 
 
+LOD_DEFAULT_SCREEN_HEIGHTS = [0.5, 0.25, 0.1, 0.0]
+
+
+def _lod_payload(species, lod0_tris):
+    """v1.12 可选字段：4 级 LOD 的模型清单（LOD1-3 来自 docs/tree_lods.json 的 Blender 减面产物）。
+
+    `screenHeights` 是 Unity LODGroup 的 0–1 归一化高度；UE 侧 screen size 是
+    1.0/0.5/0.25/0.1 —— 两者都按"占屏幕高度的比例"定义，但 LODGroup 没有 LOD0 的
+    "1.0" 这一档（LOD0 在低于第一级阈值前一直可见），所以这里只写 3 个切换阈值 + 末级 0。
+    """
+    path = os.path.join(REPO, "docs", "tree_lods.json")
+    if not os.path.isfile(path):
+        return None
+    data = read_json(path)
+    sp = (data.get("species") or {}).get(species)
+    if not sp:
+        return None
+    models = [{"index": 0, "path": "assets/raw/trees/fbx/%s.fbx" % species,
+               "triCount": int(lod0_tris)}]
+    for lv in sp.get("lods") or []:
+        models.append({"index": int(str(lv["level"]).replace("lod", "")),
+                       "path": lv["fbx"], "triCount": int(lv["triCount"])})
+    return {
+        "levels": len(models),
+        "source": "blender-decimate",
+        "screenHeights": LOD_DEFAULT_SCREEN_HEIGHTS,
+        "models": models,
+        "note": "LOD0=源 glb（未减面）；LOD1-3=Blender Decimate COLLAPSE 0.5/0.25/0.10，"
+                "SHA256 见 docs/tree_lods.json。screenHeights 为 Unity LODGroup 归一化高度，"
+                "与 UE screen size 1.0/0.5/0.25/0.1 一一对应（LOD0 的 1.0 在 LODGroup 里是隐式的）。",
+    }
+
+
 def _m(cm):
     return round(float(cm) * CM_TO_M, 4)
 
@@ -347,6 +380,8 @@ def _asset_payload(entry, species, stats, glb_rel, items, pivot_z_m,
                 "note": "Unity 原生不认 .glb：用 Blender 转出的 fbx（内嵌贴图另存 assets/eap_textures）",
             },
         },
+        # v1.12：可选字段。有 docs/tree_lods.json 才写，旧流程/旧文件不受影响。
+        "lod": _lod_payload(species, stats["triCount"]),
         "placements": {"space": "world", "unit": "m", "count": len(items), "items": items},
         "checks": [
             {"rule": "license_permissive", "pass": True, "value": entry.get("license")},

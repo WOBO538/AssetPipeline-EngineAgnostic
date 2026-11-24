@@ -27,6 +27,7 @@ namespace EAP
         public Placements placements;
         public Dictionary<string, EngineTarget> engineTargets;
         public List<Check> checks;
+        public LodDef lod;   // v1.12 可选：4 级 LOD 模型清单
     }
     [Serializable] public class Model { public string path, format, unit, upAxis, forwardAxis; public int triCount; public BBox boundingBoxM; }
     [Serializable] public class BBox { public float[] min, max; }
@@ -38,6 +39,15 @@ namespace EAP
     [Serializable] public class PlacementItem { public float[] t, r, s; }
     [Serializable] public class EngineTarget { public string destPath, shader, materialInstance, modelPath, materialPathPrefix; public Dictionary<string, string> propertyMap; }
     [Serializable] public class Check { public string rule; public bool pass; }
+    // v1.12：可选 lod 字段（老 manifest 没有 → 不建 LODGroup，行为不变）
+    [Serializable] public class LodDef { public int levels; public string source; public float[] screenHeights; public List<LodModel> models; public string note; }
+    [Serializable] public class LodModel { public int index; public string path; public int triCount; }
+    [Serializable] public class LodReadback
+    {
+        public int levels;
+        public List<int> triCounts = new List<int>();
+        public List<float> screenHeights = new List<float>();
+    }
     [Serializable] public class VerifyDoc
     {
         public string schema = "eap.unity_verify/1";
@@ -54,6 +64,8 @@ namespace EAP
         public BBox boundsM;
         public Dictionary<string, string> textures = new Dictionary<string, string>();
         public Dictionary<string, bool> texturesApplied = new Dictionary<string, bool>();
+        // v1.12：LODGroup 读回（无 LODGroup 时为 null）
+        public LodReadback lod;
     }
     [Serializable] public class PlacementsVerifyDoc
     {
@@ -378,6 +390,11 @@ namespace EAP
                 var items = new List<KeyValuePair<string, string>>();
                 string declared = !string.IsNullOrEmpty(tgt.modelPath) ? tgt.modelPath : a.model?.path;
                 if (!string.IsNullOrEmpty(declared)) items.Add(new KeyValuePair<string, string>(declared, ModelAssetPath(declared)));
+                // v1.12：LOD1-3 的 fbx 也按内容哈希复制进工程
+                if (a.lod != null && a.lod.models != null)
+                    foreach (var lm in a.lod.models)
+                        if (lm != null && !string.IsNullOrEmpty(lm.path))
+                            items.Add(new KeyValuePair<string, string>(lm.path, ModelAssetPath(lm.path)));
                 foreach (var kv in a.textures ?? new Dictionary<string, Tex>())
                     if (!string.IsNullOrEmpty(kv.Value.path)) items.Add(new KeyValuePair<string, string>(kv.Value.path, TextureAssetPath(kv.Value.path)));
                 foreach (var item in items)
@@ -579,11 +596,83 @@ namespace EAP
             var renderers = go.GetComponentsInChildren<Renderer>(true);
             if (renderers.Length == 0) renderers = new Renderer[] { go.AddComponent<MeshRenderer>() };
             foreach (var r in renderers) r.sharedMaterial = mat;
-            AddCollider(go, a);
+            AddCollider(go, a);   // 必须在加 LOD 子网格之前：碰撞只用 LOD0
+            AttachLodGroup(go, a, mat, report);
             string prefabPath = (tgt.destPath ?? "Assets/EAP").TrimEnd('/') + "/" + a.id + ".prefab";
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, prefabPath);
             UnityEngine.Object.DestroyImmediate(go);
             return prefab;
+        }
+
+        /// <summary>v1.12：给 prefab 加 4 级 LODGroup。
+        ///
+        /// LOD0 用原模型自身的 Renderer；LOD1-3 把 fbx 实例的网格子物体摘进 Root 下
+        /// （两者同一导出器、同一坐标口径，局部变换取源模型的，不做手工缩放）。
+        /// screenHeights 是 0–1 归一化高度，来自 manifest 的可选字段；与 UE 的 screen size
+        /// 1.0/0.5/0.25/0.1 一一对应（LOD0 的 1.0 在 LODGroup 里是隐式的，不写）。
+        /// </summary>
+        static void AttachLodGroup(GameObject root, Asset a, Material mat, List<string> report)
+        {
+            if (a.lod == null || a.lod.models == null || a.lod.models.Count == 0) return;
+            var lod0 = root.GetComponentsInChildren<Renderer>(true);
+            if (lod0.Length == 0) { report.Add("- WARN " + a.id + " LOD0 无 Renderer，跳过 LODGroup"); return; }
+            var heights = a.lod.screenHeights ?? new float[] { 0.5f, 0.25f, 0.1f, 0f };
+            var renderersByLevel = new Dictionary<int, List<Renderer>>();
+            renderersByLevel[0] = new List<Renderer>(lod0);
+            foreach (var lm in a.lod.models)
+            {
+                if (lm == null || lm.index <= 0) continue;
+                string modelPath = ModelAssetPath(lm.path);
+                var src = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
+                if (src == null) { report.Add("- WARN " + a.id + " LOD" + lm.index + " 模型未导入: " + modelPath); continue; }
+                var srcFilters = src.GetComponentsInChildren<MeshFilter>(true);
+                if (srcFilters.Length == 0 || srcFilters[0].sharedMesh == null)
+                { report.Add("- WARN " + a.id + " LOD" + lm.index + " 没有网格: " + modelPath); continue; }
+                // 复制一份普通 GameObject（不是 prefab 实例，才能把子物体摘到 Root 下）
+                var inst = UnityEngine.Object.Instantiate(src);
+                inst.name = "LOD" + lm.index;
+                inst.transform.SetParent(root.transform, false);
+                var list = new List<Renderer>();
+                foreach (var mf in inst.GetComponentsInChildren<MeshFilter>(true))
+                {
+                    if (mf.sharedMesh == null) continue;
+                    var mr = mf.GetComponent<MeshRenderer>();
+                    if (mr == null) mr = mf.gameObject.AddComponent<MeshRenderer>();
+                    var mats = new Material[Mathf.Max(1, mf.sharedMesh.subMeshCount)];
+                    for (int i = 0; i < mats.Length; i++) mats[i] = mat;
+                    mr.sharedMaterials = mats;
+                    list.Add(mr);
+                }
+                if (list.Count == 0) { UnityEngine.Object.DestroyImmediate(inst); continue; }
+                renderersByLevel[lm.index] = list;
+            }
+            if (renderersByLevel.Count < 2) { report.Add("- WARN " + a.id + " LOD 模型一个都没装上，不建 LODGroup"); return; }
+
+            var levels = new List<LOD>();
+            for (int i = 0; i < a.lod.levels; i++)
+            {
+                List<Renderer> rs;
+                if (!renderersByLevel.TryGetValue(i, out rs)) continue;
+                float h = (i < heights.Length) ? heights[i] : 0f;
+                levels.Add(new LOD(i == a.lod.levels - 1 ? 0f : h, rs.ToArray()));
+            }
+            var group = root.AddComponent<LODGroup>();
+            group.SetLODs(levels.ToArray());
+            group.RecalculateBounds();
+            report.Add("- LOD " + a.id + " levels=" + levels.Count + " tri=" +
+                       string.Join("/", levels.ConvertAll(l => TrisOfRenderers(l.renderers).ToString()).ToArray()));
+        }
+
+        static int TrisOfRenderers(Renderer[] rs)
+        {
+            int t = 0;
+            foreach (var r in rs)
+            {
+                if (r == null) continue;
+                var mf = r.GetComponent<MeshFilter>();
+                if (mf != null && mf.sharedMesh != null) t += mf.sharedMesh.triangles.Length / 3;
+            }
+            return t;
         }
 
         /// <summary>新进程读回：prefab 存在性 / 三角面 / 包围盒 / shader / 贴图是否真的挂上。</summary>
@@ -610,11 +699,30 @@ namespace EAP
                     if (asset != null)
                     {
                         var go = (GameObject)PrefabUtility.InstantiatePrefab(asset);
+                        // v1.12：有 LODGroup 时，meshTriCount / bounds 只按 LOD0 的 Renderer 统计
+                        // （口径与老门槛一致：源网格面数/包围盒；LOD1-3 另存到 va.lod）
+                        var lodGroup = go.GetComponentInChildren<LODGroup>(true);
+                        Renderer[] rs;
+                        if (lodGroup != null)
+                        {
+                            var lods = lodGroup.GetLODs();
+                            va.lod = new LodReadback { levels = lods.Length };
+                            foreach (var l in lods)
+                            {
+                                va.lod.triCounts.Add(TrisOfRenderers(l.renderers));
+                                va.lod.screenHeights.Add((float)Math.Round(l.screenRelativeTransitionHeight, 6));
+                            }
+                            rs = (lods.Length > 0 && lods[0].renderers != null && lods[0].renderers.Length > 0)
+                                ? lods[0].renderers : go.GetComponentsInChildren<Renderer>(true);
+                        }
+                        else rs = go.GetComponentsInChildren<Renderer>(true);
                         int tris = 0;
-                        foreach (var mf in go.GetComponentsInChildren<MeshFilter>(true))
-                            if (mf.sharedMesh != null) tris += mf.sharedMesh.triangles.Length / 3;
+                        foreach (var r in rs)
+                        {
+                            var mf = r.GetComponent<MeshFilter>();
+                            if (mf != null && mf.sharedMesh != null) tris += mf.sharedMesh.triangles.Length / 3;
+                        }
                         va.meshTriCount = tris;
-                        var rs = go.GetComponentsInChildren<Renderer>(true);
                         bool has = false;
                         Bounds b = default(Bounds);
                         foreach (var r in rs)

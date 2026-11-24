@@ -1,0 +1,204 @@
+{
+  "apiProbe": {
+    "hasStaticMeshEditorSubsystem": true,
+    "has_get_lod_material_slot": true,
+    "has_get_lod_screen_sizes": true,
+    "has_import_lod": true,
+    "has_remove_lods": true,
+    "has_set_lod_screen_sizes": true
+  },
+  "generator": "apply_tree_lods.py",
+  "naniteNote": "StaticMesh.get_num_triangles(0) 读的是渲染数据；Nanite 开启时为 fallback。LOD0 真值 = 内存里临时关 Nanite（不保存）读到的值，读完恢复，见 triCount / triCountNaniteOn。",
+  "pathUsed": "StaticMeshEditorSubsystem.import_lod",
+  "problems": [],
+  "schema": "eap.tree_lods_ue/1",
+  "screenSizesRequested": [
+    1.0,
+    0.5,
+    0.25,
+    0.1
+  ],
+  "species": {
+    "broadleaf": {
+      "assetPath": "/Game/EAP/Trees/broadleaf/StaticMeshes/broadleaf.broadleaf",
+      "importResults": [
+        {
+          "lodIndex": 1,
+          "returnedIndex": 1,
+          "sourceFbx": "D:\\Projects\\AssetPipeline-EngineAgnostic\\assets\\raw\\trees\\lod\\broadleaf_lod1.fbx"
+        },
+        {
+          "lodIndex": 2,
+          "returnedIndex": 2,
+          "sourceFbx": "D:\\Projects\\AssetPipeline-EngineAgnostic\\assets\\raw\\trees\\lod\\broadleaf_lod2.fbx"
+        },
+        {
+          "lodIndex": 3,
+          "returnedIndex": 3,
+          "sourceFbx": "D:\\Projects\\AssetPipeline-EngineAgnostic\\assets\\raw\\trees\\lod\\broadleaf_lod3.fbx"
+        }
+      ],
+      "lods": [
+        {
+          "index": 0,
+          "materialSlotIndices": [
+            0,
+            1
+          ],
+          "screenSize": 1.0,
+          "sectionCount": 2,
+          "triCount": 3505,
+          "triCountNaniteOn": 2354,
+          "uvChannelCount": 1,
+          "vertexCount": 4707
+        },
+        {
+          "index": 1,
+          "materialSlotIndices": [
+            0,
+            1
+          ],
+          "screenSize": 0.5,
+          "sectionCount": 2,
+          "triCount": 1752,
+          "triCountNaniteOn": 1752,
+          "uvChannelCount": 1,
+          "vertexCount": 3498
+        },
+        {
+          "index": 2,
+          "materialSlotIndices": [
+            0,
+            1
+          ],
+          "screenSize": 0.25,
+          "sectionCount": 2,
+          "triCount": 876,
+          "triCountNaniteOn": 876,
+          "uvChannelCount": 1,
+          "vertexCount": 1879
+        },
+        {
+          "index": 3,
+          "materialSlotIndices": [
+            0,
+            1
+          ],
+          "screenSize": 0.1,
+          "sectionCount": 2,
+          "triCount": 350,
+          "triCountNaniteOn": 350,
+          "uvChannelCount": 1,
+          "vertexCount": 704
+        }
+      ],
+      "materialNamesLod0": [
+        "Bark_NormalTree",
+        "Leaves_NormalTree"
+      ],
+      "naniteToggleForLod0Read": true,
+      "numLods": 4,
+      "numLodsBefore": 4,
+      "ok": true,
+      "problems": [],
+      "removeLodsReturned": true,
+      "screenSizes": [
+        1.0,
+        0.5,
+        0.25,
+        0.1
+      ]
+    },
+    "conifer": {
+      "assetPath": "/Game/EAP/Trees/conifer/StaticMeshes/conifer.conifer",
+      "importResults": [
+        {
+          "lodIndex": 1,
+          "returnedIndex": 1,
+          "sourceFbx": "D:\\Projects\\AssetPipeline-EngineAgnostic\\assets\\raw\\trees\\lod\\conifer_lod1.fbx"
+        },
+        {
+          "lodIndex": 2,
+          "returnedIndex": 2,
+          "sourceFbx": "D:\\Projects\\AssetPipeline-EngineAgnostic\\assets\\raw\\trees\\lod\\conifer_lod2.fbx"
+        },
+        {
+          "lodIndex": 3,
+          "returnedIndex": 3,
+          "sourceFbx": "D:\\Projects\\AssetPipeline-EngineAgnostic\\assets\\raw\\trees\\lod\\conifer_lod3.fbx"
+        }
+      ],
+      "lods": [
+        {
+          "index": 0,
+          "materialSlotIndices": [
+            0,
+            1
+          ],
+          "screenSize": 1.0,
+          "sectionCount": 2,
+          "triCount": 3370,
+          "triCountNaniteOn": 1414,
+          "uvChannelCount": 1,
+          "vertexCount": 2961
+        },
+        {
+          "index": 1,
+          "materialSlotIndices": [
+            0,
+            1
+          ],
+          "screenSize": 0.5,
+          "sectionCount": 2,
+          "triCount": 1685,
+          "triCountNaniteOn": 1685,
+          "uvChannelCount": 1,
+          "vertexCount": 1968
+        },
+        {
+          "index": 2,
+          "materialSlotIndices": [
+            0,
+            1
+          ],
+          "screenSize": 0.25,
+          "sectionCount": 2,
+          "triCount": 842,
+          "triCountNaniteOn": 842,
+          "uvChannelCount": 1,
+          "vertexCount": 1290
+        },
+        {
+          "index": 3,
+          "materialSlotIndices": [
+            0,
+            1
+          ],
+          "screenSize": 0.1,
+          "sectionCount": 2,
+          "triCount": 337,
+          "triCountNaniteOn": 337,
+          "uvChannelCount": 1,
+          "vertexCount": 684
+        }
+      ],
+      "materialNamesLod0": [
+        "Bark_NormalTree",
+        "Leaves_Pine"
+      ],
+      "naniteToggleForLod0Read": true,
+      "numLods": 4,
+      "numLodsBefore": 4,
+      "ok": true,
+      "problems": [],
+      "removeLodsReturned": true,
+      "screenSizes": [
+        1.0,
+        0.5,
+        0.25,
+        0.1
+      ]
+    }
+  },
+  "ueVersion": "5.7.4-51494982+++UE5+Release-5.7"
+}

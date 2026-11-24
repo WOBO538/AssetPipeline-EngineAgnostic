@@ -21,6 +21,7 @@
 """
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import shutil
@@ -60,6 +61,8 @@ DEFAULT_UNITY = r"D:\Program Files\unity AZ\2022.3.62f3c1\Editor\Unity.exe"
 DEFAULT_UNITY_PROJECT = r"D:\unity\EAP_Unity_Consumer"
 UNITY_CS = os.path.join(REPO, "unity", "Editor", "ManifestImporter.cs")
 UNITY_PLACE_SCENE = "Assets/Scenes/EAP_PlacedTrees.unity"
+# v1.12：LOD0 源网格三角面（--lod-check 断言 2 的硬编码基准）
+LOD0_SOURCE_TRIS = {"conifer": 3370, "broadleaf": 3505}
 
 sys.path.insert(0, os.path.join(REPO, "tools"))
 
@@ -1731,6 +1734,152 @@ def _write_perf_report(out_json, rows, summary, machine, notes, failures, report
     return report_path
 
 
+def _sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _run_lod_check(args):
+    """LOD 双端数据检查（v1.12，独立命令，不并入老门槛）。
+
+    4 条断言：
+      1. 两棵树 UE `numLods == 4` 且各级 triCount 严格递减（>0）；
+      2. LOD0 triCount == 源数据（conifer 3,370 / broadleaf 3,505），LOD0 没被动过；
+      3. Unity `lod.levels == 4` 且 `triCounts` 与 UE 同级逐级相等（容差 0）；
+      4. `docs/tree_lods.json` 的 fbx SHA256 与磁盘文件一致。
+
+    只验数据，不验视觉切换（无头环境测不了）。
+    """
+    manifest = os.path.abspath(args.manifest)
+    # EAP_LOD_UE_JSON 仅供反向验证指向篡改副本，正常流程不设
+    ue_path = os.environ.get("EAP_LOD_UE_JSON") or os.path.join(REPO, "docs", "tree_lods_ue.json")
+    lods_path = os.path.join(REPO, "docs", "tree_lods.json")
+    unity_path = os.path.splitext(manifest)[0] + ".unity_verify.json"
+    fails = []
+    print("[0/4] LOD 双端数据检查（4 条断言，不进老门槛）")
+
+    missing = [p for p in (manifest, ue_path, lods_path) if not os.path.isfile(p)]
+    if missing:
+        print("CHAIN FAIL: 缺少证据 " + " | ".join(missing))
+        print("      先跑: python tools/make_tree_lods.py；再用 UE 无头跑 "
+              "ue/Content/Python/apply_tree_lods.py（生成 docs/tree_lods_ue.json）")
+        return 1
+    if not os.path.isfile(unity_path):
+        print("CHAIN FAIL: 缺少 Unity 读回 " + unity_path
+              + "。先跑: python tools/run_pcg_chain.py --unity-check ...")
+        return 1
+
+    with open(manifest, "r", encoding="utf-8-sig") as fh:
+        man = json.load(fh)
+    with open(ue_path, "r", encoding="utf-8-sig") as fh:
+        ue = json.load(fh)
+    with open(unity_path, "r", encoding="utf-8-sig") as fh:
+        un = json.load(fh)
+    with open(lods_path, "r", encoding="utf-8-sig") as fh:
+        lods_doc = json.load(fh)
+
+    pairs = []
+    for a in man.get("assets") or []:
+        sid = str(a.get("id") or "")
+        for sp in ("conifer", "broadleaf"):
+            if sp in sid.lower():
+                pairs.append((sp, sid, a))
+                break
+    if not pairs:
+        print("CHAIN FAIL: manifest 里找不到 conifer/broadleaf 资产")
+        return 1
+
+    # ---- 断言 1：UE 4 级且 triCount 严格递减 ----
+    ue_tris = {}
+    ok1 = True
+    for sp, sid, _a in pairs:
+        sp_doc = (ue.get("species") or {}).get(sp) or {}
+        num = int(sp_doc.get("numLods") or 0)
+        tris = [int(l.get("triCount", -1)) for l in (sp_doc.get("lods") or [])]
+        ue_tris[sp] = tris
+        good = (num == 4 and len(tris) == 4 and all(t > 0 for t in tris)
+                and all(tris[i] < tris[i - 1] for i in range(1, len(tris))))
+        print("[1/4] %s UE numLods=%d triCounts=%s → %s" % (sp, num, tris, "PASS" if good else "FAIL"))
+        if not good:
+            ok1 = False
+            fails.append("断言1 %s UE numLods=%d triCounts=%s（要求 4 级且严格递减）" % (sp, num, tris))
+    print("[1/4] UE 4 级 LOD → %s（路径 %s）" % ("PASS" if ok1 else "FAIL", ue.get("pathUsed")))
+
+    # ---- 断言 2：LOD0 == 源数据 ----
+    ok2 = True
+    for sp, sid, a in pairs:
+        want = LOD0_SOURCE_TRIS[sp]
+        sp_doc = (ue.get("species") or {}).get(sp) or {}
+        lods = sp_doc.get("lods") or []
+        got = int(lods[0].get("triCount", -1)) if lods else -1
+        man_tri = int(((a.get("model") or {}).get("triCount")) or -1)
+        lod0 = lods[0] if lods else {}
+        sec = int(lod0.get("sectionCount") or 0)
+        uv = int(lod0.get("uvChannelCount") or 0)
+        good = (got == want and man_tri == want and sec == 2 and uv >= 1)
+        print("[2/4] %s LOD0 triCount=%s（源 %d，manifest %s，section=%s，uvChannels=%s，"
+              "naniteOn=%s） → %s"
+              % (sp, got, want, man_tri, lod0.get("sectionCount"), lod0.get("uvChannelCount"),
+                 lod0.get("triCountNaniteOn"), "PASS" if good else "FAIL"))
+        if not good:
+            ok2 = False
+            fails.append("断言2 %s LOD0 triCount=%s（源 %d，manifest %s，section=%s，uv=%s）"
+                         % (sp, got, want, man_tri, sec, uv))
+    print("[2/4] LOD0 仍是源网格（3,370 / 3,505） → %s" % ("PASS" if ok2 else "FAIL"))
+
+    # ---- 断言 3：Unity 4 级且与 UE 同级 triCount 逐级相等（容差 0） ----
+    vmap = {a.get("id"): a for a in (un.get("assets") or [])}
+    ok3 = True
+    for sp, sid, _a in pairs:
+        v = vmap.get(sid) or {}
+        lod = v.get("lod") or {}
+        levels = int(lod.get("levels") or 0)
+        utris = [int(x) for x in (lod.get("triCounts") or [])]
+        heights = lod.get("screenHeights") or []
+        good = (levels == 4 and len(utris) == 4 and utris == ue_tris.get(sp))
+        print("[3/4] %s Unity levels=%s triCounts=%s screenHeights=%s vs UE %s → %s"
+              % (sp, levels, utris, heights, ue_tris.get(sp), "PASS" if good else "FAIL"))
+        if not good:
+            ok3 = False
+            fails.append("断言3 %s Unity levels=%s triCounts=%s != UE %s"
+                         % (sp, levels, utris, ue_tris.get(sp)))
+    print("[3/4] Unity 与 UE 同级 triCount 逐级相等 → %s" % ("PASS" if ok3 else "FAIL"))
+
+    # ---- 断言 4：tree_lods.json 的 fbx SHA256 与磁盘一致 ----
+    ok4 = True
+    for sp, sp_doc in (lods_doc.get("species") or {}).items():
+        for lv in sp_doc.get("lods") or []:
+            rel = str(lv.get("fbx") or "")
+            p = os.path.join(REPO, rel)
+            want = str(lv.get("sha256") or "")
+            if not os.path.isfile(p):
+                ok4 = False
+                fails.append("断言4 %s %s 文件不存在: %s" % (sp, lv.get("level"), p))
+                print("[4/4] %s %s 文件不存在: %s → FAIL" % (sp, lv.get("level"), p))
+                continue
+            got = _sha256_file(p)
+            good = got == want
+            if not good:
+                ok4 = False
+                fails.append("断言4 %s %s SHA256 不一致 disk=%s json=%s"
+                             % (sp, lv.get("level"), got[:16], want[:16]))
+            print("[4/4] %s %s sha256=%s...%s → %s"
+                  % (sp, lv.get("level"), got[:12], "" if good else " (json %s...)" % want[:12],
+                     "PASS" if good else "FAIL"))
+    print("[4/4] fbx SHA256 与磁盘一致 → %s" % ("PASS" if ok4 else "FAIL"))
+
+    if fails:
+        print("\nCHAIN FAIL: " + " | ".join(fails))
+        return 1
+    print("\nLOD-CHECK PASS  (UE 4 级 / LOD0=3370,3505 / Unity 同级三角面一致 / fbx SHA 可追溯)")
+    print("      说明：只验数据（LOD 数、三角面、screen size/height、文件 SHA），"
+          "无头环境不验视觉切换，ISM/LODGroup 的实际切换需在编辑器里看。")
+    return 0
+
+
 def _run_perf_from(args):
     """复用已有采样 JSON：重算汇总/报告/断言（反验用，不再跑 UE/Unity）。"""
     path = os.path.abspath(args.perf_from)
@@ -2011,6 +2160,8 @@ def main(argv):
                     help="--unity-placements-check 时跳过落位，只读回（反向验证清态用，绕开场景自愈）")
     ap.add_argument("--parity-check", action="store_true",
                     help="双端逐实例对账：UE 读回 vs Unity 读回 + 4 条断言 + 三列对照表（独立命令）")
+    ap.add_argument("--lod-check", action="store_true",
+                    help="LOD 双端数据检查：UE 4 级 / LOD0 源面数 / Unity 同级一致 / fbx SHA（独立命令）")
     ap.add_argument("--parity-inject-yaw-deg", type=float, default=0.0,
                     help="反向验证：读 Unity 证据时给 yaw 加偏移（默认 0；0.1 应当只挂断言 3）")
     ap.add_argument("--perf", action="store_true",
@@ -2030,6 +2181,8 @@ def main(argv):
         return _run_perf_from(args)
     if args.perf:
         return _run_perf(args)
+    if args.lod_check:
+        return _run_lod_check(args)
     if args.parity_check:
         return _run_parity_check(args)
     if args.unity_placements_check:

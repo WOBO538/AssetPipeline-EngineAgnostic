@@ -1,5 +1,5 @@
 {
-  "when": "2026-11-24T15:06:07",
+  "when": "2026-11-24T15:44:01",
   "schema": "eap.placement.run/1",
   "multi": true,
   "manifest": "D:\\Projects\\AssetPipeline-EngineAgnostic\\schemas\\tree_manifest_multi.json",
@@ -98,7 +98,7 @@
         ],
         "heightM": 10.236,
         "triangles": 1414,
-        "numLods": 1,
+        "numLods": 4,
         "materials": [
           "Bark_NormalTree",
           "Leaves_Pine"
@@ -22775,7 +22775,7 @@
         ],
         "heightM": 9.425,
         "triangles": 2354,
-        "numLods": 1,
+        "numLods": 4,
         "materials": [
           "Bark_NormalTree",
           "Leaves_NormalTree"

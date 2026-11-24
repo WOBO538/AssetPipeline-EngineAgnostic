@@ -1,7 +1,7 @@
 {
   "manifestVersion": "1.2",
   "pipelineId": "eap-tree-pair-20261124",
-  "generatedAt": "2026-11-24T15:05:55+08:00",
+  "generatedAt": "2026-11-24T15:43:49+08:00",
   "units": "m",
   "source": {
     "kind": "glb_ingest",
@@ -132,6 +132,39 @@
           "sourceGlb": "assets/raw/trees/conifer.glb",
           "note": "Unity 原生不认 .glb：用 Blender 转出的 fbx（内嵌贴图另存 assets/eap_textures）"
         }
+      },
+      "lod": {
+        "levels": 4,
+        "source": "blender-decimate",
+        "screenHeights": [
+          0.5,
+          0.25,
+          0.1,
+          0.0
+        ],
+        "models": [
+          {
+            "index": 0,
+            "path": "assets/raw/trees/fbx/conifer.fbx",
+            "triCount": 3370
+          },
+          {
+            "index": 1,
+            "path": "assets/raw/trees/lod/conifer_lod1.fbx",
+            "triCount": 1685
+          },
+          {
+            "index": 2,
+            "path": "assets/raw/trees/lod/conifer_lod2.fbx",
+            "triCount": 842
+          },
+          {
+            "index": 3,
+            "path": "assets/raw/trees/lod/conifer_lod3.fbx",
+            "triCount": 337
+          }
+        ],
+        "note": "LOD0=源 glb（未减面）；LOD1-3=Blender Decimate COLLAPSE 0.5/0.25/0.10，SHA256 见 docs/tree_lods.json。screenHeights 为 Unity LODGroup 归一化高度，与 UE screen size 1.0/0.5/0.25/0.1 一一对应（LOD0 的 1.0 在 LODGroup 里是隐式的）。"
       },
       "placements": {
         "space": "world",
@@ -22839,6 +22872,39 @@
           "sourceGlb": "assets/raw/trees/broadleaf.glb",
           "note": "Unity 原生不认 .glb：用 Blender 转出的 fbx（内嵌贴图另存 assets/eap_textures）"
         }
+      },
+      "lod": {
+        "levels": 4,
+        "source": "blender-decimate",
+        "screenHeights": [
+          0.5,
+          0.25,
+          0.1,
+          0.0
+        ],
+        "models": [
+          {
+            "index": 0,
+            "path": "assets/raw/trees/fbx/broadleaf.fbx",
+            "triCount": 3505
+          },
+          {
+            "index": 1,
+            "path": "assets/raw/trees/lod/broadleaf_lod1.fbx",
+            "triCount": 1752
+          },
+          {
+            "index": 2,
+            "path": "assets/raw/trees/lod/broadleaf_lod2.fbx",
+            "triCount": 876
+          },
+          {
+            "index": 3,
+            "path": "assets/raw/trees/lod/broadleaf_lod3.fbx",
+            "triCount": 350
+          }
+        ],
+        "note": "LOD0=源 glb（未减面）；LOD1-3=Blender Decimate COLLAPSE 0.5/0.25/0.10，SHA256 见 docs/tree_lods.json。screenHeights 为 Unity LODGroup 归一化高度，与 UE screen size 1.0/0.5/0.25/0.1 一一对应（LOD0 的 1.0 在 LODGroup 里是隐式的）。"
       },
       "placements": {
         "space": "world",

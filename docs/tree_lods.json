@@ -1,0 +1,298 @@
+{
+  "schema": "eap.tree_lods/1",
+  "generator": "blender-decimate",
+  "blenderVersion": "5.2.3 LTS",
+  "axisNote": "与 glb_to_fbx 同口径：FBX_SCALE_ALL + 沿 X 预镜像（Unity 左手系导入再取反）",
+  "hashNote": "sha256 是磁盘原字节；导出前已在 Blender 进程内固定 CreationTimeStamp 与对象 UID，同一输入重复导出逐字节一致（不是事后归一化）",
+  "species": {
+    "conifer": {
+      "sourceGlb": "assets/raw/trees/conifer.glb",
+      "lods": [
+        {
+          "level": "lod1",
+          "ratio": 0.5,
+          "fbx": "assets/raw/trees/lod/conifer_lod1.fbx",
+          "bytes": 1167148,
+          "sha256": "b517b67ed5cb4d4fb3f8aa4e8bd0da8b14bf7e83355f63c4e9c0054131373d2c",
+          "triCount": 1685,
+          "vertexCount": 1941,
+          "materialSlots": [
+            "Bark_NormalTree",
+            "Leaves_Pine"
+          ],
+          "materialFaceCounts": {
+            "0": 681,
+            "1": 1004
+          },
+          "uvLayers": [
+            "UVMap"
+          ],
+          "uvSamples": [
+            [
+              0.00024,
+              0.00024
+            ],
+            [
+              0.00024,
+              0.17201
+            ],
+            [
+              0.029388,
+              0.00024
+            ]
+          ],
+          "bboxM": {
+            "min": [
+              -2.9242,
+              -0.0028,
+              -2.9459
+            ],
+            "max": [
+              2.8778,
+              10.2347,
+              2.4249
+            ]
+          }
+        },
+        {
+          "level": "lod2",
+          "ratio": 0.25,
+          "fbx": "assets/raw/trees/lod/conifer_lod2.fbx",
+          "bytes": 1132796,
+          "sha256": "76051d292689058bb64b66ce13f8b85191c187e789b92dfcdab94674fcfdd4bb",
+          "triCount": 842,
+          "vertexCount": 1326,
+          "materialSlots": [
+            "Bark_NormalTree",
+            "Leaves_Pine"
+          ],
+          "materialFaceCounts": {
+            "0": 121,
+            "1": 721
+          },
+          "uvLayers": [
+            "UVMap"
+          ],
+          "uvSamples": [
+            [
+              0.125437,
+              0.000322
+            ],
+            [
+              0.047813,
+              -0.000532
+            ],
+            [
+              0.018021,
+              0.78857
+            ]
+          ],
+          "bboxM": {
+            "min": [
+              -2.9242,
+              -0.0051,
+              -2.9459
+            ],
+            "max": [
+              2.8778,
+              10.1921,
+              2.4249
+            ]
+          }
+        },
+        {
+          "level": "lod3",
+          "ratio": 0.1,
+          "fbx": "assets/raw/trees/lod/conifer_lod3.fbx",
+          "bytes": 1109228,
+          "sha256": "06e164d51e26d3d9f6abb2dc2d892f97010ce3862ced696360b99e2d15816848",
+          "triCount": 337,
+          "vertexCount": 844,
+          "materialSlots": [
+            "Bark_NormalTree",
+            "Leaves_Pine"
+          ],
+          "materialFaceCounts": {
+            "0": 33,
+            "1": 304
+          },
+          "uvLayers": [
+            "UVMap"
+          ],
+          "uvSamples": [
+            [
+              0.17946,
+              0.012905
+            ],
+            [
+              0.003014,
+              0.000549
+            ],
+            [
+              0.020835,
+              1.285817
+            ]
+          ],
+          "bboxM": {
+            "min": [
+              -2.8759,
+              -0.0188,
+              -2.9271
+            ],
+            "max": [
+              2.8449,
+              10.1921,
+              2.3658
+            ]
+          }
+        }
+      ],
+      "sourceTriCount": 3370
+    },
+    "broadleaf": {
+      "sourceGlb": "assets/raw/trees/broadleaf.glb",
+      "lods": [
+        {
+          "level": "lod1",
+          "ratio": 0.5,
+          "fbx": "assets/raw/trees/lod/broadleaf_lod1.fbx",
+          "bytes": 1213948,
+          "sha256": "00f26e559a055ea3cb97a35b22e5516d54f089ae3be4bf0b7a232e7c405688c3",
+          "triCount": 1752,
+          "vertexCount": 3584,
+          "materialSlots": [
+            "Bark_NormalTree",
+            "Leaves_NormalTree"
+          ],
+          "materialFaceCounts": {
+            "0": 17,
+            "1": 1735
+          },
+          "uvLayers": [
+            "UVMap"
+          ],
+          "uvSamples": [
+            [
+              0.883623,
+              2.27824
+            ],
+            [
+              0.841515,
+              1.422693
+            ],
+            [
+              0.320021,
+              3.890883
+            ]
+          ],
+          "bboxM": {
+            "min": [
+              -2.0684,
+              -0.03,
+              -2.061
+            ],
+            "max": [
+              1.9945,
+              9.4252,
+              2.1801
+            ]
+          }
+        },
+        {
+          "level": "lod2",
+          "ratio": 0.25,
+          "fbx": "assets/raw/trees/lod/broadleaf_lod2.fbx",
+          "bytes": 1163548,
+          "sha256": "40a2bdf108a75c3f4a458208f57e0ff80ce0cf0e3e6d5ff0b0dcc86bd4fa4310",
+          "triCount": 876,
+          "vertexCount": 2709,
+          "materialSlots": [
+            "Bark_NormalTree",
+            "Leaves_NormalTree"
+          ],
+          "materialFaceCounts": {
+            "0": 12,
+            "1": 864
+          },
+          "uvLayers": [
+            "UVMap"
+          ],
+          "uvSamples": [
+            [
+              0.097731,
+              3.20708
+            ],
+            [
+              0.307309,
+              6.78282
+            ],
+            [
+              0.98969,
+              3.783642
+            ]
+          ],
+          "bboxM": {
+            "min": [
+              -2.0684,
+              -0.0556,
+              -1.915
+            ],
+            "max": [
+              1.9655,
+              9.265,
+              2.1279
+            ]
+          }
+        },
+        {
+          "level": "lod3",
+          "ratio": 0.1,
+          "fbx": "assets/raw/trees/lod/broadleaf_lod3.fbx",
+          "bytes": 1129084,
+          "sha256": "8757bac94d954a08b1b6cd2c7f023cb2d1c0917f5d5c010a0ce0bfae7aa261eb",
+          "triCount": 350,
+          "vertexCount": 2184,
+          "materialSlots": [
+            "Bark_NormalTree",
+            "Leaves_NormalTree"
+          ],
+          "materialFaceCounts": {
+            "0": 8,
+            "1": 342
+          },
+          "uvLayers": [
+            "UVMap"
+          ],
+          "uvSamples": [
+            [
+              0.34979,
+              0.000381
+            ],
+            [
+              0.018476,
+              0.001117
+            ],
+            [
+              0.612806,
+              1.286933
+            ]
+          ],
+          "bboxM": {
+            "min": [
+              -1.8409,
+              -0.0556,
+              -1.915
+            ],
+            "max": [
+              1.8853,
+              9.265,
+              2.1075
+            ]
+          }
+        }
+      ],
+      "sourceTriCount": 3505
+    }
+  },
+  "problems": []
+}

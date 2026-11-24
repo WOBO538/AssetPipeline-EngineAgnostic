@@ -621,6 +621,89 @@ body setup 里真实存在的凸包元素（两棵树 `convex_elems=1`），不�
 老门槛不变：`--multi` 13/13、`--real-multi` 20/20、`--with-compile` 21/21、
 `--unity-check` 4/4、`--unity-placements-check` 4/4、`test_validator.py` 9/9。
 
+## 三之十三、树资产 LOD：双端 4 级（v1.12）
+
+> 注：三之十二（性能表）见 [docs/perf_report.md](docs/perf_report.md)。
+
+v1.12 补验收表 **G6**：两棵树（conifer / broadleaf）各补 **3 级真几何 LOD**，
+UE StaticMesh 4 级、Unity Prefab `LODGroup` 4 级，新增独立命令 `--lod-check`（4 条断言，不并入老门槛）。
+
+```
+assets/raw/trees/{conifer,broadleaf}.glb（不改）
+   ↓ tools/make_tree_lods.py（Blender 无头，Decimate COLLAPSE 0.5 / 0.25 / 0.10）
+assets/raw/trees/lod/{species}_lod{1,2,3}.fbx + docs/tree_lods.json（triCount/vertexCount/SHA256）
+   ├─ UE：ue/Content/Python/apply_tree_lods.py → StaticMeshEditorSubsystem.import_lod → docs/tree_lods_ue.json
+   └─ Unity：ManifestImporter 按内容哈希复制到 Assets/EAP/Trees/Models/ → Prefab 加 LODGroup → 读回 lod 字段
+```
+
+**A · Blender 侧（确定性是硬要求）**：`make_tree_lods.py` 是"外层 Python + Blender 内脚本"单文件。
+内层导入 glb 后沿用 `glb_to_fbx.py` 的口径（parent_clear + transform_apply + 沿 X 预镜像 +
+法线重算），逐对象 `DECIMATE / COLLAPSE / use_collapse_triangulate` 后 apply，再按
+`FBX_SCALE_ALL` + `bake_space_transform` 导出。
+
+- **SHA 幂等是怎么做到的（不是事后归一化）**：第一次实测同一输入连导两次差 80 字节/20 处，
+  逐字节定位到两个非确定源——① `io_scene_fbx.export_fbx_bin` 里的
+  `datetime.datetime.now()`（写进 FBX 头的 CreationTimeStamp 时/分/秒/毫秒）；
+  ② `fbx_utils._key_to_uuid()` 用 Python 的 `hash(key)`（每进程随机种子）生成对象 UID。
+  在 Blender 进程内 monkeypatch 这两处（固定时刻 + `sha256(repr(key))` 派生 UID，不改 Blender 安装），
+  之后两次导出**逐字节一致**。`PYTHONHASHSEED=0` 对 `_key_to_uuid` 无效，靠这个才消掉。
+  `docs/tree_lods.json` 只记一个 `sha256`（原始字节），`hashNote` 写明这是确定性导出、不是归一化。
+- **材质槽与 UV**：每级都核 `materialSlots == 2`（Bark / Leaves 名字原样）且 `uvLayers == ["UVMap"]`，
+  并抽样记录顶点 UV；LOD3（0.10）也没有把小材质岛干掉（`materialFaceCounts` 两级都 > 0 → 关卡失败）。
+- **LOD0 不是本脚本产物**：脚本只输出 LOD1–3；`assets/raw/trees/*.glb` 与已入库 fbx 一个字节没动。
+
+实测（`python tools/make_tree_lods.py --self-check-sha` 连跑两次，SHA 全一致，problems=0）：
+
+| species | LOD | ratio | triCount | vertexCount | materialSlots | UV |
+|---|:--:|:--:|--:|--:|---|---|
+| conifer | 1 | 0.50 | 1,685 | 1,941 | 2 | UVMap |
+| conifer | 2 | 0.25 | 842 | 1,326 | 2 | UVMap |
+| conifer | 3 | 0.10 | 337 | 844 | 2 | UVMap |
+| broadleaf | 1 | 0.50 | 1,752 | 3,584 | 2 | UVMap |
+| broadleaf | 2 | 0.25 | 876 | 2,709 | 2 | UVMap |
+| broadleaf | 3 | 0.10 | 350 | 2,184 | 2 | UVMap |
+
+**B · UE 侧（实际走的那条路）**：先探测 `unreal.StaticMeshEditorSubsystem.import_lod` 存在，
+**实际用的就是 `import_lod`**（`docs/tree_lods_ue.json` 的 `pathUsed` 写死为它；探测结果在 `apiProbe`）。
+装之前 `remove_lods()` 清掉已有 custom LOD，再逐级 `import_lod(mesh, 1..3, fbx)`，
+`set_lod_screen_sizes([1.0, 0.5, 0.25, 0.1])`，保存后读回。
+
+- **LOD0 真面数怎么读**：`StaticMesh.get_num_triangles(0)` 读的是渲染数据，Nanite 开启时是
+  fallback（conifer 1,414 / broadleaf 2,354）。脚本在**内存里**临时把 `nanite_settings.enabled`
+  置 False（不 save，读完立即恢复）再读，得到 **3,370 / 3,505**；证据里同时记
+  `triCount`（Nanite off，真值）与 `triCountNaniteOn`（fallback），不拿 fallback 凑数。
+- 每级还核 `sectionCount == 2`、`uvChannelCount >= 1`（`get_num_uv_channels`），
+  材质槽下标 `[0, 1]` 不变；LOD0 的 mesh 从没被 `import_lod` 触碰（只对 index 1..3 调用）。
+
+**C · Unity 侧（screen height 不是 UE screen size 的同名量）**：`ManifestImporter` 把
+`lod.models[].path` 的 fbx 按内容哈希复制到 `Assets/EAP/Trees/Models/`，Prefab 根加 `LODGroup`：
+LOD0 用原模型自身的 Renderer，LOD1–3 把各 fbx 的网格子物体摘进 Root 下（同一导出器、同一坐标口径）。
+`LODGroup` 的 `screenRelativeTransitionHeight` 是 **0–1 归一化高度**，实际写
+`[0.5, 0.25, 0.1, 0]`；UE 的 `[1.0, 0.5, 0.25, 0.1]` 里 **1.0 是 LOD0 的满屏值，LODGroup 没有对应字段**
+（LOD0 在第一级阈值之前一直可见），其余三级一一对应。读回写进 `lod{levels, triCounts, screenHeights}`。
+老 `meshTriCount` / `boundsM` 在存在 LODGroup 时只按 **LOD0 的 Renderer** 统计（口径仍是源网格），
+所以 `--unity-check` 的 4 条断言数值不变。
+
+**D · `--lod-check`（独立命令，4 条断言）**：
+
+| # | 断言 | 实测 |
+|:--:|---|---|
+| 1 | 两棵树 UE `numLods == 4` 且各级 triCount 严格递减（>0） | 3370/1685/842/337、3505/1752/876/350 |
+| 2 | LOD0 == 源数据（3,370 / 3,505），且 section=2、UV≥1、manifest 同值 | 全 PASS |
+| 3 | Unity `lod.levels == 4` 且 `triCounts` 与 UE 同级逐级相等（容差 0） | 4 级全等 |
+| 4 | `docs/tree_lods.json` 的 fbx SHA256 与磁盘一致 | 6/6 PASS |
+
+**反向验证（真跑，篡改用临时副本 / `EAP_LOD_UE_JSON` 指副本，不碰仓库）**：
+① UE 证据删掉 conifer LOD3（`numLods=3`）→ **断言 1 FAIL**；
+② UE 证据把 conifer LOD0 改成 3,000 → **断言 2 FAIL**；
+③ Unity 读回把 conifer LOD2 的 842 改成 843 → **断言 3 FAIL**，断言 1/2/4 仍 PASS。
+
+**诚实边界**：无头环境只验**数据**（LOD 数、三角面、screen size/height、引用文件与 SHA），
+**不声称验证了视觉切换**——ISM 的 LOD 切换和 `LODGroup` 的淡入淡出要在编辑器里看。
+UE 证据里的 `vertexCount` 是渲染数据顶点（按 UV/法线拆分，conifer 2,961 vs glTF POSITION 2,960、
+broadleaf 4,707 vs 4,704），与 Blender 网格顶点不是同一口径，只作参考、不作断言。
+老门槛不变：13 / 20 / 21 / 4 / 4 / 4，`--perf` 与断言 5 未动，v1.6 贴图与三个 roughness SHA 未动。
+
 ## 四、阶段一验收（6 条，逐条可判）
 
 | # | 判据 | 判法 |
