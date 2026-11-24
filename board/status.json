@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T12:30:00+08:00",
+  "updatedAt": "2026-11-24T13:00:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -89,8 +89,8 @@
           "date": "11-22"
         },
         {
-          "name": "规范后实拍对比图（等下次开编辑器）",
-          "status": "todo",
+          "name": "规范化前后实拍对比图（docs/ue_normalization_before_after_20261123.png + PlacedTreeMulti 1,892 实例光照全景 docs/ue_placedtreemulti_forest_20261124.png）",
+          "status": "done",
           "owner": "user",
           "date": "11-23"
         },
@@ -123,8 +123,8 @@
           "date": "11-22"
         },
         {
-          "name": "UE 编辑器内实跑（dry_run）",
-          "status": "doing",
+          "name": "UE 编辑器内实跑（consume dry_run 已在编辑器内跑通；正式链路由 --multi/--real-multi 覆盖）",
+          "status": "done",
           "owner": "user",
           "date": "11-22"
         },
@@ -135,13 +135,13 @@
           "date": "11-25"
         },
         {
-          "name": "落位扩展：材质/碰撞/LOD 也进 UE",
+          "name": "落位扩展：UE 侧 ISM 补碰撞/LOD（Unity 侧碰撞已由 v1.8 完成；UE ISM 目前无碰撞、无 LOD）",
           "status": "todo",
           "date": "12-05"
         },
         {
-          "name": "trimesh 坐标转换（Y-up→Z-up / cm→m）",
-          "status": "todo",
+          "name": "坐标转换：Unity 侧 UeToUnityPos=(x,z,y) / UeToUnityYaw 已实现并跨引擎校核（v1.8，bbox 误差 0.0000 m）",
+          "status": "done",
           "date": "12-14"
         },
         {

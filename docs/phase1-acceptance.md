@@ -153,3 +153,37 @@ Unity 端尚未实跑、`PlacedTrees` 关卡无灯光地面（需真实编辑器
 25. **规范化后的实拍图（已补，v1.3 收尾）**：`docs/ue_trees_placed_20261123.png` 是材质规范化之后的
     绿树实拍（2026-11-23 用户手操），README 主图已换成它；`docs/ue_trees_placed_20261122.png`
     保留为规范化之前的对照图。
+
+---
+
+## C. 阶段一 6 条：2026-11-24 复核（v1.6 / v1.7 / v1.8 之后）
+
+> 复核人：lead；复核方式：重跑命令 + 读回 JSON + 负向测试。**行号对应上面 A 组表格。**
+> 现行门槛：`--multi` 13/13、`--real-multi` 20/20、`--with-compile` 21/21、`--unity-check` 4/4、`--unity-placements-check` 4/4。
+
+| # | 判据 | 当前证据（2026-11-24 实测） | 状态 |
+|:--:|---|---|:--:|
+| 1 | 同一份 manifest 双端都能读，日志资产数一致 | 两端都读 `schemas/tree_manifest_multi.json`：UE 侧 `CHAIN PASS assets=2 placements=1892`；Unity 侧 `UNITY-CHECK PASS assets=2 prefabs=2 textures=4/4` | ✅ |
+| 2 | UE 端自动建母材质 + MIC 并连好贴图 | v1.6 断言②③：MIC `Roughness` 参数后缀 `_Roughness`、标量 `RoughnessScale=0.9`、4/4 槽；贴图三档（`TC_Default`+sRGB / `TC_Normalmap`+线性 / `TC_Masks`+线性）；main=6 / total=10 张 | ✅ |
+| 3 | Unity 端自动建 Material 并映射贴图 | v1.7 读回：shader=`Universal Render Pipeline/Lit`，`texturesApplied` BaseColor/Normal 全 true，路径全 `Assets/EAP/Trees/Textures/…` | ✅ |
+| 4 | 法线贴图不吃 sRGB | UE：`TC_Normalmap` + `srgb=False`（代码 + 断言）；Unity：`TextureImporterType.NormalMap`（代码路径）；**缺两端 Inspector 截图**（非阻塞，有代码判据） | ⚠️ |
+| 5 | 2 的幂/通道不通过时被拦住 | `python tools/test_validator.py` → `拦截成功 9/9`，exit=0（2026-11-24 复跑） | ✅ |
+| 6 | 两端资产名/路径/尺寸一致 | Unity 读回 meshTriCount **3,370 / 3,505** == manifest；Prefab bounds 每轴误差 ≤2e-5 m；贴图路径全在 `Assets/` 下；**但还没有"逐资产三列对照表"**（见缺口 G3） | ⚠️ |
+
+### Layer 1 / 换树链路（B、B2 组）现状
+
+- B 组 1–9：`--real-multi` 今日 `CHAIN PASS assets=2 placements=1892`，1892==1892 全程成立；落位 bbox 误差 0.0000 m、逐条 transform 0/1892 不匹配。
+- B2 组 10–16：v1.6 起并入 `--real-multi`（20 条断言）与 `--with-compile`（21 条）；树高 10.236 m、双树种 1324+568、材质规范化都在断言内。
+- **跨引擎新增（v1.8）**：Unity 侧 1,892 实例落位 + 1892 Collider；坐标换算包围盒 vs UE 侧 `bboxPlacedM` 误差 **0.0000 m**。
+
+## D. 真实缺口清单（2026-11-24）
+
+| # | 缺口 | 影响 | 建议 |
+|:--:|---|---|---|
+| G1 | UE 侧落位只落 transform：ISM **无碰撞体、无 LOD** | 阶段一不阻塞；进游戏/演示会露 | 任务单 7 候选 |
+| G2 | Unity 侧**朝向正确性无直接判据**（yaw 取反只靠换算前 bbox 交叉验证） | 视觉可能镜像 | 任务单 7：逐实例对账 |
+| G3 | 双端"资产名/路径/尺寸一致"只有 triCount/bounds/贴图路径，**无三列对照表** | 面试被追问"怎么对账"时缺一页证据 | 任务单 7：导出双端对照表 |
+| G4 | 法线 `sRGB` 两端 Inspector 截图未截 | 阶段一第 4 条只算 ⚠️ | 开编辑器时顺手截 |
+| G5 | 性能表（导入 / 材质 / 碰撞 三段 × 20 资产）未做 | 加分项，非资格项 | 低优先 |
+| G6 | 树资产各只有 1 个 LOD | 大规模场景性能 | 与 G1 合并 |
+| G7 | roughness 合成区间窄（0.65–0.80），视觉差异弱 | 画面说服力 | 可选：拉大到 0.95 / 0.55（需同步 3 条断言与 4 张 SHA） |
