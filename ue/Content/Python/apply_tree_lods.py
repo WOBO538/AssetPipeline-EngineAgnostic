@@ -92,12 +92,49 @@ def _lod_material_slots(sub, mesh, lod):
     """每级 section 数、各 section 用的材质槽下标、UV 通道数（证明两材质槽与 UV 没丢）。"""
     nsec = _safe(lambda: int(mesh.get_num_sections(lod)), 0) or 0
     slots = []
+    names = []
     for s in range(nsec):
-        slots.append(_safe(lambda s=s: int(sub.get_lod_material_slot(mesh, lod, s)), -1))
+        slot = _safe(lambda s=s: int(sub.get_lod_material_slot(mesh, lod, s)), -1)
+        slots.append(slot)
+        names.append(_safe(lambda slot=slot: str(mesh.get_material(slot).get_name()), None))
     uv = _try(lambda: int(sub.get_num_uv_channels(mesh, lod)), -1)
     if uv < 0:
         uv = _try(lambda: int(sub.get_num_uv_channels(mesh)), -1)
-    return nsec, slots, uv
+    return nsec, slots, uv, names
+
+
+def _lod0_uv_bounds(mesh):
+    """扫 LOD0 的 MeshDescription 逐 vertex-instance 读 uv0，算 UV 范围。
+
+    `StaticMeshDescription.get_vertex_instance_uv(vertex_instance_id, uv_index)` 需要
+    VertexInstanceID 结构体（不能直接传 int）。读不到就返回 (None, 原因)，不编数据。
+    """
+    desc = _try(lambda: mesh.get_static_mesh_description(0), None)
+    if desc is None:
+        return None, "get_static_mesh_description(0) 不可用"
+    n = _try(lambda: int(desc.get_vertex_instance_count()), 0) or 0
+    if n <= 0:
+        return None, "vertex_instance_count=0"
+    umin = vmin = 1e18
+    umax = vmax = -1e18
+    try:
+        for i in range(n):
+            vid = unreal.VertexInstanceID()
+            vid.set_editor_property("id_value", i)
+            uv = desc.get_vertex_instance_uv(vid, 0)
+            u, v = float(uv.x), float(uv.y)
+            umin = min(umin, u); umax = max(umax, u)
+            vmin = min(vmin, v); vmax = max(vmax, v)
+    except Exception as exc:  # noqa: BLE001
+        return None, "读取失败: %r" % (exc,)
+    return {
+        "min": [round(umin, 6), round(vmin, 6)],
+        "max": [round(umax, 6), round(vmax, 6)],
+        "channel": 0,
+        "vertexInstances": n,
+        "meshDescriptionVertexCount": _try(lambda: int(desc.get_vertex_count()), None),
+        "space": "UE MeshDescription uv0（实测与 glTF TEXCOORD_0 同值，未做 V 翻转）",
+    }, None
 
 
 def apply_species(sub, species):
@@ -149,7 +186,7 @@ def apply_species(sub, species):
         problems.append("读回 screenSizes=%r（期望 %r）" % (read_screens, SCREENS))
     lods = []
     for i in range(num_lods):
-        nsec, slots, uv = _lod_material_slots(sub, mesh, i)
+        nsec, slots, uv, names = _lod_material_slots(sub, mesh, i)
         lods.append({
             "index": i,
             "triCount": counts[i],
@@ -158,6 +195,7 @@ def apply_species(sub, species):
             "screenSize": read_screens[i] if i < len(read_screens) else None,
             "sectionCount": nsec,
             "materialSlotIndices": slots,
+            "materialNames": names,
             "uvChannelCount": uv,
         })
     if len(counts) >= 2:
@@ -171,6 +209,7 @@ def apply_species(sub, species):
         if not (lv["uvChannelCount"] and lv["uvChannelCount"] > 0):
             problems.append("LOD%d uvChannelCount=%r（期望 >0）" % (lv["index"], lv["uvChannelCount"]))
 
+    uv_bounds, uv_note = _lod0_uv_bounds(mesh)
     return {
         "ok": not problems,
         "assetPath": path,
@@ -182,6 +221,9 @@ def apply_species(sub, species):
         "naniteToggleForLod0Read": nanite_was,
         "materialNamesLod0": [str(_safe(lambda s=s: mesh.get_material(s).get_name(), None))
                                for s in range(_safe(lambda: int(mesh.get_num_sections(0)), 0) or 0)],
+        "uvBounds": uv_bounds,
+        "uvBoundsNote": uv_note or ("逐 vertex-instance 读 uv0 得到；与 glTF TEXCOORD_0 同值（未翻转）"
+                                    if uv_bounds else None),
         "lods": lods,
         "problems": problems,
     }

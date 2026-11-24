@@ -7,6 +7,46 @@
   "species": {
     "conifer": {
       "sourceGlb": "assets/raw/trees/conifer.glb",
+      "source": {
+        "glb": "assets/raw/trees/conifer.glb",
+        "primitives": 2,
+        "triCount": 3370,
+        "vertexCount": 2960,
+        "uvChannels": 1,
+        "materialNames": [
+          "Bark_NormalTree",
+          "Leaves_Pine"
+        ],
+        "uvBounds": {
+          "min": [
+            0.00024,
+            -10.12045
+          ],
+          "max": [
+            0.99976,
+            0.99976
+          ],
+          "space": "glTF TEXCOORD_0 原始值（V 向下）；UE 侧 MeshDescription 实测存的是同一组值（未翻转）"
+        },
+        "primitiveDetail": [
+          {
+            "mesh": 0,
+            "primitive": 0,
+            "material": "Bark_NormalTree",
+            "triCount": 2160,
+            "vertexCount": 1523,
+            "uvChannels": 1
+          },
+          {
+            "mesh": 0,
+            "primitive": 1,
+            "material": "Leaves_Pine",
+            "triCount": 1210,
+            "vertexCount": 1437,
+            "uvChannels": 1
+          }
+        ]
+      },
       "lods": [
         {
           "level": "lod1",
@@ -151,6 +191,46 @@
     },
     "broadleaf": {
       "sourceGlb": "assets/raw/trees/broadleaf.glb",
+      "source": {
+        "glb": "assets/raw/trees/broadleaf.glb",
+        "primitives": 2,
+        "triCount": 3505,
+        "vertexCount": 4704,
+        "uvChannels": 1,
+        "materialNames": [
+          "Bark_NormalTree",
+          "Leaves_NormalTree"
+        ],
+        "uvBounds": {
+          "min": [
+            0.00024,
+            -11.18604
+          ],
+          "max": [
+            0.99976,
+            0.99976
+          ],
+          "space": "glTF TEXCOORD_0 原始值（V 向下）；UE 侧 MeshDescription 实测存的是同一组值（未翻转）"
+        },
+        "primitiveDetail": [
+          {
+            "mesh": 0,
+            "primitive": 0,
+            "material": "Bark_NormalTree",
+            "triCount": 1705,
+            "vertexCount": 1104,
+            "uvChannels": 1
+          },
+          {
+            "mesh": 0,
+            "primitive": 1,
+            "material": "Leaves_NormalTree",
+            "triCount": 1800,
+            "vertexCount": 3600,
+            "uvChannels": 1
+          }
+        ]
+      },
       "lods": [
         {
           "level": "lod1",

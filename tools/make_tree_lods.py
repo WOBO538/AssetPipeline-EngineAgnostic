@@ -22,6 +22,7 @@
 import hashlib
 import json
 import os
+import struct
 import subprocess
 import sys
 
@@ -40,6 +41,113 @@ def _sha256(path):
         for chunk in iter(lambda: fh.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+# ---------------------------------------------------------------- glb 二进制解析（源数据，不经过 Blender）
+
+_GLB_JSON = 0x4E4F534A   # "JSON"
+_GLB_BIN = 0x004E4942    # "BIN\0"
+_COMP = {5120: "b", 5121: "B", 5122: "h", 5123: "H", 5125: "I", 5126: "f"}
+_NCOMP = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
+
+
+def _glb_chunks(path):
+    with open(path, "rb") as fh:
+        data = fh.read()
+    if data[:4] != b"glTF":
+        raise RuntimeError("不是 glb: %s" % path)
+    off, gltf, blob = 12, None, b""
+    while off + 8 <= len(data):
+        clen, ctype = struct.unpack("<II", data[off:off + 8])
+        chunk = data[off + 8: off + 8 + clen]
+        if ctype == _GLB_JSON:
+            gltf = json.loads(chunk.decode("utf-8"))
+        elif ctype == _GLB_BIN:
+            blob = chunk
+        off += 8 + clen
+    if gltf is None:
+        raise RuntimeError("glb 缺 JSON chunk: %s" % path)
+    return gltf, blob
+
+
+def _accessor_vec(gltf, blob, idx):
+    """读一个 accessor（支持 byteStride；不支持 sparse —— 这两棵树的 glb 没有）。"""
+    acc = gltf["accessors"][idx]
+    if acc.get("sparse"):
+        raise RuntimeError("accessor %d 是 sparse，暂不支持" % idx)
+    bv = gltf["bufferViews"][acc["bufferView"]]
+    fmt = _COMP[acc["componentType"]]
+    n = _NCOMP[acc["type"]]
+    size = struct.calcsize(fmt)
+    stride = bv.get("byteStride") or n * size
+    base = int(bv.get("byteOffset", 0)) + int(acc.get("byteOffset", 0))
+    return [struct.unpack_from("<" + fmt * n, blob, base + i * stride) for i in range(acc["count"])]
+
+
+def _glb_source_stats(path):
+    """从 glb 二进制算 LOD0 的源数据（triCount / vertexCount / UV / 材质名 / UV 范围）。
+
+    **按 primitive 分别求和**：这两棵树的每个材质是一个 primitive（conifer 2 个、
+    broadleaf 2 个），只读 primitives[0] 会拿到一半的面和一半的顶点。
+    triCount = indices accessor count / 3（mode=4 TRIANGLES）；
+    vertexCount = POSITION accessor count 求和（不跨 primitive 去重，与 glTF 口径一致）。
+    """
+    gltf, blob = _glb_chunks(path)
+    mats = [m.get("name") for m in (gltf.get("materials") or [])]
+    detail = []
+    total_tri = 0
+    total_vert = 0
+    uv_channels = 0
+    names = []
+    uv_min = [1e18, 1e18]
+    uv_max = [-1e18, -1e18]
+    uv_ok = True
+
+    for mi, mesh in enumerate(gltf.get("meshes") or []):
+        for pi, prim in enumerate(mesh.get("primitives") or []):
+            mode = prim.get("mode", 4)   # 4 = TRIANGLES
+            if mode != 4:
+                raise RuntimeError("primitive mode=%d 不是 TRIANGLES: %s" % (mode, path))
+            if "indices" not in prim or "POSITION" not in prim.get("attributes", {}):
+                raise RuntimeError("primitive 缺 indices/POSITION: %s" % path)
+            tri = int(gltf["accessors"][prim["indices"]]["count"]) // 3
+            vert = int(gltf["accessors"][prim["attributes"]["POSITION"]]["count"])
+            total_tri += tri
+            total_vert += vert
+            attrs = prim.get("attributes") or {}
+            n_uv = len([k for k in attrs if k.startswith("TEXCOORD_")])
+            uv_channels = max(uv_channels, n_uv)
+            mat_i = prim.get("material")
+            mname = mats[mat_i] if (mat_i is not None and mat_i < len(mats)) else None
+            if mi == 0:
+                names.append(mname)
+            if n_uv:
+                try:
+                    for u, v in _accessor_vec(gltf, blob, attrs["TEXCOORD_0"]):
+                        uv_min[0] = min(uv_min[0], float(u))
+                        uv_min[1] = min(uv_min[1], float(v))
+                        uv_max[0] = max(uv_max[0], float(u))
+                        uv_max[1] = max(uv_max[1], float(v))
+                except (KeyError, struct.error):
+                    uv_ok = False
+            detail.append({"mesh": mi, "primitive": pi, "material": mname,
+                           "triCount": tri, "vertexCount": vert, "uvChannels": n_uv})
+
+    uv_bounds = None
+    if uv_ok and uv_min[0] < 1e18:
+        uv_bounds = {"min": [round(uv_min[0], 6), round(uv_min[1], 6)],
+                     "max": [round(uv_max[0], 6), round(uv_max[1], 6)],
+                     "space": "glTF TEXCOORD_0 原始值（V 向下）；UE 侧 MeshDescription 实测存的是同一组值（未翻转）"}
+    return {
+        "glb": os.path.relpath(path, REPO).replace("\\", "/"),
+        "primitives": len(detail),
+        "triCount": total_tri,
+        "vertexCount": total_vert,
+        "uvChannels": uv_channels,
+        "materialNames": names,
+        "uvBounds": uv_bounds,
+        "primitiveDetail": detail,
+    }
 
 
 def _make_fbx_export_deterministic():
@@ -212,7 +320,15 @@ def main(argv):
     problems = []
     for sp in SPECIES:
         src = os.path.join(SRC_DIR, sp + ".glb")
-        entry = {"sourceGlb": "assets/raw/trees/%s.glb" % sp, "lods": []}
+        src_stats = _glb_source_stats(src)
+        print("[EAP] %s source: primitives=%d tri=%d vert=%d uvChannels=%d mats=%r"
+              % (sp, src_stats["primitives"], src_stats["triCount"], src_stats["vertexCount"],
+                 src_stats["uvChannels"], src_stats["materialNames"]))
+        for pd in src_stats["primitiveDetail"]:
+            print("[EAP]   prim %d/%d mat=%s tri=%d vert=%d uv=%d"
+                  % (pd["mesh"], pd["primitive"], pd["material"], pd["triCount"],
+                     pd["vertexCount"], pd["uvChannels"]))
+        entry = {"sourceGlb": "assets/raw/trees/%s.glb" % sp, "source": src_stats, "lods": []}
         for lod, ratio in RATIOS:
             out = os.path.join(LOD_DIR, "%s_%s.fbx" % (sp, lod))
             meta = _run_blender(src, out, ratio)
@@ -244,6 +360,15 @@ def main(argv):
                   % (sp, lod, ratio, meta["triCount"], meta["vertexCount"],
                      [m for m in meta["materialSlots"] if m], meta["uvLayers"],
                      rec["sha256"][:16]))
+        # 源数据自洽：glb 二进制解析 vs Blender 导入（不一致说明解析口径或源文件有问题）
+        if entry.get("sourceTriCount") != src_stats["triCount"]:
+            problems.append("%s 源面数 glb解析=%d vs Blender导入=%s"
+                            % (sp, src_stats["triCount"], entry.get("sourceTriCount")))
+        src_names = [m for m in src_stats["materialNames"] if m]
+        for rec in entry["lods"]:
+            if [m for m in rec["materialSlots"] if m] != src_names:
+                problems.append("%s %s 材质名 glb=%r vs Blender=%r"
+                                % (sp, rec["level"], src_names, rec["materialSlots"]))
         doc["species"][sp] = entry
 
     doc["problems"] = problems

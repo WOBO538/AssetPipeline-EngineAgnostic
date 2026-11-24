@@ -23,6 +23,7 @@ import argparse
 import datetime
 import hashlib
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -1747,16 +1748,17 @@ def _run_lod_check(args):
 
     4 条断言：
       1. 两棵树 UE `numLods == 4` 且各级 triCount 严格递减（>0）；
-      2. LOD0 triCount == 源数据（conifer 3,370 / broadleaf 3,505），LOD0 没被动过；
+      2. LOD0 == 源数据：triCount（3,370 / 3,505）+ 顶点数 `src <= ue <= ceil(src*1.01)`
+         + 材质名逐字相等 + UV 通道数严格相等（UV 范围两侧都能读时逐轴差 < 0.02）；
       3. Unity `lod.levels == 4` 且 `triCounts` 与 UE 同级逐级相等（容差 0）；
       4. `docs/tree_lods.json` 的 fbx SHA256 与磁盘文件一致。
 
     只验数据，不验视觉切换（无头环境测不了）。
     """
     manifest = os.path.abspath(args.manifest)
-    # EAP_LOD_UE_JSON 仅供反向验证指向篡改副本，正常流程不设
+    # EAP_LOD_UE_JSON / EAP_LOD_JSON 仅供反向验证指向篡改副本，正常流程不设
     ue_path = os.environ.get("EAP_LOD_UE_JSON") or os.path.join(REPO, "docs", "tree_lods_ue.json")
-    lods_path = os.path.join(REPO, "docs", "tree_lods.json")
+    lods_path = os.environ.get("EAP_LOD_JSON") or os.path.join(REPO, "docs", "tree_lods.json")
     unity_path = os.path.splitext(manifest)[0] + ".unity_verify.json"
     fails = []
     print("[0/4] LOD 双端数据检查（4 条断言，不进老门槛）")
@@ -1808,27 +1810,56 @@ def _run_lod_check(args):
             fails.append("断言1 %s UE numLods=%d triCounts=%s（要求 4 级且严格递减）" % (sp, num, tris))
     print("[1/4] UE 4 级 LOD → %s（路径 %s）" % ("PASS" if ok1 else "FAIL", ue.get("pathUsed")))
 
-    # ---- 断言 2：LOD0 == 源数据 ----
+    # ---- 断言 2：LOD0 == 源数据（面数 / 顶点 / 材质名 / UV 通道；UV 值能读就比） ----
     ok2 = True
+    lod_species = lods_doc.get("species") or {}
     for sp, sid, a in pairs:
         want = LOD0_SOURCE_TRIS[sp]
         sp_doc = (ue.get("species") or {}).get(sp) or {}
         lods = sp_doc.get("lods") or []
-        got = int(lods[0].get("triCount", -1)) if lods else -1
-        man_tri = int(((a.get("model") or {}).get("triCount")) or -1)
         lod0 = lods[0] if lods else {}
+        got = int(lod0.get("triCount", -1))
+        man_tri = int(((a.get("model") or {}).get("triCount")) or -1)
         sec = int(lod0.get("sectionCount") or 0)
-        uv = int(lod0.get("uvChannelCount") or 0)
-        good = (got == want and man_tri == want and sec == 2 and uv >= 1)
-        print("[2/4] %s LOD0 triCount=%s（源 %d，manifest %s，section=%s，uvChannels=%s，"
-              "naniteOn=%s） → %s"
-              % (sp, got, want, man_tri, lod0.get("sectionCount"), lod0.get("uvChannelCount"),
-                 lod0.get("triCountNaniteOn"), "PASS" if good else "FAIL"))
+        ue_v = int(lod0.get("vertexCount", -1))
+        ue_uv = int(lod0.get("uvChannelCount") or 0)
+        src = (lod_species.get(sp) or {}).get("source") or {}
+        src_v = int(src.get("vertexCount") or -1)
+        src_uv = int(src.get("uvChannels") or -1)
+        src_names = [m for m in (src.get("materialNames") or []) if m]
+        ue_names = [m for m in (sp_doc.get("materialNamesLod0") or []) if m]
+        cap = int(math.ceil(src_v * 1.01)) if src_v >= 0 else -1
+        reasons = []
+        if not (got == want and man_tri == want):
+            reasons.append("tri UE=%s 源=%d manifest=%s" % (got, want, man_tri))
+        if sec != 2:
+            reasons.append("section=%d（期望 2）" % sec)
+        if src_v < 0:
+            reasons.append("tree_lods.json 缺 source.vertexCount")
+        elif not (src_v <= ue_v <= cap):
+            reasons.append("vertex UE=%s 不在 [%d, %d]" % (ue_v, src_v, cap))
+        if not src_names or ue_names != src_names:
+            reasons.append("材质名 UE=%r 源=%r" % (ue_names, src_names))
+        if src_uv < 0 or ue_uv != src_uv:
+            reasons.append("UV 通道 UE=%s 源=%s" % (ue_uv, src_uv))
+        src_uvb = src.get("uvBounds") or None
+        ue_uvb = sp_doc.get("uvBounds") or None
+        uv_note = "UV 值未比对（源侧或 UE 侧无 uvBounds）"
+        if src_uvb and ue_uvb:
+            duv = max(max(abs(float(x) - float(y)) for x, y in zip(src_uvb["min"], ue_uvb["min"])),
+                      max(abs(float(x) - float(y)) for x, y in zip(src_uvb["max"], ue_uvb["max"])))
+            uv_note = "UV 范围差=%.6f（阈值 0.02）" % duv
+            if duv >= 0.02:
+                reasons.append("UV 范围差=%.6f >= 0.02" % duv)
+        good = not reasons
+        print("[2/4] %s LOD0 tri=%s/%d vert=%s（源 %s，Δ=%+d，上界 %s）材质名=%r UV通道=%s/%s %s → %s"
+              % (sp, got, want, ue_v, src_v, ue_v - src_v, cap, ue_names, ue_uv, src_uv,
+                 uv_note, "PASS" if good else "FAIL"))
         if not good:
             ok2 = False
-            fails.append("断言2 %s LOD0 triCount=%s（源 %d，manifest %s，section=%s，uv=%s）"
-                         % (sp, got, want, man_tri, sec, uv))
-    print("[2/4] LOD0 仍是源网格（3,370 / 3,505） → %s" % ("PASS" if ok2 else "FAIL"))
+            fails.append("断言2 %s: %s" % (sp, "; ".join(reasons)))
+    print("[2/4] LOD0 仍是源网格（面数/顶点/材质名/UV 通道，UV 值能读就比） → %s"
+          % ("PASS" if ok2 else "FAIL"))
 
     # ---- 断言 3：Unity 4 级且与 UE 同级 triCount 逐级相等（容差 0） ----
     vmap = {a.get("id"): a for a in (un.get("assets") or [])}
@@ -1874,7 +1905,7 @@ def _run_lod_check(args):
     if fails:
         print("\nCHAIN FAIL: " + " | ".join(fails))
         return 1
-    print("\nLOD-CHECK PASS  (UE 4 级 / LOD0=3370,3505 / Unity 同级三角面一致 / fbx SHA 可追溯)")
+    print("\nLOD-CHECK PASS  (UE 4 级 / LOD0=3370,3505 + 顶点/材质名/UV 对源 / Unity 同级三角面一致 / fbx SHA 可追溯)")
     print("      说明：只验数据（LOD 数、三角面、screen size/height、文件 SHA），"
           "无头环境不验视觉切换，ISM/LODGroup 的实际切换需在编辑器里看。")
     return 0

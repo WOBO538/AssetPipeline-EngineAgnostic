@@ -41,6 +41,10 @@
       "lods": [
         {
           "index": 0,
+          "materialNames": [
+            "Bark_NormalTree",
+            "Leaves_NormalTree"
+          ],
           "materialSlotIndices": [
             0,
             1
@@ -54,6 +58,10 @@
         },
         {
           "index": 1,
+          "materialNames": [
+            "Bark_NormalTree",
+            "Leaves_NormalTree"
+          ],
           "materialSlotIndices": [
             0,
             1
@@ -67,6 +75,10 @@
         },
         {
           "index": 2,
+          "materialNames": [
+            "Bark_NormalTree",
+            "Leaves_NormalTree"
+          ],
           "materialSlotIndices": [
             0,
             1
@@ -80,6 +92,10 @@
         },
         {
           "index": 3,
+          "materialNames": [
+            "Bark_NormalTree",
+            "Leaves_NormalTree"
+          ],
           "materialSlotIndices": [
             0,
             1
@@ -107,7 +123,22 @@
         0.5,
         0.25,
         0.1
-      ]
+      ],
+      "uvBounds": {
+        "channel": 0,
+        "max": [
+          0.99976,
+          0.99976
+        ],
+        "meshDescriptionVertexCount": 4704,
+        "min": [
+          0.00024,
+          -11.18604
+        ],
+        "space": "UE MeshDescription uv0（实测与 glTF TEXCOORD_0 同值，未做 V 翻转）",
+        "vertexInstances": 10515
+      },
+      "uvBoundsNote": "逐 vertex-instance 读 uv0 得到；与 glTF TEXCOORD_0 同值（未翻转）"
     },
     "conifer": {
       "assetPath": "/Game/EAP/Trees/conifer/StaticMeshes/conifer.conifer",
@@ -131,6 +162,10 @@
       "lods": [
         {
           "index": 0,
+          "materialNames": [
+            "Bark_NormalTree",
+            "Leaves_Pine"
+          ],
           "materialSlotIndices": [
             0,
             1
@@ -144,6 +179,10 @@
         },
         {
           "index": 1,
+          "materialNames": [
+            "Bark_NormalTree",
+            "Leaves_Pine"
+          ],
           "materialSlotIndices": [
             0,
             1
@@ -157,6 +196,10 @@
         },
         {
           "index": 2,
+          "materialNames": [
+            "Bark_NormalTree",
+            "Leaves_Pine"
+          ],
           "materialSlotIndices": [
             0,
             1
@@ -170,6 +213,10 @@
         },
         {
           "index": 3,
+          "materialNames": [
+            "Bark_NormalTree",
+            "Leaves_Pine"
+          ],
           "materialSlotIndices": [
             0,
             1
@@ -197,7 +244,22 @@
         0.5,
         0.25,
         0.1
-      ]
+      ],
+      "uvBounds": {
+        "channel": 0,
+        "max": [
+          0.99976,
+          0.99976
+        ],
+        "meshDescriptionVertexCount": 2960,
+        "min": [
+          0.00024,
+          -10.12045
+        ],
+        "space": "UE MeshDescription uv0（实测与 glTF TEXCOORD_0 同值，未做 V 翻转）",
+        "vertexInstances": 10110
+      },
+      "uvBoundsNote": "逐 vertex-instance 读 uv0 得到；与 glTF TEXCOORD_0 同值（未翻转）"
     }
   },
   "ueVersion": "5.7.4-51494982+++UE5+Release-5.7"

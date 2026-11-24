@@ -621,12 +621,13 @@ body setup 里真实存在的凸包元素（两棵树 `convex_elems=1`），不�
 老门槛不变：`--multi` 13/13、`--real-multi` 20/20、`--with-compile` 21/21、
 `--unity-check` 4/4、`--unity-placements-check` 4/4、`test_validator.py` 9/9。
 
-## 三之十三、树资产 LOD：双端 4 级（v1.12）
+## 三之十三、树资产 LOD：双端 4 级（v1.12，LOD0 判据补硬 v1.12.1）
 
 > 注：三之十二（性能表）见 [docs/perf_report.md](docs/perf_report.md)。
 
 v1.12 补验收表 **G6**：两棵树（conifer / broadleaf）各补 **3 级真几何 LOD**，
 UE StaticMesh 4 级、Unity Prefab `LODGroup` 4 级，新增独立命令 `--lod-check`（4 条断言，不并入老门槛）。
+**v1.12.1** 把断言 2 从"只比三角面数"补硬为"与源 glb 对顶点 / 材质名 / UV"（见下 D 节）。
 
 ```
 assets/raw/trees/{conifer,broadleaf}.glb（不改）
@@ -652,6 +653,27 @@ assets/raw/trees/lod/{species}_lod{1,2,3}.fbx + docs/tree_lods.json（triCount/v
   并抽样记录顶点 UV；LOD3（0.10）也没有把小材质岛干掉（`materialFaceCounts` 两级都 > 0 → 关卡失败）。
 - **LOD0 不是本脚本产物**：脚本只输出 LOD1–3；`assets/raw/trees/*.glb` 与已入库 fbx 一个字节没动。
 
+**A2 · `source` 块（v1.12.1，glb 二进制解析，不用 Blender 导入结果自证）**：
+`make_tree_lods.py` 直接读 GLB 头 + JSON chunk + accessors 算源网格统计，写进 `docs/tree_lods.json`
+每个物种的 `source`（`lods` 数组一个字段没动）。**按 primitive 求和**——两棵树各有 2 个材质、
+glb 里就是 2 个 primitive、各带自己的 POSITION 与 indices accessor；只读 `primitives[0]` 会拿到一半：
+
+| species | primitive | material | triCount | vertexCount |
+|---|:--:|---|--:|--:|
+| conifer | 0 | Bark_NormalTree | 2,160 | 1,523 |
+| conifer | 1 | Leaves_Pine | 1,210 | 1,437 |
+| conifer | 合计（`source`） | — | **3,370** | **2,960** |
+| broadleaf | 0 | Bark_NormalTree | 1,705 | 1,104 |
+| broadleaf | 1 | Leaves_NormalTree | 1,800 | 3,600 |
+| broadleaf | 合计（`source`） | — | **3,505** | **4,704** |
+
+`triCount` = `indices` accessor count / 3；`vertexCount` = 各 primitive `POSITION` accessor count 求和；
+`uvChannels` = `max(len(TEXCOORD_*))` = 1；`materialNames` = primitives.material 反查；
+`uvBounds` 从 TEXCOORD_0 全部值算（conifer min `[0.00024, -10.12045]` / max `[0.99976, 0.99976]`，
+broadleaf min `[0.00024, -11.18604]` / max `[0.99976, 0.99976]`；叶子 UV 为负 tiling，V 向下）。
+脚本还会自洽检查：`source.triCount` 与 `lods` 里记录的 `sourceTriCount` 一致、各级
+`materialSlots` 与 `source.materialNames` 一致（problems=0）。
+
 实测（`python tools/make_tree_lods.py --self-check-sha` 连跑两次，SHA 全一致，problems=0）：
 
 | species | LOD | ratio | triCount | vertexCount | materialSlots | UV |
@@ -674,6 +696,13 @@ assets/raw/trees/lod/{species}_lod{1,2,3}.fbx + docs/tree_lods.json（triCount/v
   `triCount`（Nanite off，真值）与 `triCountNaniteOn`（fallback），不拿 fallback 凑数。
 - 每级还核 `sectionCount == 2`、`uvChannelCount >= 1`（`get_num_uv_channels`），
   材质槽下标 `[0, 1]` 不变；LOD0 的 mesh 从没被 `import_lod` 触碰（只对 index 1..3 调用）。
+- **v1.12.1 补的 UE 侧证据**：物种级 `materialNamesLod0`（`mesh.get_material(slot).get_name()`，
+  conifer `['Bark_NormalTree','Leaves_Pine']`、broadleaf `['Bark_NormalTree','Leaves_NormalTree']`，
+  **与 glb 原名逐字相等，无后缀、无归一化**）；每级 `lods[].materialNames`；
+  物种级 `uvBounds`——用 `get_static_mesh_description(0)` 逐 vertex-instance 调
+  `get_vertex_instance_uv(VertexInstanceID, 0)` 读出（conifer 10,110 / broadleaf 10,515 个 vertex-instance），
+  结果与 glTF TEXCOORD_0 **同值、未做 V 翻转**，两侧 bounds 逐轴差 **0.000000**。
+  （`get_num_vertices(0)` 是渲染顶点 2,961 / 4,707；`MeshDescription.get_vertex_count()` 是 2,960 / 4,704，与 glb POSITION 一致。）
 
 **C · Unity 侧（screen height 不是 UE screen size 的同名量）**：`ManifestImporter` 把
 `lod.models[].path` 的 fbx 按内容哈希复制到 `Assets/EAP/Trees/Models/`，Prefab 根加 `LODGroup`：
@@ -689,20 +718,49 @@ LOD0 用原模型自身的 Renderer，LOD1–3 把各 fbx 的网格子物体摘�
 | # | 断言 | 实测 |
 |:--:|---|---|
 | 1 | 两棵树 UE `numLods == 4` 且各级 triCount 严格递减（>0） | 3370/1685/842/337、3505/1752/876/350 |
-| 2 | LOD0 == 源数据（3,370 / 3,505），且 section=2、UV≥1、manifest 同值 | 全 PASS |
+| 2 | LOD0 仍是源网格：triCount 3,370 / 3,505 + 顶点 `src ≤ ue ≤ ceil(src×1.01)` + 材质名逐字相等 + UV 通道数严格相等（UV 值两侧都能读时逐轴差 < 0.02）+ section=2 + manifest 同值 | 全 PASS（见下） |
 | 3 | Unity `lod.levels == 4` 且 `triCounts` 与 UE 同级逐级相等（容差 0） | 4 级全等 |
 | 4 | `docs/tree_lods.json` 的 fbx SHA256 与磁盘一致 | 6/6 PASS |
 
-**反向验证（真跑，篡改用临时副本 / `EAP_LOD_UE_JSON` 指副本，不碰仓库）**：
-① UE 证据删掉 conifer LOD3（`numLods=3`）→ **断言 1 FAIL**；
-② UE 证据把 conifer LOD0 改成 3,000 → **断言 2 FAIL**；
-③ Unity 读回把 conifer LOD2 的 842 改成 843 → **断言 3 FAIL**，断言 1/2/4 仍 PASS。
+**断言 2 的新口径（v1.12.1）与容差理由**：
 
-**诚实边界**：无头环境只验**数据**（LOD 数、三角面、screen size/height、引用文件与 SHA），
-**不声称验证了视觉切换**——ISM 的 LOD 切换和 `LODGroup` 的淡入淡出要在编辑器里看。
-UE 证据里的 `vertexCount` 是渲染数据顶点（按 UV/法线拆分，conifer 2,961 vs glTF POSITION 2,960、
-broadleaf 4,707 vs 4,704），与 Blender 网格顶点不是同一口径，只作参考、不作断言。
-老门槛不变：13 / 20 / 21 / 4 / 4 / 4，`--perf` 与断言 5 未动，v1.6 贴图与三个 roughness SHA 未动。
+- **顶点数**：`source.vertexCount ≤ ue.vertexCount ≤ ceil(source.vertexCount × 1.01)`。
+  容差理由 = **UE 导入时法线/UV 接缝顶点会分裂**，源 accessor 顶点数不等于渲染顶点数。
+  实测**实际差值**（不是上下界）：
+
+  | species | 源 POSITION | UE 渲染顶点 | 实际 Δ | 上界（1.01） |
+  |---|---:|---:|:--:|---:|
+  | conifer | 2,960 | 2,961 | **+1** | 2,990 |
+  | broadleaf | 4,704 | 4,707 | **+3** | 4,752 |
+
+  上界偏松（2,960 → 2,990 能容 30 个），只挡"整体换了个网格"，挡不住 +0.5% 的悄悄漂移；
+  **所以实际差值写在证据输出和本表的 Δ 列里**——日后看 Δ 是否仍是 +1 / +3 就能发现漂移，
+  而不用只看 PASS。
+- **材质名**：`ue.materialNamesLod0 == src.materialNames`，**逐字相等、比顺序也比数量**。
+  UE 导入没有给槽名加后缀（不是 `Material_0`），实测两侧完全相同：
+  conifer `['Bark_NormalTree','Leaves_Pine']`、broadleaf `['Bark_NormalTree','Leaves_NormalTree']`。
+  **未做任何归一化**（不降级成"只比个数"）。
+- **UV 通道数**：`ue.uvChannelCount == src.uvChannels`（由 `>= 1` 改为严格相等），实测 1 == 1。
+- **UV 值**：两侧 `uvBounds` 都能读（UE 用 `get_static_mesh_description(0)` + 逐 vertex-instance
+  `get_vertex_instance_uv`），逐轴差 **0.000000 < 0.02**，故本条实际**比了 UV 值**，
+  不是"仅比通道数"。若哪天 UE 侧 `uvBounds` 读不到（API 变更），`--lod-check` 会打印
+  "UV 值未比对（源侧或 UE 侧无 uvBounds）"并跳过值比较，README 届时须如实改回"仅比通道数"。
+
+**反向验证（真跑，篡改用临时副本 + `EAP_LOD_JSON` / `EAP_LOD_UE_JSON` 指副本，不碰仓库，跑完按字节还原）**：
+v1.12 的旧三条（删 LOD3 → 断言 1 FAIL；改 LOD0 面数 → 断言 2 FAIL；改 Unity LOD2 → 断言 3 FAIL）仍成立。
+v1.12.1 新增三条，**每条都只挂断言 2**（断言 1/3/4 保持 PASS，证明证据读取路径无耦合）：
+① `source.vertexCount` 改成 1,000 → 断言 2 FAIL（`vertex UE=2961 不在 [1000, 1010]`）；
+② UE 证据 LOD0 `vertexCount` 改成 `ceil(src×1.05)=3108` → 断言 2 FAIL（`不在 [2960, 2990]`）；
+③ UE 证据 `materialNamesLod0` 改成 `['Bark_NormalTree','Leaves_PineX']` → 断言 2 FAIL（材质名不等）。
+对照组：真实证据 → 断言 2 PASS（`Δ=+1 / +3`，`UV 范围差=0.000000`）。反验只动 `%TEMP%` 副本，
+两个证据文件 SHA256 反验前后一致，仓库未被污染。
+
+**诚实边界**：无头环境只验**数据**（LOD 数、三角面、顶点数、材质名、UV 通道与范围、
+screen size/height、引用文件与 SHA），**不声称验证了视觉切换**——ISM 的 LOD 切换和
+`LODGroup` 的淡入淡出要在编辑器里看。UE 渲染顶点（2,961 / 4,707）比源 POSITION（2,960 / 4,704）
+多的 +1 / +3 是导入顶点分裂，**已作为断言 2 的容差依据**，不再是"只作参考"的旁注。
+老门槛不变：13 / 20 / 21 / 4 / 4 / 4，`--perf` 与断言 5 未动，v1.6 贴图与三个 roughness SHA 未动，
+6 个 LOD fbx 的 SHA256 未动（`make_tree_lods.py --self-check-sha` 全一致）。
 
 ## 四、阶段一验收（6 条，逐条可判）
 
