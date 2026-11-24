@@ -25,7 +25,7 @@
 | **A. 导入** | `t0` 紧贴 `import_asset_tasks([task])` 之前，`t1` 紧跟其返回之后；含 Interchange 翻译 glb、建 StaticMesh/贴图资产、`save=True` 落盘；不含材质规范化、不含 UE 启动、不含副本复制 | 同一份 conifer.glb 的 20 个字节级相同副本（`perf_import_00..19.glb`，SHA256 `56f88f78f38fc194`），导入到每样本唯一的 `/Game/EAP/Perf/<tag>/A/imp_XX` |
 | **B. 材质** | `t0` 紧贴 `_normalize_materials(mesh, ...)` 之前，`t1` 紧跟其返回之后；含母材质复用（母材质已在本样本计时前预热）、MIC 创建、BaseColor/Normal 贴图参数、三档压缩设置、roughness 灰度贴图生成与导入、`save_loaded_asset` 落盘；不含 A 段导入 | A 段导入出来的 20 个资产，各 2 个材质槽（Bark: OPAQUE+Normal / Leaves: BLEND 无 Normal） |
 | **C. 碰撞（Unity）** | 每个 prefab 副本从"实例化"到"加完 `MeshCollider(convex)` + `Physics.BakeMesh`"；含实例化/销毁副本、凸包烘焙；不含 prefab 副本复制、模型导入、材质。Unity 2022.3 的 `BakeMesh` 返回 void（无法回读成功与否）→ 以调用未抛异常 + `MeshCollider.convex`/`sharedMesh` 读回计数当证据 | 20 个 prefab 副本（conifer/broadleaf 各 10 份，从 v1.8 的真实 prefab 复制） |
-| **C. 碰撞（UE）** | 无独立可测耗时 | 1,892 实例 ISM 的碰撞是组件开关 + profile 设置（一次性组件标志，几乎瞬时、无法稳定测出独立耗时），没有可比的三次采样 → **不编数字**；碰撞证据见 `docs/placed_tree_multi_verify.json`（v1.9 已验证 enabled/BlockAll/1892/meshHasCollision） |
+| **C. 碰撞（UE）** | 无独立可测耗时 | 1,892 实例 ISM 的碰撞是组件开关 + profile 设置（一次性组件标志，无法稳定测出独立耗时），没有可比的三次采样 → **不编数字**；碰撞证据见 `docs/placed_tree_multi_verify.json`（v1.9 已验证 enabled/BlockAll/1892/meshHasCollision） |
 
 ### 20 资产的真实定义（坦白）
 
@@ -38,7 +38,7 @@
 
 - DDC 目录（快照）：`C:\Users\ASUS\AppData\Local\UnrealEngine\Common\DerivedDataCache`、`D:\UECache`、`D:\UE_Projects\VegetationPCG\DerivedDataCache`
 - **冷（本次未隔离成功）**：冷样本的 UE 进程命令带了 `-DDC-ForceMemoryCache`，预期"DDC 只驻内存、磁盘/共享 DDC 不读不写"；每个冷样本前后各拍一次 DDC 目录快照用来验证。
-  **实测：3 次冷样本的 DDC bytes 持续增长（+23 KB / +25 KB / +24 KB，files 266 → 271），`-DDC-ForceMemoryCache` 没能隔离磁盘 DDC。**
+  **实测：3 次冷样本的 DDC bytes 持续增长（+23/+25/+24 KB，files 266 → 271），`-DDC-ForceMemoryCache` 没能隔离磁盘 DDC。**
   因此本次的"冷"样本并不是真冷，磁盘 DDC 依然被写入/读取。
 - **热**：不带该 flag，走磁盘 DDC；3 次热采样前先跑一次**不计时**的热启动（只做 A 段）把 DDC 填满。
 - **结论：冷未隔离成功（证据即下方快照表），A/B 的 cold/hot 两组实际都处于"磁盘 DDC 已热"的状态，两组差值在噪声内，不可当作冷热对比，只能当作 6 次重复采样。**
@@ -49,14 +49,14 @@
 | import,material r1 | cold | `-DDC-ForceMemoryCache` | 266 → 266 | 680630606 → 680653670 | DDC 目录有变化（见数字） |
 | import,material r2 | cold | `-DDC-ForceMemoryCache` | 266 → 269 | 680653670 → 680678986 | DDC 目录有变化（见数字） |
 | import,material r3 | cold | `-DDC-ForceMemoryCache` | 269 → 271 | 680678986 → 680703286 | DDC 目录有变化（见数字） |
-| import r0 | hot | `(none)` | 271 → 273 | 680703286 → 680727069 | 热：走磁盘 DDC（目录变化可有可无） |
-| import,material r1 | hot | `(none)` | 273 → 278 | 680727069 → 680752684 | 热：走磁盘 DDC（目录变化可有可无） |
-| import,material r2 | hot | `(none)` | 278 → 278 | 680752684 → 680776825 | 热：走磁盘 DDC（目录变化可有可无） |
-| import,material r3 | hot | `(none)` | 278 → 280 | 680776825 → 680801126 | 热：走磁盘 DDC（目录变化可有可无） |
+| import r0 | hot | `(none)` | 271 → 273 | 680703286 → 680727069 | 热：走磁盘 DDC（写入属预期） |
+| import,material r1 | hot | `(none)` | 273 → 278 | 680727069 → 680752684 | 热：走磁盘 DDC（写入属预期） |
+| import,material r2 | hot | `(none)` | 278 → 278 | 680752684 → 680776825 | 热：走磁盘 DDC（写入属预期） |
+| import,material r3 | hot | `(none)` | 278 → 280 | 680776825 → 680801126 | 热：走磁盘 DDC（写入属预期） |
 
 ## 汇总表
 
-> **注意：冷 DDC 未隔离成功（证据见上节快照表：3 次冷样本 DDC bytes 持续增长 +23/+25/+24 KB、files 266→271）。
+> **注意：冷 DDC 未隔离成功（证据见上节快照表：3 次冷样本 DDC bytes +23/+25/+24 KB、files 266→271）。
 > 因此 A/B 两组的 cold / hot 不是干净的冷热对比——两组实际都是"磁盘 DDC 已热"，差值在噪声内。
 > 下表按原始采样保留 cold / hot 两行只为可追溯，**不要把它读成"冷 vs 热"**；同一段的 6 次采样应合起来看。**
 
@@ -98,6 +98,7 @@
 | 2 | 每次采样 duration_s > 0 | PASS |
 | 3 | 汇总表 min ≤ p50 ≤ max 且样本非退化（防写死） | PASS |
 | 4 | 报告含方法说明段 | PASS |
+| 5 | 报告冷隔离结论与 DDC 快照数据一致 | PASS |
 
 ## 已知噪音源
 

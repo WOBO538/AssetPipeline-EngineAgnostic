@@ -704,7 +704,7 @@ def _run_unity_check(args):
     manifest = os.path.abspath(args.manifest)
     project = os.path.abspath(args.unity_project)
     fails = []
-    print("[0/4] Unity 端吃真模型（batchmode 导入 + 读回）")
+    print("[0/5] Unity 端吃真模型（batchmode 导入 + 读回）")
 
     if _unity_running():
         print("CHAIN FAIL: Unity.exe 正在运行，先关掉 Unity 再来")
@@ -720,7 +720,7 @@ def _run_unity_check(args):
         return 1
 
     changed = _deploy_unity_script(project)
-    print("[0/4] 消费端脚本 %s → %s" % ("已更新" if changed else "无变化", project))
+    print("[0/5] 消费端脚本 %s → %s" % ("已更新" if changed else "无变化", project))
 
     report_path = os.path.splitext(manifest)[0] + ".unity_report.md"
     verify_path = os.path.splitext(manifest)[0] + ".unity_verify.json"
@@ -736,13 +736,13 @@ def _run_unity_check(args):
 
     import_rc, import_log_text = None, ""
     if args.unity_verify_only:
-        print("[1/4] SKIP 导入（--unity-verify-only，反向验证用）")
+        print("[1/5] SKIP 导入（--unity-verify-only，反向验证用）")
     else:
         import_rc, import_log_text = _run_unity(
             args.unity, project, "EAP.ManifestImporter.ImportFromArgs", manifest, import_log)
         summ = _report_summary(report_path)
         ok1 = import_rc == 0 and summ is not None and summ.get("ok") == len(assets) and summ.get("failed") == 0
-        print("[1/4] Unity batchmode 导入 exit=%s report=%s → %s"
+        print("[1/5] Unity batchmode 导入 exit=%s report=%s → %s"
               % (import_rc, summ, "PASS" if ok1 else "FAIL"))
         if not ok1:
             fails.append("断言1 导入失败 exit=%s report=%s | log_tail: %s"
@@ -769,7 +769,7 @@ def _run_unity_check(args):
         if not exists:
             ok2 = False
             fails.append("断言2 %s prefab 不存在: %r" % (a.get("id"), prefab))
-    print("[2/4] Prefab 存在（%d 个） → %s" % (len(assets), "PASS" if ok2 else "FAIL"))
+    print("[2/5] Prefab 存在（%d 个） → %s" % (len(assets), "PASS" if ok2 else "FAIL"))
 
     # 断言 3：BaseColor/Normal 路径是 Assets/ 开头且 texturesApplied 全 true
     ok3 = True
@@ -782,7 +782,7 @@ def _run_unity_check(args):
             if not p.startswith("Assets/") or applied.get(chan) is not True:
                 ok3 = False
                 fails.append("断言3 %s %s path=%r applied=%r" % (a.get("id"), chan, p, applied.get(chan)))
-    print("[3/4] 贴图读回（Assets/ 路径 + texturesApplied） → %s" % ("PASS" if ok3 else "FAIL"))
+    print("[3/5] 贴图读回（Assets/ 路径 + texturesApplied） → %s" % ("PASS" if ok3 else "FAIL"))
 
     # 断言 4：bounds 每轴 < 0.05 m，triCount 完全一致
     ok4 = True
@@ -912,7 +912,7 @@ def _run_unity_placements_check(args):
     bad1 = ["%s=%s(期望 %d)" % (k, got_counts.get(k, 0), v)
             for k, v in expected_counts.items() if int(got_counts.get(k, 0)) != v]
     ok1 = got_total == expected_total and not bad1
-    print("[1/4] 实例数 total=%d(期望 %d) %s → %s"
+    print("[1/5] 实例数 total=%d(期望 %d) %s → %s"
           % (got_total, expected_total,
              " ".join("%s=%s" % (k, got_counts.get(k, 0)) for k in expected_counts),
              "PASS" if ok1 else "FAIL"))
@@ -923,7 +923,7 @@ def _run_unity_placements_check(args):
     got_box = vdata.get("bboxM") or {}
     box_diff = _bbox_max_diff(got_box, expected_box)
     ok2 = bool(got_box.get("min")) and bool(got_box.get("max")) and box_diff < 0.05
-    print("[2/4] 落入 bbox 误差=%.5f m（gate < 0.05） → %s" % (box_diff, "PASS" if ok2 else "FAIL"))
+    print("[2/5] 落入 bbox 误差=%.5f m（gate < 0.05） → %s" % (box_diff, "PASS" if ok2 else "FAIL"))
     if not ok2:
         fails.append("断言2 bbox 误差 %.4fm got=%r want=%r"
                      % (box_diff, got_box, expected_box))
@@ -931,7 +931,7 @@ def _run_unity_placements_check(args):
     # ---- 断言 3：每个实例都有 Collider ----
     got_colliders = int(vdata.get("colliders") or 0)
     ok3 = got_colliders == got_total == expected_total
-    print("[3/4] Collider 数=%d / 实例=%d / 期望=%d → %s"
+    print("[3/5] Collider 数=%d / 实例=%d / 期望=%d → %s"
           % (got_colliders, got_total, expected_total, "PASS" if ok3 else "FAIL"))
     if not ok3:
         fails.append("断言3 colliders=%d instances=%d want=%d"
@@ -1394,8 +1394,8 @@ def _perf_summary(rows):
     return out
 
 
-def _perf_assert(rows, report_path, rounds=3):
-    """4 条断言：采样齐全 / 每次 >0 / min≤p50≤max 且非退化 / 报告有方法说明段。
+def _perf_assert(rows, report_path, rounds=3, notes=None):
+    """5 条断言：采样齐全 / 每次 >0 / min≤p50≤max 且非退化 / 报告有方法说明段 / 冷隔离结论与快照一致。
 
     注意：这里**没有任何绝对耗时阈值**——只查记录完整、数字自洽、可复现。
     """
@@ -1409,13 +1409,13 @@ def _perf_assert(rows, report_path, rounds=3):
         if len(rs) != rounds or got_rounds != list(range(1, rounds + 1)):
             fails.append("断言1 %s/%s 采样 %d 次 rounds=%r（要求 %d 次 1..%d）"
                          % (seg, cw, len(rs), got_rounds, rounds, rounds))
-    print("[1/4] 采样齐全（A/B 冷热各 %d + C %d） → %s"
+    print("[1/5] 采样齐全（A/B 冷热各 %d + C %d） → %s"
           % (rounds, rounds, "PASS" if not fails else "FAIL"))
 
     # 断言 2：每次采样 duration_s > 0
     bad2 = ["%s/%s r%s=%r" % (r.get("segment"), r.get("cold_warm"), r.get("round"), r.get("duration_s"))
             for r in rows if r.get("duration_s") is None or float(r.get("duration_s") or 0) <= 0]
-    print("[2/4] 每次采样 duration_s > 0（%d 条） → %s" % (len(rows), "PASS" if not bad2 else "FAIL"))
+    print("[2/5] 每次采样 duration_s > 0（%d 条） → %s" % (len(rows), "PASS" if not bad2 else "FAIL"))
     if bad2:
         fails.append("断言2 非法耗时: " + "; ".join(bad2))
 
@@ -1429,7 +1429,7 @@ def _perf_assert(rows, report_path, rounds=3):
         elif s["n"] >= 2 and not (s["max"] > s["min"]):
             bad3.append("%s/%s %d 次采样完全相同（max==min=%.6f，疑似写死）"
                         % (s["segment"], s["cold_warm"], s["n"], s["max"]))
-    print("[3/4] 汇总表 min≤p50≤max 且样本非退化（%d 组） → %s"
+    print("[3/5] 汇总表 min≤p50≤max 且样本非退化（%d 组） → %s"
           % (len(summary), "PASS" if not bad3 else "FAIL"))
     if bad3:
         fails.append("断言3 " + "; ".join(bad3))
@@ -1441,11 +1441,33 @@ def _perf_assert(rows, report_path, rounds=3):
             text = fh.read()
     missing = [m for m in PERF_REPORT_MARKERS if m not in text]
     ok4 = bool(text) and not missing
-    print("[4/4] 报告方法说明段（%s） → %s"
+    print("[4/5] 报告方法说明段（%s） → %s"
           % (os.path.basename(report_path), "PASS" if ok4 else "FAIL"))
     if not ok4:
         fails.append("断言4 报告缺失/缺标记 %r（%s）"
                      % (missing, report_path if os.path.isfile(report_path) else "<not written>"))
+
+    # 断言 5：报告里的冷隔离结论必须与 notes.ddcProof 快照一致
+    isolated = _cold_isolated(notes)
+    bad5 = []
+    if isolated is True:
+        if "冷隔离已验证" not in text:
+            bad5.append("快照为已隔离，但报告没写「冷隔离已验证」")
+        if "冷未隔离成功" in text:
+            bad5.append("快照为已隔离，但报告写了「冷未隔离成功」（结论与数据相反）")
+    elif isolated is False:
+        if "冷未隔离成功" not in text:
+            bad5.append("快照为未隔离，但报告没写「冷未隔离成功」")
+        if "不可当作冷热对比" not in text:
+            bad5.append("快照为未隔离，但报告没写「不可当作冷热对比」")
+        if "冷隔离已验证" in text:
+            bad5.append("快照为未隔离，但报告写了「冷隔离已验证」（结论与数据相反）")
+    else:
+        bad5.append("notes.ddcProof 没有冷样本快照，无法判定冷隔离（不能默认当已隔离）")
+    print("[5/5] 报告冷隔离结论与 DDC 快照一致（isolated=%r） → %s"
+          % (isolated, "PASS" if not bad5 else "FAIL"))
+    if bad5:
+        fails.append("断言5 " + "; ".join(bad5))
     return fails, summary
 
 
@@ -1469,8 +1491,26 @@ def _perf_sample_rows(rows):
     return out
 
 
-def _write_perf_report(out_json, rows, summary, machine, notes, failures):
+def _cold_isolated(notes):
+    """由 DDC 快照判定冷隔离是否生效：任一冷样本 files/bytes 前后不一致 → 未隔离。
+
+    返回 True / False；没有冷样本快照时返回 None（无法判定，断言 5 会 FAIL）。
+    """
+    cold = [p for p in ((notes or {}).get("ddcProof") or []) if p.get("mode") == "cold"]
+    if not cold:
+        return None
+    return all(p.get("filesBefore") == p.get("filesAfter")
+               and p.get("bytesBefore") == p.get("bytesAfter") for p in cold)
+
+
+def _write_perf_report(out_json, rows, summary, machine, notes, failures, report_path=None):
     glb_sha = notes.get("glbSha256") or "?"
+    cold_proofs = [p for p in (notes.get("ddcProof") or []) if p.get("mode") == "cold"]
+    isolated = _cold_isolated(notes)
+    kb_deltas = [int(round((int(p.get("bytesAfter") or 0) - int(p.get("bytesBefore") or 0)) / 1024.0))
+                 for p in cold_proofs]
+    files_from = cold_proofs[0].get("filesBefore") if cold_proofs else "?"
+    files_to = cold_proofs[-1].get("filesAfter") if cold_proofs else "?"
     lines = []
     lines.append("# 性能表（v1.10）：导入 / 材质 / 碰撞 × 20 资产")
     lines.append("")
@@ -1505,36 +1545,80 @@ def _write_perf_report(out_json, rows, summary, machine, notes, failures):
                  "`MeshCollider.convex`/`sharedMesh` 读回计数当证据 | "
                  "20 个 prefab 副本（conifer/broadleaf 各 10 份，从 v1.8 的真实 prefab 复制） |")
     lines.append("| **C. 碰撞（UE）** | 无独立可测耗时 | 1,892 实例 ISM 的碰撞是组件开关 + profile 设置"
-                 "（一次性标志，亚毫秒级），没有可比的三次采样 → **不编数字**；碰撞证据见 "
+                 "（一次性组件标志，无法稳定测出独立耗时），没有可比的三次采样 → **不编数字**；碰撞证据见 "
                  "`docs/placed_tree_multi_verify.json`（v1.9 已验证 enabled/BlockAll/1892/meshHasCollision） |")
     lines.append("")
     lines.append("### 20 资产的真实定义（坦白）")
     lines.append("")
     lines.append("- A/B 的 20 个资产是**同一棵 conifer glb 的 20 个副本**，不是 20 个不同资产；"
                  "它们字节级相同（SHA256 一致），DDC 键含源文件名所以是 20 个不同键，但几何/贴图工作量等价。")
-    lines.append("- 冷样本是**单进程 20 资产批处理**：第 1 个副本付完整翻译成本，第 2~20 个在进程内存 DDC 里"
-                 "共享第 1 个的结果。这是批处理口径的固有性质，不是把冷样本偷换成热样本（进程起点没有磁盘 DDC）。")
+    lines.append("- A 段是**单进程 20 资产批处理**：第 1 个副本付完整翻译成本，第 2~20 个在进程内存 DDC 里"
+                 "共享第 1 个的结果。这是批处理口径的固有性质。")
+    if isolated is False:
+        lines.append("  （本次冷隔离未成功，见「冷/热 DDC 处理」——进程起点**仍能读到磁盘 DDC**，"
+                     "所以这批数字不是\"从零冷启动\"的成本。）")
+    elif isolated is True:
+        lines.append("  （冷隔离已验证：进程起点没有磁盘 DDC，见「冷/热 DDC 处理」。）")
     lines.append("- C 段 Unity 的 20 个 prefab 是 2 个真实 prefab（conifer/broadleaf）各复制 10 份；"
                  "凸包烘焙时每个副本用独立的网格实例（否则 2 个源网格的烘焙结果会被共享，耗时塌成 0）。")
     lines.append("")
     lines.append("### 冷/热 DDC 处理")
     lines.append("")
     lines.append("- DDC 目录（快照）：%s" % "、".join("`%s`" % d for d in (notes.get("ddcDirs") or [])))
-    lines.append("- **冷**：UE 进程命令带 `-DDC-ForceMemoryCache`（DDC 只驻内存，磁盘/共享 DDC 不读不写）；"
-                 "每个冷样本前后各拍一次 DDC 目录快照，files/bytes 未变即为生效。")
-    lines.append("- **热**：不带该 flag，走磁盘 DDC；3 次热采样前先跑一次**不计时**的热启动（只做 A 段）把 DDC 填满。")
-    lines.append("- 冷热差不做断言；清不掉/没生效就如实标（下表\"结论\"列）。")
+    if isolated is True:
+        lines.append("- **冷（已验证隔离）**：冷样本的 UE 进程命令带 `-DDC-ForceMemoryCache`；"
+                     "快照显示 %d 次冷样本前后 files/bytes 均未变（%s → %s files）。"
+                     % (len(cold_proofs), files_from, files_to))
+        lines.append("- **热**：不带该 flag，走磁盘 DDC；3 次热采样前先跑一次**不计时**的热启动（只做 A 段）把 DDC 填满。")
+        lines.append("- **结论：冷隔离已验证（快照前后 files/bytes 均未变），cold/hot 两组可作冷热对比。**"
+                     "冷热差不做断言。")
+    elif isolated is False:
+        grew = all(d > 0 for d in kb_deltas)
+        shape = "持续增长" if grew else "发生变化"
+        lines.append("- **冷（本次未隔离成功）**：冷样本的 UE 进程命令带了 `-DDC-ForceMemoryCache`，"
+                     "预期\"DDC 只驻内存、磁盘/共享 DDC 不读不写\"；每个冷样本前后各拍一次 DDC 目录快照用来验证。")
+        lines.append("  **实测：%d 次冷样本的 DDC bytes %s（%s KB，files %s → %s），"
+                     "`-DDC-ForceMemoryCache` 没能隔离磁盘 DDC。**"
+                     % (len(cold_proofs), shape,
+                        "/".join(("+%d" % d) if d > 0 else ("%d" % d) for d in kb_deltas),
+                        files_from, files_to))
+        lines.append("  因此本次的\"冷\"样本并不是真冷，磁盘 DDC 依然被写入/读取。")
+        lines.append("- **热**：不带该 flag，走磁盘 DDC；3 次热采样前先跑一次**不计时**的热启动（只做 A 段）把 DDC 填满。")
+        lines.append("- **结论：冷未隔离成功（证据即下方快照表），A/B 的 cold/hot 两组实际都处于"
+                     "\"磁盘 DDC 已热\"的状态，两组差值在噪声内，不可当作冷热对比，只能当作 6 次重复采样。**")
+        lines.append("  快照表原样保留，作为\"没做到就是没做到\"的诚实记录；冷热差不做断言。")
+    else:
+        lines.append("- **冷**：冷样本的 UE 进程命令带 `-DDC-ForceMemoryCache`；"
+                     "本次采样没有留下冷样本快照，无法判定是否隔离成功。")
+        lines.append("- **热**：不带该 flag，走磁盘 DDC；3 次热采样前先跑一次**不计时**的热启动（只做 A 段）把 DDC 填满。")
+        lines.append("- 冷热差不做断言；没有快照就无法判定，**不要把这批数字当作冷热对比**。")
     lines.append("")
     lines.append("| 样本 | 模式 | flag | DDC files 前→后 | DDC bytes 前→后 | 结论 |")
     lines.append("|---|---|---|---|---|---|")
     for p in notes.get("ddcProof") or []:
+        # 热样本的结论按"写入属预期"渲染（旧 JSON 里存的是旧措辞，数字与快照一律不动）
+        pv = p.get("verdict")
+        if p.get("mode") == "hot":
+            pv = "热：走磁盘 DDC（写入属预期）"
         lines.append("| %s r%s | %s | `%s` | %s → %s | %s → %s | %s |"
                      % (p.get("segment"), p.get("round"), p.get("mode"), p.get("flag"),
                         p.get("filesBefore"), p.get("filesAfter"),
-                        p.get("bytesBefore"), p.get("bytesAfter"), p.get("verdict")))
+                        p.get("bytesBefore"), p.get("bytesAfter"), pv))
     lines.append("")
     lines.append("## 汇总表")
     lines.append("")
+    if isolated is False:
+        lines.append("> **注意：冷 DDC 未隔离成功（证据见上节快照表：%d 次冷样本 DDC bytes %s KB、files %s→%s）。"
+                     % (len(cold_proofs),
+                        "/".join(("+%d" % d) if d > 0 else ("%d" % d) for d in kb_deltas),
+                        files_from, files_to))
+        lines.append("> 因此 A/B 两组的 cold / hot 不是干净的冷热对比——两组实际都是\"磁盘 DDC 已热\"，差值在噪声内。")
+        lines.append("> 下表按原始采样保留 cold / hot 两行只为可追溯，**不要把它读成\"冷 vs 热\"**；"
+                     "同一段的 6 次采样应合起来看。**")
+        lines.append("")
+    elif isolated is True:
+        lines.append("> **冷隔离已验证（快照前后 files/bytes 均未变），下表 cold / hot 两组可作冷热对比。**")
+        lines.append("")
     lines.append("| 段 | 状态 | n | min (s) | p50 (s) | max (s) |")
     lines.append("|---|---|---|---|---|---|")
     for s in summary:
@@ -1575,10 +1659,19 @@ def _write_perf_report(out_json, rows, summary, machine, notes, failures):
                  % ("PASS" if not [f for f in failures if f.startswith("断言3")] else "FAIL"))
     lines.append("| 4 | 报告含方法说明段 | %s |"
                  % ("PASS" if not [f for f in failures if f.startswith("断言4")] else "FAIL"))
+    lines.append("| 5 | 报告冷隔离结论与 DDC 快照数据一致 | %s |"
+                 % ("PASS" if not [f for f in failures if f.startswith("断言5")] else "FAIL"))
     lines.append("")
     lines.append("## 已知噪音源")
     lines.append("")
-    lines.append("- DDC 状态：冷样本用 `-DDC-ForceMemoryCache` 强制无磁盘缓存；热样本依赖前序热启动。")
+    if isolated is True:
+        lines.append("- DDC 状态：冷样本用 `-DDC-ForceMemoryCache`，快照显示磁盘 DDC 无写入；热样本依赖前序热启动。")
+    elif isolated is False:
+        lines.append("- DDC 状态：冷样本尝试用 `-DDC-ForceMemoryCache` 隔离磁盘 DDC，**但本次未隔离成功"
+                     "（DDC 仍在增长，见快照表）**；因此 cold/hot 两组的差异属于 DDC 状态 + 普通运行噪声的混合，"
+                     "不能当成冷热差。")
+    else:
+        lines.append("- DDC 状态：本次没有冷样本快照，冷隔离是否生效无法判定；cold/hot 两组不能当作冷热差。")
     lines.append("- 后台进程 / Windows Defender 对 `%TEMP%` 与 UE 资产的实时扫描。")
     lines.append("- 笔记本温度墙 / 频率漂移：A/B 每样本约几十秒，长跑后半段可能降频。")
     lines.append("- B 段的大头是 `_make_roughness_texture` 的**纯 Python** PNG 解码/缩放/编码（CPU 单线程），"
@@ -1588,12 +1681,13 @@ def _write_perf_report(out_json, rows, summary, machine, notes, failures):
     lines.append("")
     lines.append("**声明：以上数字只对本机配置有效，换机器/换 UE·Unity 版本需重跑 `--perf`，不要跨机器比较。**")
     lines.append("")
-    d = os.path.dirname(PERF_REPORT_MD)
+    report_path = report_path or PERF_REPORT_MD
+    d = os.path.dirname(report_path)
     if d and not os.path.isdir(d):
         os.makedirs(d)
-    with open(PERF_REPORT_MD, "w", encoding="utf-8") as fh:
+    with open(report_path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
-    return PERF_REPORT_MD
+    return report_path
 
 
 def _run_perf_from(args):
@@ -1607,13 +1701,14 @@ def _run_perf_from(args):
     rows = payload.get("runs") or []
     machine = payload.get("machine") or {}
     notes = payload.get("notes") or {}
-    print("[0/4] 复用采样：%s（%d 条）" % (path, len(rows)))
+    report_path = os.path.abspath(args.perf_report or PERF_REPORT_MD)
+    print("[0/5] 复用采样：%s（%d 条）→ 报告 %s" % (path, len(rows), report_path))
     summary = _perf_summary(rows)
     payload["summary"] = summary
-    # 先落一版报告给断言 4 读，再按断言结果重写
-    _write_perf_report(path, rows, summary, machine, notes, [])
-    fails, summary = _perf_assert(rows, PERF_REPORT_MD, rounds=args.perf_rounds)
-    _write_perf_report(path, rows, summary, machine, notes, fails)
+    # 先落一版报告给断言 4/5 读，再按断言结果重写
+    _write_perf_report(path, rows, summary, machine, notes, [], report_path=report_path)
+    fails, summary = _perf_assert(rows, report_path, rounds=args.perf_rounds, notes=notes)
+    _write_perf_report(path, rows, summary, machine, notes, fails, report_path=report_path)
     for s in summary:
         print("     %-20s %-5s n=%d min=%.4f p50=%.4f max=%.4f"
               % (s["segment"], s["cold_warm"], s["n"], s["min"], s["p50"], s["max"]))
@@ -1629,7 +1724,8 @@ def _run_perf(args):
     manifest = os.path.abspath(args.manifest)
     project = os.path.abspath(args.unity_project)
     fails = []
-    print("[0/4] 性能表：A 导入 / B 材质（UE 冷热各 %d 次）+ C 碰撞（Unity %d 次）"
+    report_path = os.path.abspath(args.perf_report or PERF_REPORT_MD)
+    print("[0/5] 性能表：A 导入 / B 材质（UE 冷热各 %d 次）+ C 碰撞（Unity %d 次）"
           % (args.perf_rounds, args.perf_rounds))
 
     if _unity_running():
@@ -1649,7 +1745,7 @@ def _run_perf(args):
         return 1
 
     changed = _deploy_unity_script(project)
-    print("[0/4] 消费端脚本 %s → %s" % ("已更新" if changed else "无变化", project))
+    print("[0/5] 消费端脚本 %s → %s" % ("已更新" if changed else "无变化", project))
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     out_json = os.path.join(REPO, "docs", "perf_%s.json" % stamp)
@@ -1661,8 +1757,8 @@ def _run_perf(args):
     machine = _machine_info(args)
     try:
         copies, glb_sha = _copy_perf_glbs(glb_dir, PERF_COPIES)
-        print("[0/4] 同源副本 %d 个 → %s（SHA256 %s…）" % (len(copies), glb_dir, glb_sha[:16]))
-        print("[0/4] 机器: %s | %s | RAM %s GB | %s | %s | %s"
+        print("[0/5] 同源副本 %d 个 → %s（SHA256 %s…）" % (len(copies), glb_dir, glb_sha[:16]))
+        print("[0/5] 机器: %s | %s | RAM %s GB | %s | %s | %s"
               % (machine.get("cpu"), machine.get("gpu"), machine.get("ramGb"),
                  machine.get("ue"), machine.get("unity"), machine.get("date")))
         ddc_dirs = _ddc_dirs(args)
@@ -1677,7 +1773,7 @@ def _run_perf(args):
         try:
             irc, ilog = _run_unity(args.unity, project, "EAP.ManifestImporter.ImportFromArgs",
                                    manifest, import_log, timeout=1800)
-            print("[1/4] Unity 预热导入（不计时）exit=%s" % irc)
+            print("[1/5] Unity 预热导入（不计时）exit=%s" % irc)
             if irc != 0:
                 fails.append("C 段预热导入失败 exit=%s | log_tail: %s" % (irc, _tail(ilog)))
             crc, clog = _run_unity(args.unity, project, "EAP.ManifestImporter.PerfCollisionFromArgs",
@@ -1702,7 +1798,7 @@ def _run_perf(args):
                     "perPrefab_s": s.get("perPrefab") or [],
                     "note": s.get("note"),
                 })
-                print("[1/4] C round=%s %.4fs prefabs=%s colliders=%s convex=%s bakeCalls=%s bakeErrors=%s"
+                print("[1/5] C round=%s %.4fs prefabs=%s colliders=%s convex=%s bakeCalls=%s bakeErrors=%s"
                       % (s.get("round"), float(s.get("durationS") or 0), s.get("prefabs"),
                          s.get("colliders"), s.get("convexColliders"),
                          s.get("bakeCalls"), s.get("bakeErrors")))
@@ -1736,7 +1832,7 @@ def _run_perf(args):
             verdict = "生效：DDC 目录无变化" if before["files"] == after["files"] and before["bytes"] == after["bytes"] \
                 else "DDC 目录有变化（见数字）"
             if mode == "hot":
-                verdict = "热：走磁盘 DDC（目录变化可有可无）"
+                verdict = "热：走磁盘 DDC（写入属预期）"
             notes["ddcProof"].append({
                 "segment": segments, "round": rnd, "mode": mode,
                 "flag": flag or "(none)",
@@ -1766,7 +1862,7 @@ def _run_perf(args):
                     "assets": s.get("assets"), "warmup_s": s.get("warmup_s"),
                     "detail": s.get("detail") or [],
                 })
-                print("[2/4] 冷 r%d %s %.4fs" % (rnd, s.get("segment"), float(s.get("duration_s") or 0)))
+                print("[2/5] 冷 r%d %s %.4fs" % (rnd, s.get("segment"), float(s.get("duration_s") or 0)))
 
         # ---- 热启动（不计时，只做 A 段）把磁盘 DDC 填满，再采 3 次热样本 ----
         _ue_sample("hot", 0, "pc%s_hw" % stamp.replace("_", ""), segments="import")
@@ -1780,7 +1876,7 @@ def _run_perf(args):
                     "assets": s.get("assets"), "warmup_s": s.get("warmup_s"),
                     "detail": s.get("detail") or [],
                 })
-                print("[3/4] 热 r%d %s %.4fs" % (rnd, s.get("segment"), float(s.get("duration_s") or 0)))
+                print("[3/5] 热 r%d %s %.4fs" % (rnd, s.get("segment"), float(s.get("duration_s") or 0)))
     except Exception as exc:  # noqa: BLE001
         print("CHAIN FAIL: 性能采样异常: %r" % (exc,))
         return 1
@@ -1798,35 +1894,35 @@ def _run_perf(args):
             "A_import": "同一份 conifer.glb 的 20 个字节级相同副本 → Interchange 导入返回 StaticMesh",
             "B_material": "上述 20 个资产 × 2 槽：母材质复用 + MIC + 贴图参数 + 三档压缩 + roughness 生成",
             "C_collision_unity": "20 个 prefab 副本各加 MeshCollider(convex) + Physics.BakeMesh",
-            "C_collision_ue": "ISM 碰撞启用是组件标志（亚毫秒，无独立可测耗时）→ 不报数字",
+            "C_collision_ue": "ISM 碰撞启用是组件标志（无法稳定测出独立耗时）→ 不报数字",
         },
         "notes": notes,
         "runs": rows,
         "summary": summary,
         "failures": fails,
     }
-    print("[3/4] 原始采样 %d 条（A/B 冷热 + C）" % len(rows))
+    print("[3/5] 原始采样 %d 条（A/B 冷热 + C）" % len(rows))
 
-    # 先落一版报告（断言 4 要读它），跑断言，再按最终失败集重写报告与 JSON
-    _write_perf_report(out_json, rows, summary, machine, notes, fails)
-    assertion_fails, summary = _perf_assert(rows, PERF_REPORT_MD, rounds=args.perf_rounds)
+    # 先落一版报告（断言 4/5 要读它），跑断言，再按最终失败集重写报告与 JSON
+    _write_perf_report(out_json, rows, summary, machine, notes, fails, report_path=report_path)
+    assertion_fails, summary = _perf_assert(rows, report_path, rounds=args.perf_rounds, notes=notes)
     fails.extend(assertion_fails)
     payload["summary"] = summary
     payload["failures"] = fails
     with open(out_json, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False, indent=2, default=str)
-    _write_perf_report(out_json, rows, summary, machine, notes, fails)
+    _write_perf_report(out_json, rows, summary, machine, notes, fails, report_path=report_path)
     for s in summary:
         print("     %-20s %-5s n=%d min=%.4f p50=%.4f max=%.4f"
               % (s["segment"], s["cold_warm"], s["n"], s["min"], s["p50"], s["max"]))
-    print("[4/4] 原始采样 → %s" % out_json)
-    print("      汇总报告 → %s" % PERF_REPORT_MD)
+    print("[4/5] 原始采样 → %s" % out_json)
+    print("      汇总报告 → %s" % report_path)
     if fails:
         print("\nCHAIN FAIL: " + " | ".join(fails))
         return 1
     print("\nPERF PASS rows=%d groups=%d → %s" % (len(rows), len(summary), out_json))
     print("产物: %s" % out_json)
-    print("      %s" % PERF_REPORT_MD)
+    print("      %s" % report_path)
     return 0
 
 
@@ -1879,8 +1975,10 @@ def main(argv):
     ap.add_argument("--perf", action="store_true",
                     help="三段性能表：A 导入 / B 材质（UE 冷热各 3 次）+ C 碰撞（Unity 3 次）")
     ap.add_argument("--perf-from", default=None,
-                    help="复用已有 perf_*.json，只重算汇总/报告/4 条断言（反验用，不再采样）")
+                    help="复用已有 perf_*.json，只重算汇总/报告/5 条断言（反验用，不再采样）")
     ap.add_argument("--perf-rounds", type=int, default=3, help="每段每状态采样次数（任务单要求 3）")
+    ap.add_argument("--perf-report", default=None,
+                    help="报告输出路径（默认 docs/perf_report.md；反验时指到 %%TEMP%% 避免污染仓库）")
     ap.add_argument("--unity", default=DEFAULT_UNITY, help="Unity.exe 路径")
     ap.add_argument("--unity-project", default=DEFAULT_UNITY_PROJECT, help="Unity 工程路径")
     ap.add_argument("--manifest", default=REAL_MULTI_MANIFEST_JSON,
