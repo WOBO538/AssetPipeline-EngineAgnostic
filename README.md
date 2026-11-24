@@ -2,7 +2,7 @@
 
 > 项目代号：`Engine-Agnostic Pipeline`（下称 EAP）
 > 定位：前端 PCG + AIGC 生成 → Python 中台（格式中转 + 合规审查）→ UE5 / Unity 双端消费。
-> **当前进度（v1.12.1，2026-11-24）**：阶段一 6 条中 5 条闭合、1 条待截图（法线 sRGB Inspector）；Layer1 数据出口 + 200×200 m（1,892 实例）+ UE ISM 落位 + 换真实树 glb + 材质规范化/贴图三档/roughness 贴图；**Unity 消费端全链路**（模型/贴图/Prefab + 1,892 实例落位 + Collider + 4 级 LOD）；**双端逐实例对账**（1,892 条，maxPos 0 / maxYaw 0 / maxScale 1e-6）与**三段性能表**、**双端 LOD 4 级**均已入库并带断言。现行门槛：`--multi` 13 / `--real-multi` 20 / `--with-compile` 21 / `--unity-check` 4 / `--unity-placements-check` 4 / `--parity-check` 4 / `--lod-check` 4。
+> **当前进度（v1.12.1，2026-11-24）**：阶段一 6 条**全部闭合**（含法线 sRGB 两端 Inspector 截图）；Layer1 数据出口 + 200×200 m（1,892 实例）+ UE ISM 落位 + 换真实树 glb + 材质规范化/贴图三档/roughness 贴图；**Unity 消费端全链路**（模型/贴图/Prefab + 1,892 实例落位 + Collider + 4 级 LOD）；**双端逐实例对账**（1,892 条，maxPos 0 / maxYaw 0 / maxScale 1e-6）与**三段性能表**、**双端 LOD 4 级**均已入库并带断言。现行门槛：`--multi` 13 / `--real-multi` 20 / `--with-compile` 21 / `--unity-check` 4 / `--unity-placements-check` 4 / `--parity-check` 4 / `--lod-check` 4。
 
 ## 一、这个项目在作品集里的位置（先读这段）
 
@@ -782,7 +782,7 @@ screen size/height、引用文件与 SHA），**不声称验证了视觉切换**
 | 1 | 同一份 manifest 双端都能读 | ✅ | 两端读 `schemas/tree_manifest_multi.json`：UE `CHAIN PASS assets=2 placements=1892`；Unity `UNITY-CHECK PASS assets=2 prefabs=2 textures=4/4` |
 | 2 | UE 自动建母材质 + MIC 并连好贴图 | ✅ | v1.6 断言②③：MIC `_Roughness`、`RoughnessScale=0.9`、4/4 槽、三档压缩（`TC_Default`+sRGB / `TC_Normalmap`+线性 / `TC_Masks`+线性）、main=6/10 贴图 |
 | 3 | Unity 自动建 Material 并映射贴图 | ✅ | v1.7 读回：`Universal Render Pipeline/Lit`，BaseColor/Normal `texturesApplied` 全 true，贴图路径全在 `Assets/` 下 |
-| 4 | 法线贴图不吃 sRGB | ⚠️ | 代码与断言已覆盖（UE `TC_Normalmap` + `srgb=False`；Unity `TextureImporterType.NormalMap`），**两端 Inspector 截图待补**（开编辑器时顺手截） |
+| 4 | 法线贴图不吃 sRGB | ✅ | UE `docs/ue_normal_srgb_20261124.png`：压缩=法线贴图（BC5）、sRGB 未勾；Unity `docs/unity_normal_import_20261124.png`：Texture Type=Normal map、DXT5nm；代码与断言同样覆盖 |
 | 5 | 2 的幂/通道不通过时被拦住 | ✅ | `test_validator.py` → `拦截成功 9/9`（2026-11-24 复跑） |
 | 6 | 两端资产名/路径/尺寸一致 | ✅ | `docs/dual_engine_parity.md`：1,892 条逐实例三列对照，`maxPos=0 m / maxYaw=0° / maxScale=1e-6`；Unity 读回 triCount 3,370/3,505、bounds 误差 ≤2e-5 m |
 

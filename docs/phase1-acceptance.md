@@ -201,7 +201,7 @@ Unity 端尚未实跑、`PlacedTrees` 关卡无灯光地面（需真实编辑器
 | 1 | 同一份 manifest 双端都能读，资产数一致 | ✅ | UE `CHAIN PASS assets=2 placements=1892`；Unity `UNITY-CHECK PASS assets=2 prefabs=2 textures=4/4` |
 | 2 | UE 自动建母材质 + MIC 并连好贴图 | ✅ | MIC `_Roughness`、`RoughnessScale=0.9`、4/4 槽、三档压缩、main=6/10 贴图 |
 | 3 | Unity 自动建 Material 并映射贴图 | ✅ | URP Lit；BaseColor/Normal `texturesApplied=true`；路径全 `Assets/` |
-| 4 | 法线贴图不吃 sRGB | ⚠️ | 代码+断言已覆盖（UE `TC_Normalmap`+`srgb=False`；Unity `NormalMap`），**Inspector 截图待补** |
+| 4 | 法线贴图不吃 sRGB | ✅ | UE：`docs/ue_normal_srgb_20261124.png`（压缩=法线贴图 BC5、sRGB 未勾）；Unity：`docs/unity_normal_import_20261124.png`（Texture Type = Normal map、DXT5nm）；代码与断言同样覆盖 |
 | 5 | 2 的幂/通道不通过被拦住 | ✅ | `拦截成功 9/9`，exit=0 |
 | 6 | 两端资产名/路径/尺寸一致 | ✅ | `docs/dual_engine_parity.md`：1,892 条逐实例三列对照；`maxPos=0 m / maxYaw=0° / maxScale=1e-6`；Unity triCount 3,370/3,505、bounds ≤2e-5 m |
 
@@ -212,7 +212,7 @@ Unity 端尚未实跑、`PlacedTrees` 关卡无灯光地面（需真实编辑器
 | G1 | UE 侧 ISM 无碰撞、无 LOD | ✅ v1.9 碰撞（BlockAll / 1,892）+ v1.12 LOD（4 级） |
 | G2 | Unity 朝向无直接判据 | ✅ v1.9 逐实例 yaw 全查（max 0°） |
 | G3 | 无逐资产三列对照表 | ✅ `docs/dual_engine_parity.md`（1,892 条） |
-| G4 | 法线 sRGB 两端 Inspector 截图 | ⏳ 待开编辑器 |
+| G4 | 法线 sRGB 两端 Inspector 截图 | ✅ 2026-11-24 已补（UE + Unity 各一张，见第 4 条） |
 | G5 | 性能表（导入/材质/碰撞 × 20 资产） | ✅ v1.10 `docs/perf_report.md`（冷/热 DDC 未分离已如实标注） |
 | G6 | 树资产 LOD | ✅ v1.12 / v1.12.1（LOD0 与源 glb 对顶点/材质/UV） |
 | G7 | roughness 区间窄（0.65–0.80） | ⏳ 可选优化 |
