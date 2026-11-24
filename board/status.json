@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T14:46:00+08:00",
+  "updatedAt": "2026-11-24T15:01:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -210,10 +210,17 @@
           "date": "11-24"
         },
         {
-          "name": "性能报告生成器诚实化（任务单 8b：docs/_TRAE任务_性能报告生成器诚实化_20261124.md；_write_perf_report 双分支 + 断言 5，防止 --perf-from 重生成把假冷热措辞长回来）",
-          "status": "doing",
+          "name": "性能报告生成器诚实化（commit 3c76cbd；lead 复验：双分支由 ddcProof 驱动、断言5 四方向均 FAIL、重生成报告与入库版逐字节相同、perf JSON 未变）",
+          "status": "done",
           "owner": "trae",
           "date": "11-24"
+        },
+        {
+          "name": "新鲜度门禁改内部时间戳（任务单 9：docs/_TRAE任务_新鲜度门禁改内部时间戳_20261124.md；现状 --parity-check 因 mtime 顺序 FAIL，Unity 证据缺 generatedAt；clone 后门禁不可靠）",
+          "status": "doing",
+          "owner": "trae",
+          "date": "11-24",
+          "note": "blocking: --parity-check 现在 FAIL（mtime 顺序），需要先修门禁"
         }
       ]
     },
