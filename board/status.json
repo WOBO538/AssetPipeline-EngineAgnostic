@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T15:01:00+08:00",
+  "updatedAt": "2026-11-24T15:22:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -216,9 +216,9 @@
           "date": "11-24"
         },
         {
-          "name": "新鲜度门禁改内部时间戳（任务单 9：docs/_TRAE任务_新鲜度门禁改内部时间戳_20261124.md；现状 --parity-check 因 mtime 顺序 FAIL，Unity 证据缺 generatedAt；clone 后门禁不可靠）",
-          "status": "doing",
-          "owner": "trae",
+          "name": "新鲜度门禁改内部时间戳（commit f8935df；lead 四条反验：改 mtime 仍 PASS / 内部时间早 1h FAIL / 缺字段 FAIL / Z 写法跨偏移正确；8 个刷新产物仅时间字段变化）",
+          "status": "done",
+          "owner": "lead",
           "date": "11-24",
           "note": "blocking: --parity-check 现在 FAIL（mtime 顺序），需要先修门禁"
         }
