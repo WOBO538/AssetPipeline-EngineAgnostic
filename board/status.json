@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T15:22:00+08:00",
+  "updatedAt": "2026-11-24T15:31:00+08:00",
   "today": "2026-11-23",
   "headline": "项目优先：每天 21:00–22:00 项目时间盒；项目没推进，学习不许占位。",
   "gates": [
@@ -221,6 +221,12 @@
           "owner": "lead",
           "date": "11-24",
           "note": "blocking: --parity-check 现在 FAIL（mtime 顺序），需要先修门禁"
+        },
+        {
+          "name": "树资产 LOD 双端（G6，任务单 10：docs/_TRAE任务_LOD双端_20261124.md；Blender Decimate 3 级 → UE SM 4 级 LOD + Unity LODGroup + --lod-check 4 条）",
+          "status": "doing",
+          "owner": "trae",
+          "date": "11-24"
         }
       ]
     },
